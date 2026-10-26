@@ -25,6 +25,8 @@
                     $learningStatus = $topic->learning_status ?? 'Not Started';
                     $quizStatus = $topic->quiz_status ?? 'Not Attempted';
                     $progressPercentage = $topic->progress_percentage ?? 0;
+                    $missionsCount = (int) ($topic->missions_count ?? 0);
+                    $completedMissions = (int) ($topic->completed_missions ?? 0);
 
                     $currentCompleted = $learningStatus === 'Completed';
 
@@ -78,13 +80,19 @@
 
                     <div class="challenge-info-grid">
                         <div class="challenge-info">
-                            <span>Learning Status</span>
+                            <span>Stage Status</span>
                             <strong>{{ $learningStatus }}</strong>
                         </div>
 
                         <div class="challenge-info">
-                            <span>Quiz Status</span>
-                            <strong>{{ $quizStatus }}</strong>
+                            <span>Missions (PBL)</span>
+                            <strong style="color: var(--nl-cyan, #22d3ee);">
+                                @if ($missionsCount > 0)
+                                    {{ $completedMissions }}/{{ $missionsCount }} {{ Str::plural('Mission', $missionsCount) }}
+                                @else
+                                    Curriculum Hub
+                                @endif
+                            </strong>
                         </div>
                     </div>
 
