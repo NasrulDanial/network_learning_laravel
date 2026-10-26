@@ -121,53 +121,46 @@
     </div>
 
     <div class="quick-nodes-grid">
-        <!-- Interactive Node 1: Topology Lab -->
-        <div
-            class="node-card"
-            data-sheet-url="{{ route('puzzles.show', 1) }}"
-            data-sheet-title="Topology Device Mapping Simulation"
-            data-sheet-badge="TOPOLOGY // MISSION_01"
-            role="button"
-            tabindex="0"
-        >
-            <div>
-                <div class="node-icon">
-                    <i class="fa-solid fa-network-wired"></i>
-                </div>
-                <h3>Topology Device Mapper</h3>
-                <p>Drag and configure switches, routers, and hosts into correct subnets.</p>
-            </div>
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 16px; font-size: 0.78rem;">
-                <span style="color: #fbbf24; font-weight: 700;">+100 Network XP</span>
-                <span style="color: var(--nl-cyan); font-weight: 600; display: flex; align-items: center; gap: 4px;">
-                    Launch Sheet <i class="fa-solid fa-arrow-up-right-from-square"></i>
-                </span>
-            </div>
-        </div>
+        @php
+            $archetypeIcons = [
+                'identification' => 'fa-eye',
+                'matching'       => 'fa-arrows-split-up-and-left',
+                'sequencing'     => 'fa-layer-group',
+                'classification' => 'fa-folder-tree',
+                'drag_and_drop'  => 'fa-network-wired',
+                'scenario'       => 'fa-code-branch',
+            ];
+        @endphp
 
-        <!-- Interactive Node 2: OSI Sequencer -->
-        <div
-            class="node-card"
-            data-sheet-url="{{ route('puzzles.show', 2) }}"
-            data-sheet-title="OSI 7-Layer Protocol Sequencer"
-            data-sheet-badge="PROTOCOL // MISSION_02"
-            role="button"
-            tabindex="0"
-        >
-            <div>
-                <div class="node-icon">
-                    <i class="fa-solid fa-layer-group"></i>
+        @if (isset($recentPuzzles) && $recentPuzzles->count() > 0)
+            @foreach ($recentPuzzles as $rp)
+                @php
+                    $icon = $archetypeIcons[$rp->puzzle_type] ?? 'fa-puzzle-piece';
+                @endphp
+                <div
+                    class="node-card"
+                    data-sheet-url="{{ route('puzzles.show', $rp->puzzle_id) }}"
+                    data-sheet-title="{{ $rp->question_text }}"
+                    data-sheet-badge="{{ strtoupper(str_replace('_', ' ', $rp->puzzle_type)) }} // NODE_{{ $rp->puzzle_id }}"
+                    role="button"
+                    tabindex="0"
+                >
+                    <div>
+                        <div class="node-icon">
+                            <i class="fa-solid {{ $icon }}"></i>
+                        </div>
+                        <h3>{{ $rp->question_text }}</h3>
+                        <p>{{ Str::limit($rp->instruction, 85) }}</p>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 16px; font-size: 0.78rem;">
+                        <span style="color: #fbbf24; font-weight: 700;">+{{ $rp->points }} Network XP</span>
+                        <span style="color: var(--nl-cyan); font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                            Launch Sheet <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                        </span>
+                    </div>
                 </div>
-                <h3>OSI 7-Layer Sequencer</h3>
-                <p>Arrange protocol data units and physical layers in hierarchical order.</p>
-            </div>
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 16px; font-size: 0.78rem;">
-                <span style="color: #fbbf24; font-weight: 700;">+100 Network XP</span>
-                <span style="color: var(--nl-cyan); font-weight: 600; display: flex; align-items: center; gap: 4px;">
-                    Launch Sheet <i class="fa-solid fa-arrow-up-right-from-square"></i>
-                </span>
-            </div>
-        </div>
+            @endforeach
+        @endif
 
         <!-- Quick Launch 3: Quiz Hub -->
         <a class="node-card" href="{{ route('student.quiz') }}">
@@ -222,9 +215,12 @@
             </div>
         </a>
 
+        @php
+            $firstPuzzleId = isset($recentPuzzles) && $recentPuzzles->isNotEmpty() ? $recentPuzzles->first()->puzzle_id : 1;
+        @endphp
         <div
             class="node-card"
-            data-sheet-url="{{ route('puzzles.show', 1) }}"
+            data-sheet-url="{{ route('puzzles.show', $firstPuzzleId) }}"
             data-sheet-title="Quick Diagnostics Sandbox"
             data-sheet-badge="DIAGNOSTIC // LAB"
             role="button"

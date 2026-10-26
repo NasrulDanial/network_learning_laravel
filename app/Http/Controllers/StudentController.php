@@ -8,6 +8,7 @@ use App\Models\Quiz;
 use App\Models\Result;
 use App\Models\Topic;
 use App\Models\Mission;
+use App\Models\Puzzle;
 use App\Models\UserMissionProgress;
 use App\Models\UserPuzzleProgress;
 use Illuminate\Http\Request;
@@ -30,12 +31,20 @@ class StudentController extends Controller
 
         $overallProgress = $overallProgress ?? 0;
 
+        $recentPuzzles = Puzzle::where('status', 'published')
+            ->with(['mission', 'topic'])
+            ->orderBy('activity_order', 'asc')
+            ->orderBy('puzzle_id', 'asc')
+            ->take(2)
+            ->get();
+
         return view('student.dashboard', [
             'pageTitle' => 'Student Dashboard',
             'activePage' => 'dashboard',
             'totalPoints' => $totalPoints,
             'overallProgress' => $overallProgress,
             'completedTopics' => $completedTopics,
+            'recentPuzzles' => $recentPuzzles,
         ]);
     }
 
