@@ -7,7 +7,6 @@ use App\Models\Question;
 use App\Models\Quiz;
 use App\Models\Result;
 use App\Models\Topic;
-use App\Services\TelegramService;
 use Illuminate\Http\Request;
 
 class StudentController extends Controller
@@ -372,17 +371,6 @@ public function submitQuiz(Request $request)
 
     $progress->save();
 
-$message = "<b>NetLearn Quiz Result</b>\n\n"
-    . "Student: " . auth()->user()->name . "\n"
-    . "Quiz: " . $quiz->title . "\n"
-    . "Topic: " . $quiz->topic->title . "\n"
-    . "Score: " . $score . "/" . $totalQuestions . "\n"
-    . "Percentage: " . number_format($percentage, 0) . "%\n"
-    . "Status: " . $status . "\n"
-    . "XP Earned: +" . $pointsEarned . " XP";
-
-app(TelegramService::class)->sendMessage($message);
-
 return redirect()->route('student.result', $result->result_id);
 }
 
@@ -413,15 +401,14 @@ public function progress()
 {
     $userId = auth()->user()->user_id;
 
-    $totalPoints = Result::where('user_id', $userId)
-        ->sum('points_earned');
+    // Collapse 3 separate Result queries into one DB round-trip
+    $resultStats = Result::where('user_id', $userId)
+        ->selectRaw('COALESCE(SUM(points_earned), 0) as total_points, COUNT(*) as total_attempts, COALESCE(SUM(status = "Pass"), 0) as passed_attempts')
+        ->first();
 
-    $totalAttempts = Result::where('user_id', $userId)
-        ->count();
-
-    $passedAttempts = Result::where('user_id', $userId)
-        ->where('status', 'Pass')
-        ->count();
+    $totalPoints    = (int) ($resultStats->total_points    ?? 0);
+    $totalAttempts  = (int) ($resultStats->total_attempts  ?? 0);
+    $passedAttempts = (int) ($resultStats->passed_attempts ?? 0);
 
     $completedTopics = Progress::where('user_id', $userId)
         ->where('learning_status', 'Completed')

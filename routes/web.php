@@ -7,6 +7,7 @@ use App\Http\Controllers\TopicController;
 use App\Http\Controllers\QuizController;
 use App\Http\Controllers\QuestionController;
 use App\Http\Controllers\StudentPerformanceController;
+use App\Http\Controllers\PuzzleController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -124,4 +125,13 @@ Route::middleware(['auth', 'role:lecturer'])->group(function () {
 
     Route::get('/lecturer/student-performance', [StudentPerformanceController::class, 'index'])
         ->name('lecturer.student-performance.index');
+});
+
+// Puzzle routes are student-only — prevents lecturers from awarding themselves XP
+Route::middleware(['auth', 'role:student'])->group(function () {
+    Route::get('/puzzles/{id}/data', [PuzzleController::class, 'show'])
+        ->name('puzzles.data');
+
+    Route::post('/puzzles/{id}/submit', [PuzzleController::class, 'submitAttempt'])
+        ->name('puzzles.submit');
 });
