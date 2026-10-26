@@ -123,12 +123,30 @@ Route::middleware(['auth', 'role:lecturer'])->group(function () {
     Route::delete('/lecturer/quizzes/{quiz}/questions/{question}', [QuestionController::class, 'destroy'])
         ->name('lecturer.questions.destroy');
 
+    Route::get('/lecturer/quizzes/{quiz}/steps-data', [QuestionController::class, 'getStepsJson'])
+        ->name('lecturer.quizzes.steps');
+
+    Route::post('/lecturer/quizzes/{quiz}/steps-data', [QuestionController::class, 'storeStepJson'])
+        ->name('lecturer.quizzes.steps.store');
+
+    Route::delete('/lecturer/quizzes/{quiz}/steps-data/{question}', [QuestionController::class, 'destroyStepJson'])
+        ->name('lecturer.quizzes.steps.destroy');
+
     Route::get('/lecturer/student-performance', [StudentPerformanceController::class, 'index'])
         ->name('lecturer.student-performance.index');
+
+    Route::post('/lecturer/puzzles/configure', [PuzzleController::class, 'configurePuzzle'])
+        ->name('lecturer.puzzles.configure');
+
+    Route::get('/lecturer/puzzles/{topicId}/state', [PuzzleController::class, 'getBoardState'])
+        ->name('lecturer.puzzles.state');
 });
 
 // Puzzle routes are student-only — prevents lecturers from awarding themselves XP
 Route::middleware(['auth', 'role:student'])->group(function () {
+    Route::get('/puzzles/{id}', [PuzzleController::class, 'play'])
+        ->name('puzzles.show');
+
     Route::get('/puzzles/{id}/data', [PuzzleController::class, 'show'])
         ->name('puzzles.data');
 

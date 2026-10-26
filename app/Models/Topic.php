@@ -26,6 +26,16 @@ class Topic extends Model
         return $this->hasMany(Quiz::class, 'topic_id', 'topic_id');
     }
 
+    public function puzzles()
+    {
+        return $this->hasMany(Puzzle::class, 'topic_id', 'topic_id');
+    }
+
+    public function puzzle()
+    {
+        return $this->hasOne(Puzzle::class, 'topic_id', 'topic_id');
+    }
+
     public function progress()
     {
         return $this->hasMany(Progress::class, 'topic_id', 'topic_id');

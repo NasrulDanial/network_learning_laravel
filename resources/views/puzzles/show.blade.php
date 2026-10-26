@@ -15,7 +15,7 @@
             border-color: rgba(251, 113, 133, 0.5);
         }
 
-        /* Scanline raster effect across laboratory screen */
+        /* Arcade/Terminal scanline raster effect */
         #phaser-game::after {
             content: '';
             position: absolute;
@@ -24,8 +24,8 @@
                 to bottom,
                 transparent 0px,
                 transparent 2px,
-                rgba(0, 0, 0, 0.12) 2px,
-                rgba(0, 0, 0, 0.12) 4px
+                rgba(0, 0, 0, 0.15) 2px,
+                rgba(0, 0, 0, 0.15) 4px
             );
             pointer-events: none;
             border-radius: inherit;
@@ -34,61 +34,74 @@
 @endsection
 
 @section('content')
-<div class="max-w-4xl mx-auto px-4 py-8">
+<div style="max-width: 960px; margin: 0 auto; padding: 12px 0;">
 
-    {{-- Mission Telemetry Header Card --}}
-    <div class="bg-slate-900/90 border border-slate-700/80 rounded-2xl shadow-2xl p-6 mb-6">
-        <div class="flex flex-wrap items-center justify-between gap-4">
-            <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 mb-1.5 font-mono text-xs text-cyan-400">
-                    <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span>MISSION_NODE: #{{ $puzzle->puzzle_id }} // {{ strtoupper($puzzle->puzzle_type) }}_SIMULATION</span>
+    <!-- Telemetry Header Card -->
+    <div style="background: var(--nl-glass-card); backdrop-filter: var(--nl-glass-blur); border: 1px solid var(--nl-glass-border); border-radius: var(--nl-radius-panel); padding: 24px; margin-bottom: 20px; box-shadow: 0 16px 36px rgba(0,0,0,0.4);">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;">
+            <div style="flex: 1; min-width: 260px;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e;"></span>
+                    <span class="sheet-badge" style="font-size: 0.72rem;">
+                        MISSION NODE: #{{ $puzzle->puzzle_id }} // {{ strtoupper($puzzle->puzzle_type) }}_SIMULATION
+                    </span>
                 </div>
-                <h1 class="text-2xl font-bold text-slate-100 tracking-tight leading-snug">
+                <h1 style="font-size: 1.5rem; font-weight: 800; color: #FFFFFF; margin: 0; letter-spacing: -0.02em;">
                     {{ $puzzle->instruction }}
                 </h1>
-                <p class="text-slate-400 mt-2 text-sm">
-                    Configure network nodes and verify topology convergence before submitting telemetry.
+                <p style="font-size: 0.88rem; color: var(--nl-text-secondary); margin-top: 6px; margin-bottom: 0;">
+                    Configure network nodes and verify topology convergence before transmitting telemetry.
                 </p>
             </div>
 
-            {{-- Network XP Telemetry Counter --}}
-            <div class="flex items-center gap-2 bg-slate-800/90 border border-amber-400/40 px-5 py-2.5 rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.25)] select-none">
-                <i class="fa-solid fa-bolt text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.7)]" aria-hidden="true"></i>
-                <span class="font-mono font-bold text-amber-300 text-base tracking-wide">+{{ $puzzle->points }} Network XP</span>
+            <!-- Network XP Counter -->
+            <div style="display: flex; align-items: center; gap: 8px; background: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.35); padding: 10px 18px; border-radius: var(--nl-radius-btn); box-shadow: var(--nl-glow-xp); user-select: none;">
+                <i class="fa-solid fa-bolt" style="color: #fbbf24; font-size: 1.1rem;"></i>
+                <span style="font-weight: 700; color: #fde047; font-size: 0.95rem;">+{{ $puzzle->points }} Network XP</span>
             </div>
         </div>
     </div>
 
-    {{-- Network Lab Rack Terminal Wrapper --}}
-    <div class="relative rounded-2xl p-2 bg-gradient-to-b from-slate-800 via-slate-900 to-black shadow-[0_0_40px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.1)] mb-6">
-        <!-- Rack Frame Header -->
-        <div class="flex items-center justify-between px-4 py-2 bg-slate-950/80 rounded-t-xl border-b border-slate-800 text-xs font-mono text-slate-400">
-            <span class="flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>LINK_ESTABLISHED: eth0 [1 Gbps Full-Duplex]</span>
-            </span>
-            <span class="text-slate-500">ENGINE: PHASER 3 // AUTO-SCALE</span>
+    <!-- Network Lab Terminal Wrapper -->
+    <div style="position: relative; border-radius: var(--nl-radius-panel); padding: 6px; background: linear-gradient(180deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.95) 100%); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.1); margin-bottom: 20px;">
+        <!-- Terminal Header Bar -->
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: rgba(7, 12, 22, 0.85); border-radius: 18px 18px 0 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06); font-size: 0.75rem; color: var(--nl-text-tertiary);">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="display: flex; gap: 6px;">
+                    <span style="width: 10px; height: 10px; border-radius: 50%; background: #ef4444; display: inline-block;"></span>
+                    <span style="width: 10px; height: 10px; border-radius: 50%; background: #f59e0b; display: inline-block;"></span>
+                    <span style="width: 10px; height: 10px; border-radius: 50%; background: #22c55e; display: inline-block;"></span>
+                </div>
+                <span style="color: #22d3ee; font-weight: 600; margin-left: 6px;">eth0 [1 Gbps Full-Duplex]</span>
+            </div>
+            <span>ENGINE: PHASER 3 // CANVAS AUTO-SCALE</span>
         </div>
 
-        <!-- Phaser Mount -->
-        <div id="phaser-game" class="w-full min-h-[440px] bg-slate-950 rounded-b-xl overflow-hidden relative">
-            <div id="game-loader" class="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950 z-20">
-                <div class="w-12 h-12 border-4 border-slate-700 border-t-cyan-400 rounded-full animate-spin"></div>
-                <p class="font-mono text-xs text-cyan-400 tracking-widest animate-pulse">
+        <!-- Phaser Mount Container -->
+        <div id="phaser-game" style="width: 100%; min-height: 460px; background: #070d18; border-radius: 0 0 18px 18px; overflow: hidden; position: relative;">
+            <div id="game-loader" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: #070d18; z-index: 20;">
+                <div style="width: 44px; height: 44px; border: 3px solid rgba(255, 255, 255, 0.1); border-top-color: var(--nl-cyan); border-radius: 50%; animation: phaserSpin 0.9s linear infinite;"></div>
+                <span style="font-size: 0.78rem; font-weight: 600; color: var(--nl-cyan); letter-spacing: 0.1em;">
                     INITIALIZING VIRTUAL TOPOLOGY LAB...
-                </p>
+                </span>
             </div>
         </div>
     </div>
 
-    {{-- Diagnostic Feedback Panel --}}
+    <!-- Diagnostic Feedback Panel -->
     <div id="feedback-panel"
-         class="hidden mt-4 p-4 rounded-xl border-2 font-medium backdrop-blur-md transition-all duration-300 ease-out text-sm leading-relaxed">
-        <p id="feedback-text"></p>
+         style="display: none; margin-top: 16px; padding: 16px; border-radius: var(--nl-radius-card); border: 2px solid transparent; font-weight: 500; font-size: 0.9rem; line-height: 1.5; backdrop-filter: var(--nl-glass-blur); transition: var(--nl-transition);">
+        <p id="feedback-text" style="margin: 0;"></p>
     </div>
 
 </div>
+
+<style>
+@keyframes phaserSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+</style>
 @endsection
 
 @section('scripts')

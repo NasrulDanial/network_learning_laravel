@@ -7,19 +7,21 @@
 
     <aside class="sidebar" id="sidebar" aria-label="Lecturer Navigation">
         <div class="sidebar-header">
-            <span class="sidebar-logo-icon" aria-hidden="true">
-                <i class="fa-solid fa-network-wired"></i>
-            </span>
-
-            <span class="sidebar-logo-text">NetLearn</span>
+            <div class="sidebar-logo-group">
+                <span class="sidebar-logo-icon" aria-hidden="true">
+                    <i class="fa-solid fa-network-wired"></i>
+                </span>
+                <span class="sidebar-logo-text">NetLearn</span>
+            </div>
 
             <button
-                class="sidebar-close-btn"
-                id="sidebarClose"
-                aria-label="Close menu"
+                class="collapse-toggle"
+                id="sidebarCollapseBtn"
+                aria-label="Toggle sidebar collapse"
+                title="Collapse Sidebar"
                 type="button"
             >
-                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
             </button>
         </div>
 
@@ -30,7 +32,7 @@
 
             <div class="user-info">
                 <span class="user-name">{{ auth()->user()->name }}</span>
-                <span class="user-role">{{ ucfirst(auth()->user()->role) }}</span>
+                <span class="user-role">Lead Instructor</span>
             </div>
         </div>
 
@@ -44,35 +46,36 @@
                 </span>
                 <span class="nav-text">Dashboard</span>
             </a>
+
             <a
-    href="{{ route('lecturer.topics.index') }}"
-    class="nav-item {{ $active === 'topics' ? 'active' : '' }}"
->
-    <span class="nav-icon" aria-hidden="true">
-        <i class="fa-solid fa-book-open"></i>
-    </span>
-    <span class="nav-text">Manage Topics</span>
-</a>
+                href="{{ route('lecturer.topics.index') }}"
+                class="nav-item {{ $active === 'topics' ? 'active' : '' }}"
+            >
+                <span class="nav-icon" aria-hidden="true">
+                    <i class="fa-solid fa-diagram-project"></i>
+                </span>
+                <span class="nav-text">Manage Topics</span>
+            </a>
 
-<a
-    href="{{ route('lecturer.quizzes.index') }}"
-    class="nav-item {{ $active === 'quizzes' ? 'active' : '' }}"
->
-    <span class="nav-icon" aria-hidden="true">
-        <i class="fa-solid fa-puzzle-piece"></i>
-    </span>
-    <span class="nav-text">Manage Quizzes</span>
-</a>
+            <a
+                href="{{ route('lecturer.quizzes.index') }}"
+                class="nav-item {{ $active === 'quizzes' ? 'active' : '' }}"
+            >
+                <span class="nav-icon" aria-hidden="true">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </span>
+                <span class="nav-text">Manage Quizzes</span>
+            </a>
 
-<a
-    href="{{ route('lecturer.student-performance.index') }}"
-    class="nav-item {{ $active === 'performance' ? 'active' : '' }}"
->
-    <span class="nav-icon" aria-hidden="true">
-        <i class="fa-solid fa-users-viewfinder"></i>
-    </span>
-    <span class="nav-text">Student Performance</span>
-</a>
+            <a
+                href="{{ route('lecturer.student-performance.index') }}"
+                class="nav-item {{ $active === 'performance' ? 'active' : '' }}"
+            >
+                <span class="nav-icon" aria-hidden="true">
+                    <i class="fa-solid fa-chart-pie"></i>
+                </span>
+                <span class="nav-text">Student Performance</span>
+            </a>
         </nav>
 
         <div class="sidebar-footer">
@@ -88,10 +91,9 @@
 
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
-
-                <button type="submit" class="nav-item logout-link">
+                <button type="submit" class="nav-item logout-link" style="width: 100%; border: none; background: transparent; cursor: pointer;">
                     <span class="nav-icon" aria-hidden="true">
-                        <i class="fa-solid fa-right-from-bracket"></i>
+                        <i class="fa-solid fa-arrow-right-from-bracket"></i>
                     </span>
                     <span class="nav-text">Logout</span>
                 </button>
@@ -115,17 +117,22 @@
             </button>
 
             <div class="header-title">
-                <h2>{{ $pageTitle ?? 'Lecturer Dashboard' }}</h2>
+                <h2>{{ $pageTitle ?? 'Instructor Mission Control' }}</h2>
             </div>
 
             <div class="header-user-meta">
-                <div class="header-user-avatar" aria-hidden="true">
+                <div style="display: flex; align-items: center; gap: 8px; margin-right: 12px; font-size: 0.8rem; color: var(--nl-text-secondary);">
+                    <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e;"></span>
+                    <span>Admin Active</span>
+                </div>
+
+                <div class="header-user-avatar" aria-hidden="true" style="border-radius: 10px; background: rgba(139, 92, 246, 0.15); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.3);">
                     <i class="fa-solid fa-chalkboard-user"></i>
                 </div>
 
                 <div class="header-user-details">
-                    <span class="user-meta-name">{{ auth()->user()->name }}</span>
-                    <span class="user-meta-role">{{ ucfirst(auth()->user()->role) }}</span>
+                    <span class="user-meta-name" style="font-weight: 600; font-size: 0.88rem;">{{ auth()->user()->name }}</span>
+                    <span class="user-meta-role" style="font-size: 0.72rem; color: var(--nl-text-secondary); display: block;">Lead Instructor</span>
                 </div>
             </div>
         </header>

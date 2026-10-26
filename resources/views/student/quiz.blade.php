@@ -1,139 +1,146 @@
 @extends('layouts.app')
 
 @section('content')
-    <a class="breadcrumb-link" href="{{ route('student.quiz') }}">
-        <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
-        Back to Quiz Hub
-    </a>
+<div class="quiz-stepper-container" id="quizStepper">
+    <!-- Top Breadcrumb & Metadata -->
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+        <a class="button secondary" href="{{ route('student.quiz') }}" style="font-size: 0.82rem; padding: 8px 16px;">
+            <i class="fa-solid fa-arrow-left"></i>
+            <span>Exit to Challenge Hub</span>
+        </a>
 
-    <section class="page-banner">
-        <p class="eyebrow">Quiz Challenge</p>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <span class="sheet-badge" style="background: rgba(139, 92, 246, 0.15); color: #c084fc; border-color: rgba(139, 92, 246, 0.35);">
+                <i class="fa-solid fa-bolt" style="color: #fbbf24; margin-right: 4px;"></i> +100 Network XP
+            </span>
+            <span class="sheet-badge">
+                PASSING: {{ (int) $quiz->passing_mark }}%
+            </span>
+        </div>
+    </div>
 
-        <h1>{{ $quiz->title }}</h1>
-
-        <p>
-            Topic:
-            <strong style="color: var(--cyan);">
-                {{ $topic->title }}
-            </strong>
-        </p>
-    </section>
-
-    <section class="challenge-info-grid" style="margin-bottom: 2rem;">
-        <div class="challenge-info">
-            <span>Total Questions</span>
-            <strong>{{ $questions->count() }}</strong>
+    <!-- Stepper Node Header & Progress Gauge -->
+    <div class="stepper-header">
+        <div>
+            <span class="eyebrow" style="color: var(--nl-cyan); margin-bottom: 4px;">Incident Evaluation</span>
+            <h2 style="font-size: 1.25rem; font-weight: 700; margin: 0; color: #FFFFFF;">
+                {{ $quiz->title }}
+            </h2>
+            <span style="font-size: 0.82rem; color: var(--nl-text-tertiary);">
+                Stage Context: <strong style="color: var(--nl-cyan);">{{ $topic->title }}</strong>
+            </span>
         </div>
 
-        <div class="challenge-info">
-            <span>Passing Mark</span>
-            <strong>{{ (int) $quiz->passing_mark }}%</strong>
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+            <div class="stepper-nodes">
+                @foreach ($questions as $idx => $q)
+                    <div
+                        class="stepper-node-dot {{ $idx === 0 ? 'current' : '' }}"
+                        data-step="{{ $idx }}"
+                        title="Question {{ $idx + 1 }}"
+                    >
+                        {{ $idx + 1 }}
+                    </div>
+                @endforeach
+            </div>
+            <div style="font-size: 0.75rem; color: var(--nl-text-tertiary); font-weight: 600;">
+                Question <span id="stepperCurrentNum" style="color: var(--nl-cyan);">1</span> of {{ $questions->count() }}
+            </div>
         </div>
+    </div>
 
-        <div class="challenge-info">
-            <span>XP Reward</span>
-            <strong>100 XP</strong>
-        </div>
-    </section>
+    <!-- Integrity / Convergence Progress Bar -->
+    <div style="height: 4px; background: rgba(255, 255, 255, 0.08); border-radius: 99px; margin-bottom: 24px; overflow: hidden;">
+        <div
+            id="stepperIntegrityBar"
+            style="width: {{ round((1 / max(1, $questions->count())) * 100) }}%; height: 100%; background: var(--nl-gradient-accent); border-radius: 99px; transition: width 0.4s var(--nl-spring);"
+        ></div>
+    </div>
 
-    <form method="POST" action="{{ route('student.quiz.submit') }}">
+    <!-- Form Container -->
+    <form id="quizChallengeForm" method="POST" action="{{ route('student.quiz.submit') }}">
         @csrf
-
-        <input
-            type="hidden"
-            name="quiz_id"
-            value="{{ $quiz->quiz_id }}"
-        >
+        <input type="hidden" name="quiz_id" value="{{ $quiz->quiz_id }}">
 
         @foreach ($questions as $index => $question)
-            <article class="question-card">
-                <div class="stage-meta" style="margin-bottom: 1rem;">
-                    <span class="eyebrow">
-                        Question {{ $index + 1 }}
-                    </span>
+            <div class="quiz-slide {{ $index === 0 ? 'active' : '' }}" data-question-index="{{ $index }}">
+                <div class="question-card-gamified">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+                        <span class="sheet-badge" style="font-size: 0.75rem;">
+                            PACKET INSPECTION #{{ $index + 1 }}
+                        </span>
+                        <span style="font-size: 0.78rem; color: var(--nl-text-tertiary);">
+                            Single Answer Protocol
+                        </span>
+                    </div>
+
+                    <h2 class="question-title">
+                        {{ $question->question_text }}
+                    </h2>
+
+                    <!-- Glowing Squircle Option Cards -->
+                    <div class="options-container" style="display: flex; flex-direction: column; gap: 8px;">
+                        @foreach (['A', 'B', 'C', 'D'] as $optionKey)
+                            @php
+                                $prop = 'option_' . strtolower($optionKey);
+                            @endphp
+
+                            <label class="gamified-option" data-option="{{ $optionKey }}">
+                                <input
+                                    type="radio"
+                                    name="answers[{{ $question->question_id }}]"
+                                    value="{{ $optionKey }}"
+                                    required
+                                    style="position: absolute; opacity: 0; pointer-events: none;"
+                                >
+                                <span class="option-key-badge">{{ $optionKey }}</span>
+                                <span class="option-text-label">{{ $question->$prop }}</span>
+                            </label>
+                        @endforeach
+                    </div>
                 </div>
-
-                <h2 style="font-size: 1.15rem;">
-                    {{ $question->question_text }}
-                </h2>
-
-                <div class="answer-list">
-                    @foreach (['A', 'B', 'C', 'D'] as $option)
-                        @php
-                            $field = 'option_' . strtolower($option);
-                        @endphp
-
-                        <label class="answer-option">
-                            <input
-                                type="radio"
-                                name="answers[{{ $question->question_id }}]"
-                                value="{{ $option }}"
-                                required
-                            >
-
-                            <span class="answer-icon" aria-hidden="true">
-                                <i class="fa-regular fa-circle"></i>
-                            </span>
-
-                            <span class="answer-text">
-                                <strong>{{ $option }}.</strong>
-                                {{ $question->$field }}
-                            </span>
-                        </label>
-                    @endforeach
-                </div>
-            </article>
+            </div>
         @endforeach
 
-        <section class="management-card" style="margin-top: 2rem;">
-            <p class="eyebrow">Submit Challenge</p>
+        <!-- Navigation & Submission Controls -->
+        <div class="stepper-nav-bar">
+            <button
+                type="button"
+                id="stepperPrevBtn"
+                class="button secondary"
+                style="display: none; padding: 10px 20px;"
+            >
+                <i class="fa-solid fa-chevron-left"></i>
+                <span>Previous Protocol</span>
+            </button>
 
-            <h2>Ready to submit your answers?</h2>
+            <div style="font-size: 0.75rem; color: var(--nl-text-tertiary); display: flex; align-items: center; gap: 6px;">
+                <i class="fa-regular fa-keyboard"></i>
+                <span>Keyboard: [A, B, C, D] to select, [←, →] to navigate</span>
+            </div>
 
-            <p>
-                Make sure every question has been answered before submitting.
-                Your result and XP will be calculated after submission.
-            </p>
-
-            <div class="actions">
-                <button type="submit">
-                    <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
-                    Submit Challenge
+            <div>
+                <button
+                    type="button"
+                    id="stepperNextBtn"
+                    class="button"
+                    style="padding: 10px 24px;"
+                >
+                    <span>Next Protocol</span>
+                    <i class="fa-solid fa-chevron-right"></i>
                 </button>
 
-                <a class="button secondary" href="{{ route('student.quiz') }}">
-                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-                    Cancel
-                </a>
+                <button
+                    type="submit"
+                    id="stepperSubmitBtn"
+                    class="button"
+                    style="display: none; padding: 10px 28px; background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);"
+                >
+                    <i class="fa-solid fa-paper-plane"></i>
+                    <span>Transmit Answers</span>
+                </button>
             </div>
-        </section>
+        </div>
     </form>
-@endsection
-
-@section('scripts')
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('.answer-option input[type="radio"]').forEach((radio) => {
-        radio.addEventListener('change', () => {
-            const groupName = radio.name;
-
-            document
-                .querySelectorAll(`input[name="${groupName}"]`)
-                .forEach((item) => {
-                    const option = item.closest('.answer-option');
-                    const icon = option.querySelector('.answer-icon i');
-
-                    option.classList.remove('selected');
-                    icon.className = 'fa-regular fa-circle';
-                });
-
-            const selectedOption = radio.closest('.answer-option');
-            const selectedIcon = selectedOption.querySelector('.answer-icon i');
-
-            selectedOption.classList.add('selected');
-            selectedIcon.className = 'fa-solid fa-circle-check';
-        });
-    });
-});
-</script>
+</div>
 @endsection

@@ -19,6 +19,21 @@ class Quiz extends Model
         return $this->belongsTo(Topic::class, 'topic_id', 'topic_id');
     }
 
+    public function puzzle()
+    {
+        return $this->hasOne(Puzzle::class, 'topic_id', 'topic_id');
+    }
+
+    public function getTopicTitleAttribute()
+    {
+        return $this->topic ? $this->topic->title : '';
+    }
+
+    public function getTotalQuestionsAttribute()
+    {
+        return $this->questions_count ?? $this->questions()->count();
+    }
+
     public function questions()
     {
         return $this->hasMany(Question::class, 'quiz_id', 'quiz_id');

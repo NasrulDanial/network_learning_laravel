@@ -1,271 +1,215 @@
 @extends('layouts.app')
 
 @section('content')
-    <section class="hero-panel">
+<!-- Top Analytics Widgets -->
+<div class="widget-grid" style="margin-bottom: 24px;">
+    <div class="widget-stat-mini" style="grid-column: span 3;">
+        <div class="node-icon" style="margin-bottom: 0; background: rgba(34, 211, 238, 0.1); color: var(--nl-cyan); border-color: rgba(34, 211, 238, 0.25);">
+            <i class="fa-solid fa-users"></i>
+        </div>
         <div>
-            <p class="eyebrow">Lecturer Control Centre</p>
+            <span style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--nl-text-tertiary); font-weight: 600; display: block;">Total Operatives</span>
+            <strong style="font-size: 1.4rem; font-weight: 700; color: #FFFFFF;">{{ (int) $totalStudents }}</strong>
+        </div>
+    </div>
 
-            <h1>Welcome, {{ auth()->user()->name }}!</h1>
+    <div class="widget-stat-mini" style="grid-column: span 3;">
+        <div class="node-icon" style="margin-bottom: 0; background: rgba(139, 92, 246, 0.15); color: #c084fc; border-color: rgba(139, 92, 246, 0.3);">
+            <i class="fa-solid fa-diagram-project"></i>
+        </div>
+        <div>
+            <span style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--nl-text-tertiary); font-weight: 600; display: block;">Curriculum Stages</span>
+            <strong style="font-size: 1.4rem; font-weight: 700; color: #FFFFFF;">{{ (int) $totalTopics }}</strong>
+        </div>
+    </div>
 
-            <p>
-                Monitor student progress, review quiz performance,
-                and manage networking learning activities.
-            </p>
+    <div class="widget-stat-mini" style="grid-column: span 3;">
+        <div class="node-icon" style="margin-bottom: 0; background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.3);">
+            <i class="fa-solid fa-list-check"></i>
+        </div>
+        <div>
+            <span style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--nl-text-tertiary); font-weight: 600; display: block;">Evaluations Taken</span>
+            <strong style="font-size: 1.4rem; font-weight: 700; color: #FFFFFF;">{{ (int) $totalAttempts }}</strong>
+        </div>
+    </div>
+
+    <div class="widget-stat-mini" style="grid-column: span 3;">
+        <div class="node-icon" style="margin-bottom: 0; background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.3);">
+            <i class="fa-solid fa-gauge-high"></i>
+        </div>
+        <div>
+            <span style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--nl-text-tertiary); font-weight: 600; display: block;">Average Convergence</span>
+            <strong style="font-size: 1.4rem; font-weight: 700; color: #FFFFFF;">{{ number_format((float) $averageScore, 0) }}%</strong>
+        </div>
+    </div>
+</div>
+
+<!-- 3-Pane Finder Analytics Container -->
+<div class="finder-container">
+    <!-- Pane 2: Master List View of Topics / Recent Attempts -->
+    <div class="finder-pane-master">
+        <div class="finder-search-box">
+            <span class="eyebrow" style="color: var(--nl-cyan); margin-bottom: 6px;">Curriculum Finder</span>
+            <input
+                type="text"
+                id="finderSearchInput"
+                class="finder-input"
+                placeholder="Filter stages or recent records..."
+            >
         </div>
 
-        <div class="hero-symbol" aria-hidden="true">
-            <i class="fa-solid fa-chart-column"></i>
-        </div>
-    </section>
-
-    <section style="margin-bottom: 2rem;">
-        <p class="eyebrow">System Overview</p>
-        <h2 style="margin-bottom: 1.5rem;">Learning Analytics Summary</h2>
-
-        <div class="summary-grid">
-            <div class="stat-card">
-                <span class="stat-label">
-                    <i class="fa-solid fa-user-graduate" aria-hidden="true"></i>
-                    Total Students
-                </span>
-
-                <strong class="stat-value">
-                    {{ (int) $totalStudents }}
-                </strong>
+        <div class="finder-list-scroll">
+            <div style="padding: 6px 12px; font-size: 0.72rem; text-transform: uppercase; color: var(--nl-text-tertiary); font-weight: 700; letter-spacing: 0.08em;">
+                Stages & Telemetry
             </div>
 
-            <div class="stat-card">
-                <span class="stat-label">
-                    <i class="fa-solid fa-book-open" aria-hidden="true"></i>
-                    Total Topics
-                </span>
-
-                <strong class="stat-value">
-                    {{ (int) $totalTopics }}
-                </strong>
-            </div>
-
-            <div class="stat-card">
-                <span class="stat-label">
-                    <i class="fa-solid fa-list-check" aria-hidden="true"></i>
-                    Quiz Attempts
-                </span>
-
-                <strong class="stat-value">
-                    {{ (int) $totalAttempts }}
-                </strong>
-            </div>
-
-            <div class="stat-card">
-                <span class="stat-label">
-                    <i class="fa-solid fa-chart-simple" aria-hidden="true"></i>
-                    Average Score
-                </span>
-
-                <strong class="stat-value">
-                    {{ number_format((float) $averageScore, 0) }}%
-                </strong>
-            </div>
-        </div>
-    </section>
-
-    <section style="margin-bottom: 2rem;">
-        <p class="eyebrow">Performance Charts</p>
-        <h2 style="margin-bottom: 1.5rem;">Quiz Result Analytics</h2>
-
-        <div class="dashboard-grid">
-            <article class="management-card">
-                <div class="stage-meta" style="margin-bottom: 1rem;">
-                    <span class="eyebrow">Pass / Fail Distribution</span>
+            @foreach ($topicPerformance as $idx => $t)
+                <div
+                    class="finder-list-item {{ $idx === 0 ? 'active' : '' }}"
+                    data-target-detail="topic-detail-{{ $idx }}"
+                >
+                    <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+                        <div style="width: 28px; height: 28px; border-radius: 8px; background: rgba(255, 255, 255, 0.05); display: flex; align-items: center; justify-content: center; font-size: 0.8rem; color: var(--nl-cyan); flex-shrink: 0;">
+                            <i class="fa-solid fa-layer-group"></i>
+                        </div>
+                        <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            <div style="font-size: 0.86rem; font-weight: 600; color: #FFFFFF; text-overflow: ellipsis; overflow: hidden;">
+                                {{ $t->topic_title }}
+                            </div>
+                            <div style="font-size: 0.72rem; color: var(--nl-text-tertiary);">
+                                {{ (int) $t->total_attempts }} evaluation attempts
+                            </div>
+                        </div>
+                    </div>
+                    <span class="status-pill {{ $t->average_percentage >= 70 ? 'pass' : 'fail' }}" style="flex-shrink: 0;">
+                        {{ round($t->average_percentage) }}%
+                    </span>
                 </div>
-
-                <canvas id="passFailChart" height="220"></canvas>
-            </article>
-
-            <article class="management-card">
-                <div class="stage-meta" style="margin-bottom: 1rem;">
-                    <span class="eyebrow">Average Score by Topic</span>
-                </div>
-
-                <canvas id="topicPerformanceChart" height="220"></canvas>
-            </article>
+            @endforeach
         </div>
-    </section>
+    </div>
 
-    <section style="margin-bottom: 2rem;">
-        <p class="eyebrow">Management Menu</p>
-        <h2 style="margin-bottom: 1.5rem;">Lecturer Actions</h2>
-
-        <nav class="dashboard-grid">
-            <a class="card" href="{{ route('lecturer.topics.index') }}">
-                <span class="card-icon" aria-hidden="true">
-                    <i class="fa-solid fa-book-open"></i>
-                </span>
-
-                <h2>Manage Topics</h2>
-                <p>
-                    Add, edit, and organize networking learning topics.
-                </p>
-            </a>
-
-            <a class="card" href="{{ route('lecturer.quizzes.index') }}">
-                <span class="card-icon" aria-hidden="true">
-                    <i class="fa-solid fa-puzzle-piece"></i>
-                </span>
-
-                <h2>Manage Quizzes</h2>
-                <p>
-                    Create quizzes, set passing marks, and manage challenges.
-                </p>
-            </a>
-
-            <a class="card" href="{{ route('lecturer.student-performance.index') }}">
-                <span class="card-icon" aria-hidden="true">
+    <!-- Pane 3: Detail View of Analytics & Charts -->
+    <div class="finder-pane-detail">
+        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--nl-glass-border); padding-bottom: 16px;">
+            <div>
+                <span class="eyebrow" style="color: var(--nl-cyan); margin-bottom: 2px;">Inspector Telemetry</span>
+                <h2 style="font-size: 1.25rem; font-weight: 700; margin: 0; color: #FFFFFF;">
+                    System Performance Analytics
+                </h2>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <a class="button secondary" href="{{ route('lecturer.student-performance.index') }}" style="font-size: 0.82rem; padding: 8px 16px;">
                     <i class="fa-solid fa-users-viewfinder"></i>
-                </span>
+                    <span>All Records</span>
+                </a>
+            </div>
+        </div>
 
-                <h2>Student Performance</h2>
-                <p>
-                    Review individual student scores and learning progress.
-                </p>
-            </a>
-        </nav>
-    </section>
+        <!-- Embedded Telemetry Data Store for Chart.js -->
+        <script id="lecturerChartData" type="application/json">
+        {
+            "passFailLabels": @json(array_keys($passFailData)),
+            "passFailValues": @json(array_values($passFailData)),
+            "topicLabels": @json($topicPerformance->pluck('topic_title')),
+            "topicAverages": @json($topicPerformance->pluck('average_percentage')->map(fn ($val) => round($val, 1)))
+        }
+        </script>
 
-    <section>
-        <p class="eyebrow">Recent Activity</p>
-        <h2 style="margin-bottom: 1.5rem;">Latest Quiz Attempts</h2>
-
-        @if ($recentResults->count() > 0)
-            <div class="management-card">
-                <div class="table-wrapper">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Student</th>
-                                <th>Topic</th>
-                                <th>Quiz</th>
-                                <th>Score</th>
-                                <th>Status</th>
-                                <th>Date Taken</th>
-                            </tr>
-                        </thead>
-
-                        <tbody>
-                            @foreach ($recentResults as $result)
-                                <tr>
-                                    <td>
-                                        <strong>{{ $result->student_name }}</strong>
-                                        <br>
-                                        <span style="color: var(--text-muted); font-size: 0.85rem;">
-                                            {{ $result->student_email }}
-                                        </span>
-                                    </td>
-
-                                    <td>{{ $result->topic_title }}</td>
-
-                                    <td>{{ $result->quiz_title }}</td>
-
-                                    <td>
-                                        <strong>
-                                            {{ (int) $result->score }}/{{ (int) $result->total_questions }}
-                                        </strong>
-                                        <br>
-                                        <span style="color: var(--text-muted); font-size: 0.85rem;">
-                                            {{ number_format((float) $result->percentage, 0) }}%
-                                        </span>
-                                    </td>
-
-                                    <td>
-                                        <span class="status-badge {{ $result->status === 'Pass' ? 'status-pass' : 'status-fail' }}">
-                                            {{ $result->status }}
-                                        </span>
-                                    </td>
-
-                                    <td>
-                                        {{ $result->date_taken }}
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+        <!-- Telemetry Charts in Constrained Wrappers -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="chart-card">
+                <span class="eyebrow" style="font-size: 0.7rem; color: var(--nl-cyan); margin-bottom: 10px;">Pass / Fail Ratio</span>
+                <div class="chart-wrapper-nl">
+                    <canvas id="passFailChart"></canvas>
                 </div>
             </div>
-        @else
-            <section class="empty-state">
-                <div class="empty-state-icon" aria-hidden="true">
-                    <i class="fa-solid fa-chart-column"></i>
+
+            <div class="chart-card">
+                <span class="eyebrow" style="font-size: 0.7rem; color: var(--nl-cyan); margin-bottom: 10px;">Convergence by Stage</span>
+                <div class="chart-wrapper-nl">
+                    <canvas id="topicPerformanceChart"></canvas>
                 </div>
+            </div>
+        </div>
 
-                <h2>No quiz attempts yet</h2>
+        <!-- Borderless Recent Attempts Table -->
+        <div style="margin-top: 8px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                <h3 style="font-size: 1rem; font-weight: 700; margin: 0;">Latest Student Attempts</h3>
+                <span style="font-size: 0.75rem; color: var(--nl-text-tertiary);">Borderless Glass View</span>
+            </div>
 
-                <p>
-                    Student quiz results will appear here after students complete quiz challenges.
-                </p>
-            </section>
-        @endif
-    </section>
+            @if ($recentResults->count() > 0)
+                <table class="table-borderless-glass">
+                    <thead>
+                        <tr>
+                            <th>Operative</th>
+                            <th>Stage & Quiz</th>
+                            <th>Score</th>
+                            <th>Status</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($recentResults as $result)
+                            <tr>
+                                <td>
+                                    <div style="font-weight: 600; color: #FFFFFF; font-size: 0.88rem;">
+                                        {{ $result->student_name }}
+                                    </div>
+                                    <div style="font-size: 0.75rem; color: var(--nl-text-tertiary);">
+                                        {{ $result->student_email }}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div style="font-weight: 500; font-size: 0.85rem; color: var(--nl-cyan);">
+                                        {{ $result->quiz_title }}
+                                    </div>
+                                    <div style="font-size: 0.75rem; color: var(--nl-text-tertiary);">
+                                        {{ $result->topic_title }}
+                                    </div>
+                                </td>
+                                <td>
+                                    <strong style="color: #FFFFFF; font-size: 0.9rem;">
+                                        {{ (int) $result->score }}/{{ (int) $result->total_questions }}
+                                    </strong>
+                                    <span style="font-size: 0.75rem; color: var(--nl-text-secondary); margin-left: 4px;">
+                                        ({{ round($result->percentage) }}%)
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="status-pill {{ $result->status === 'Pass' ? 'pass' : 'fail' }}">
+                                        {{ $result->status }}
+                                    </span>
+                                </td>
+                                <td style="font-size: 0.8rem; color: var(--nl-text-secondary);">
+                                    {{ $result->date_taken }}
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @else
+                <div style="text-align: center; padding: 32px; color: var(--nl-text-tertiary);">
+                    No evaluations submitted yet.
+                </div>
+            @endif
+        </div>
+    </div>
+</div>
 @endsection
 
 @section('scripts')
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <script>
-        const passFailLabels = @json(array_keys($passFailData));
-        const passFailValues = @json(array_values($passFailData));
-
-        const topicLabels = @json($topicPerformance->pluck('topic_title'));
-        const topicAverages = @json($topicPerformance->pluck('average_percentage')->map(fn ($value) => round($value, 2)));
-
-        const passFailCanvas = document.getElementById('passFailChart');
-
-        if (passFailCanvas) {
-            new Chart(passFailCanvas, {
-                type: 'doughnut',
-                data: {
-                    labels: passFailLabels,
-                    datasets: [{
-                        data: passFailValues
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            position: 'bottom'
-                        }
-                    }
-                }
-            });
-        }
-
-        const topicPerformanceCanvas = document.getElementById('topicPerformanceChart');
-
-        if (topicPerformanceCanvas) {
-            new Chart(topicPerformanceCanvas, {
-                type: 'bar',
-                data: {
-                    labels: topicLabels,
-                    datasets: [{
-                        label: 'Average Score (%)',
-                        data: topicAverages
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            max: 100
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    }
-                }
-            });
-        }
-    </script>
+<script>
+    if (typeof window.initLecturerCharts === 'function') {
+        window.initLecturerCharts();
+    } else {
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof window.initLecturerCharts === 'function') {
+                window.initLecturerCharts();
+            }
+        });
+    }
+</script>
 @endsection
