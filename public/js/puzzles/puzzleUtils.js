@@ -90,20 +90,20 @@ window.PuzzleUtils = {
         if (!panel || !text) return;
 
         panel.dataset.state = isCorrect ? 'correct' : 'incorrect';
-        panel.classList.remove('hidden');
+        panel.style.display = 'block';
 
         if (isCorrect) {
             text.innerHTML = `
-                <div class="flex items-start gap-2">
-                    <span class="text-emerald-400 font-mono font-bold">[ROUTE_STATUS: OPTIMAL]</span>
-                    <span>${data.feedback ?? 'All frame destinations verified.'} Awarded <strong>+${data.earned_xp ?? 0} Network XP</strong>. Status: <strong class="text-cyan-300">${data.clearance_status ?? data.new_rank ?? 'Active Operative'}</strong>.</span>
+                <div style="display: flex; align-items: flex-start; gap: 8px;">
+                    <span style="color: #34d399; font-family: monospace; font-weight: 700;">[ROUTE_STATUS: OPTIMAL]</span>
+                    <span>${data.feedback ?? 'All frame destinations verified.'} Awarded <strong style="color: #fde047;">+${data.earned_xp ?? 0} Network XP</strong>. Status: <strong style="color: #67e8f9;">${data.clearance_status ?? data.new_rank ?? 'Active Operative'}</strong>.</span>
                 </div>
             `;
         } else {
             text.innerHTML = `
-                <div class="flex items-start gap-2">
-                    <span class="text-rose-400 font-mono font-bold">[ROUTING_MISMATCH: PACKET_DROPPED]</span>
-                    <span>${data.hint ? 'Diagnostic Trace: ' + data.hint : 'Topology configuration incorrect. Inspect MAC/IP routing boundaries.'}</span>
+                <div style="display: flex; align-items: flex-start; gap: 8px;">
+                    <span style="color: #fb7185; font-family: monospace; font-weight: 700;">[ROUTING_MISMATCH: PACKET_DROPPED]</span>
+                    <span>${data.hint ? 'Diagnostic Trace: ' + data.hint : (data.feedback ?? 'Topology configuration incorrect. Inspect MAC/IP routing boundaries.')}</span>
                 </div>
             `;
         }
@@ -115,35 +115,71 @@ window.PuzzleUtils = {
     /* 3. Terminal Toast Notification                                     */
     /* ------------------------------------------------------------------ */
     showToast(message, type = 'info', duration = 5000) {
-        const colours = {
-            info:    'bg-slate-900 border border-cyan-500/50 text-cyan-200 shadow-[0_0_20px_rgba(6,182,212,0.3)]',
-            success: 'bg-slate-900 border border-emerald-500/50 text-emerald-200 shadow-[0_0_20px_rgba(16,185,129,0.3)]',
-            warning: 'bg-slate-900 border border-amber-500/50 text-amber-200 shadow-[0_0_20px_rgba(245,158,11,0.3)]',
-            error:   'bg-slate-900 border border-rose-500/50 text-rose-200 shadow-[0_0_20px_rgba(244,63,94,0.3)]',
+        const themeStyles = {
+            info: {
+                bg: 'rgba(7, 20, 38, 0.95)',
+                border: '1px solid rgba(34, 211, 238, 0.4)',
+                color: '#67e8f9',
+                shadow: '0 8px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(34, 211, 238, 0.25)'
+            },
+            success: {
+                bg: 'rgba(6, 40, 30, 0.95)',
+                border: '1px solid rgba(52, 211, 153, 0.5)',
+                color: '#6ee7b7',
+                shadow: '0 8px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(16, 185, 129, 0.25)'
+            },
+            warning: {
+                bg: 'rgba(40, 30, 10, 0.95)',
+                border: '1px solid rgba(245, 158, 11, 0.5)',
+                color: '#fde047',
+                shadow: '0 8px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(245, 158, 11, 0.25)'
+            },
+            error: {
+                bg: 'rgba(50, 10, 20, 0.95)',
+                border: '1px solid rgba(244, 63, 94, 0.5)',
+                color: '#fda4af',
+                shadow: '0 8px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(244, 63, 94, 0.25)'
+            }
         };
 
+        const theme = themeStyles[type] || themeStyles.info;
         const toast = document.createElement('div');
         toast.setAttribute('role', 'alert');
-        toast.className = [
-            'fixed bottom-6 right-6 z-[9999] flex items-start gap-3',
-            'max-w-md px-5 py-3 rounded-xl backdrop-blur-md',
-            'text-xs font-mono leading-relaxed',
-            colours[type] ?? colours.info,
-            'translate-y-4 opacity-0',
-            'transition-all duration-300 ease-out',
-        ].join(' ');
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 9999;
+            max-width: 420px;
+            padding: 12px 18px;
+            border-radius: 12px;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            font-size: 0.84rem;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.5;
+            background: ${theme.bg};
+            border: ${theme.border};
+            color: ${theme.color};
+            box-shadow: ${theme.shadow};
+            transform: translateY(16px);
+            opacity: 0;
+            transition: all 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+        `;
         toast.textContent = message;
 
         document.body.appendChild(toast);
 
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-                toast.classList.remove('translate-y-4', 'opacity-0');
+                toast.style.transform = 'translateY(0)';
+                toast.style.opacity = '1';
             });
         });
 
         setTimeout(() => {
-            toast.classList.add('translate-y-4', 'opacity-0');
+            toast.style.transform = 'translateY(16px)';
+            toast.style.opacity = '0';
             toast.addEventListener('transitionend', () => toast.remove(), { once: true });
         }, duration);
     },
@@ -153,35 +189,43 @@ window.PuzzleUtils = {
     /* ------------------------------------------------------------------ */
     triggerSuccessOverlay(xpAmount, clearanceRank) {
         const banner = document.createElement('div');
-        banner.className = 'fixed inset-x-0 top-0 z-[9998] flex items-center justify-center pointer-events-none';
+        banner.style.cssText = 'position: fixed; inset: 0 0 auto 0; top: 0; z-index: 9998; display: flex; align-items: center; justify-content: center; pointer-events: none;';
         banner.innerHTML = `
             <div id="xp-banner"
-                 class="mt-6 px-8 py-4 rounded-xl shadow-[0_0_35px_rgba(34,211,238,0.5)]
-                        border border-cyan-400/50 bg-slate-950/95 backdrop-blur-md
-                        text-cyan-300 font-mono text-center
-                        opacity-0 scale-90 transition-all duration-500">
-                <div class="text-[11px] uppercase tracking-widest text-cyan-400 mb-1 flex items-center justify-center gap-1.5">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                 style="margin-top: 24px; padding: 18px 32px; border-radius: 16px;
+                        background: rgba(7, 18, 34, 0.95); backdrop-filter: blur(20px);
+                        -webkit-backdrop-filter: blur(20px);
+                        border: 1px solid rgba(34, 211, 238, 0.5);
+                        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 35px rgba(34, 211, 238, 0.35);
+                        text-align: center; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+                        opacity: 0; transform: scale(0.9);
+                        transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);">
+                <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.12em; color: #22d3ee; margin-bottom: 4px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700;">
+                    <span style="width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e;"></span>
                     TELEMETRY VERIFIED // MISSION CLEARED
                 </div>
-                <div class="text-2xl font-black text-amber-400 drop-shadow-[0_0_12px_rgba(251,191,36,0.7)]">
+                <div style="font-size: 1.6rem; font-weight: 800; color: #fbbf24; text-shadow: 0 0 16px rgba(251, 191, 36, 0.5);">
                     +${xpAmount} Network XP Credited
                 </div>
-                ${clearanceRank ? `<div class="text-xs text-slate-300 mt-1 font-sans">Clearance Level: <strong class="text-cyan-400 font-semibold">${clearanceRank}</strong></div>` : ''}
+                ${clearanceRank ? `<div style="font-size: 0.82rem; color: rgba(255, 255, 255, 0.75); margin-top: 4px;">Clearance Level: <strong style="color: #22d3ee;">${clearanceRank}</strong></div>` : ''}
             </div>`;
         document.body.appendChild(banner);
 
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 const el = document.getElementById('xp-banner');
-                if (el) el.classList.remove('opacity-0', 'scale-90');
+                if (el) {
+                    el.style.opacity = '1';
+                    el.style.transform = 'scale(1)';
+                }
             });
         });
 
         setTimeout(() => {
             const el = document.getElementById('xp-banner');
             if (el) {
-                el.classList.add('opacity-0', 'scale-90');
+                el.style.opacity = '0';
+                el.style.transform = 'scale(0.9)';
                 el.addEventListener('transitionend', () => banner.remove(), { once: true });
             }
         }, 3200);
