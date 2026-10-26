@@ -118,7 +118,7 @@ class QuizManagementTest extends TestCase
             ]
         ]);
 
-        $puzzle = Puzzle::where('topic_id', $topic->topic_id)->first();
+        $puzzle = Puzzle::where('topic_id', $topic->topic_id)->where('puzzle_type', 'drag_and_drop')->first();
         $this->assertNotNull($puzzle);
         $this->assertEquals('drag_and_drop', $puzzle->puzzle_type);
         $this->assertEquals(225, $puzzle->points);

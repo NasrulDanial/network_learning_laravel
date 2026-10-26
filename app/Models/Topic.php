@@ -21,6 +21,18 @@ class Topic extends Model
         return $this->belongsTo(User::class, 'created_by', 'user_id');
     }
 
+    public function missions()
+    {
+        return $this->hasMany(Mission::class, 'topic_id', 'topic_id')->orderBy('mission_order', 'asc');
+    }
+
+    public function publishedMissions()
+    {
+        return $this->hasMany(Mission::class, 'topic_id', 'topic_id')
+            ->where('status', 'published')
+            ->orderBy('mission_order', 'asc');
+    }
+
     public function quizzes()
     {
         return $this->hasMany(Quiz::class, 'topic_id', 'topic_id');

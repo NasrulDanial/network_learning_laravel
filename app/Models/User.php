@@ -37,4 +37,24 @@ class User extends Authenticatable
     {
         return $this->hasMany(Progress::class, 'user_id', 'user_id');
     }
+
+    public function puzzleAttempts()
+    {
+        return $this->hasMany(PuzzleAttempt::class, 'user_id', 'user_id');
+    }
+
+    public function puzzleProgress()
+    {
+        return $this->hasMany(UserPuzzleProgress::class, 'user_id', 'user_id');
+    }
+
+    public function missionProgress()
+    {
+        return $this->hasMany(UserMissionProgress::class, 'user_id', 'user_id');
+    }
+
+    public function userAchievements()
+    {
+        return $this->hasMany(UserAchievement::class, 'user_id', 'user_id');
+    }
 }

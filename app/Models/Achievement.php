@@ -13,6 +13,8 @@ class Achievement extends Model
         'description',
         'requirement_type',
         'requirement_value',
+        'xp_reward',
+        'badge_icon',
     ];
 
     public function userAchievements()

@@ -7,41 +7,56 @@ window.PuzzleUtils = {
     /* ------------------------------------------------------------------ */
     /* 1. Protocol Data Unit & Telemetry Transmission                      */
     /* ------------------------------------------------------------------ */
-    submitToBackend(isCorrect, onSuccess) {
-        const score = isCorrect ? (puzzleData.points ?? 0) : 0;
+    submitResponse(payload, onSuccess) {
+        if (window.isPreview) {
+            const previewData = {
+                status: 'completed',
+                is_correct: true,
+                score: window.puzzleData?.points || 100,
+                earned_xp: 0,
+                feedback: 'Lecturer Preview Mode: Payload formatted and validated successfully. In live student gameplay, this is evaluated server-side by PuzzleEvaluatorService.',
+                clearance_status: 'Lecturer Sandbox (Testing Mode)'
+            };
+            if (typeof onSuccess === 'function') onSuccess(previewData, true);
+            PuzzleUtils.showFeedback(previewData, true);
+            PuzzleUtils.showToast('🧪 [PREVIEW MODE] Response registered. Zero attempts and Zero XP logged.', 'success', 4000);
+            return;
+        }
 
-        // Visual feedback during transmission
         PuzzleUtils.showToast(
-            '📡 Serializing Protocol Data Units & Transmitting Telemetry...',
+            '📡 Validating simulation telemetry with central network...',
             'info',
             2000
         );
 
-        // Lock button during transmission
         document.querySelectorAll('[data-puzzle-submit]').forEach(el => {
             el.style.pointerEvents = 'none';
             el.style.opacity = '0.5';
         });
 
-        fetch(submitUrl, {
+        const csrf = document.head.querySelector('meta[name="csrf-token"]')?.content ?? (window.csrfToken || '');
+
+        fetch(window.submitUrl || submitUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.head.querySelector('meta[name="csrf-token"]')?.content ?? csrfToken,
+                'X-CSRF-TOKEN': csrf,
+                'Accept': 'application/json',
             },
-            body: JSON.stringify({ score, is_correct: isCorrect }),
+            body: JSON.stringify(payload),
         })
         .then(response => {
             if (response.status === 401) throw new Error('AUTH_SESSION_EXPIRED');
             if (response.status === 403) throw new Error('INSUFFICIENT_CLEARANCE');
-            if (!response.ok)            throw new Error('PACKET_TRANSMISSION_FAILED');
+            if (!response.ok) throw new Error('PACKET_TRANSMISSION_FAILED');
             return response.json();
         })
         .then(data => {
+            const isCorrect = (data.status === 'completed' || data.is_correct === true);
             if (typeof onSuccess === 'function') onSuccess(data, isCorrect);
             PuzzleUtils.showFeedback(data, isCorrect);
             if (isCorrect) {
-                PuzzleUtils.triggerSuccessOverlay(data.earned_xp ?? score, data.clearance_status ?? data.new_rank);
+                PuzzleUtils.triggerSuccessOverlay(data.earned_xp ?? data.score, data.clearance_status ?? data.new_rank);
             }
         })
         .catch(err => {
@@ -51,23 +66,19 @@ window.PuzzleUtils = {
             });
 
             if (err.message === 'AUTH_SESSION_EXPIRED') {
-                PuzzleUtils.showToast(
-                    '⚠️ Terminal Disconnected: Cryptographic token expired. Re-authenticate with central directory.',
-                    'warning',
-                    8000
-                );
+                PuzzleUtils.showToast('⚠️ Terminal Disconnected: Token expired. Please re-login.', 'warning', 8000);
             } else if (err.message === 'INSUFFICIENT_CLEARANCE') {
-                PuzzleUtils.showToast(
-                    '🔒 Security Violation: Access Denied. Insufficient Clearance Level for Student simulation node.',
-                    'error'
-                );
+                PuzzleUtils.showToast('🔒 Access Denied: Insufficient clearance or unpublished activity.', 'error');
             } else {
-                PuzzleUtils.showToast(
-                    '❌ Network Link Failure: Packet loss detected. Transmission halted by host gateway.',
-                    'error'
-                );
+                PuzzleUtils.showToast('❌ Packet transmission failed. Please try again.', 'error');
             }
         });
+    },
+
+    submitToBackend(isCorrect, onSuccess) {
+        // Backwards compatibility helper
+        const score = isCorrect ? (window.puzzleData?.points ?? 0) : 0;
+        return this.submitResponse({ score: score, is_correct: isCorrect }, onSuccess);
     },
 
     /* ------------------------------------------------------------------ */

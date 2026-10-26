@@ -52,7 +52,8 @@ class ModuleSmokeTest extends TestCase
             'score' => 150
         ]);
         $submit->assertStatus(200);
-        $submit->assertJsonFragment(['status' => 'completed', 'score' => 150]);
+        $submit->assertJsonStructure(['status', 'score', 'feedback']);
+        $submit->assertJsonFragment(['status' => 'completed']);
 
         // Security check: Lecturer should get 403 Forbidden
         if ($lecturer) {

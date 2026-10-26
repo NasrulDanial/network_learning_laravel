@@ -58,6 +58,16 @@
             </a>
 
             <a
+                href="{{ route('lecturer.missions.index') }}"
+                class="nav-item {{ $active === 'missions' ? 'active' : '' }}"
+            >
+                <span class="nav-icon" aria-hidden="true">
+                    <i class="fa-solid fa-puzzle-piece"></i>
+                </span>
+                <span class="nav-text">Manage Missions (PBL)</span>
+            </a>
+
+            <a
                 href="{{ route('lecturer.quizzes.index') }}"
                 class="nav-item {{ $active === 'quizzes' ? 'active' : '' }}"
             >

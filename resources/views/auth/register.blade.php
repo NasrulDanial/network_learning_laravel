@@ -111,24 +111,9 @@
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label for="role">Role</label>
-                    <select id="role" name="role" required>
-                        <option value="">Select role</option>
-
-                        <option value="student" {{ old('role') === 'student' ? 'selected' : '' }}>
-                            Student
-                        </option>
-
-                        <option value="lecturer" {{ old('role') === 'lecturer' ? 'selected' : '' }}>
-                            Lecturer
-                        </option>
-                    </select>
-                </div>
-
-                <button type="submit" style="width: 100%;">
+                <button type="submit" style="width: 100%; margin-top: 10px;">
                     <i class="fa-solid fa-user-plus" aria-hidden="true"></i>
-                    Create Account
+                    Create Student Account
                 </button>
             </form>
 

@@ -53,19 +53,18 @@ class AuthController extends Controller
             'name' => ['required', 'string', 'max:100'],
             'email' => ['required', 'email', 'max:100', 'unique:users,email'],
             'password' => ['required', 'confirmed', 'min:6'],
-            'role' => ['required', 'in:student,lecturer'],
         ]);
 
         User::create([
             'name' => $data['name'],
             'email' => $data['email'],
             'password' => Hash::make($data['password']),
-            'role' => $data['role'],
+            'role' => 'student',
         ]);
 
         return redirect()
             ->route('login')
-            ->with('success', 'Registration successful. You may now login.');
+            ->with('success', 'Registration successful. You may now login as a student.');
     }
 
     public function logout(Request $request)

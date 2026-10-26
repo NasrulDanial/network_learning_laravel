@@ -8,6 +8,7 @@ use App\Http\Controllers\QuizController;
 use App\Http\Controllers\QuestionController;
 use App\Http\Controllers\StudentPerformanceController;
 use App\Http\Controllers\PuzzleController;
+use App\Http\Controllers\Lecturer\MissionController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -140,6 +141,42 @@ Route::middleware(['auth', 'role:lecturer'])->group(function () {
 
     Route::get('/lecturer/puzzles/{topicId}/state', [PuzzleController::class, 'getBoardState'])
         ->name('lecturer.puzzles.state');
+
+    // Mission & Puzzle Activity Management (PBL Core)
+    Route::get('/lecturer/missions', [MissionController::class, 'index'])
+        ->name('lecturer.missions.index');
+    Route::get('/lecturer/topics/{topic}/missions', [MissionController::class, 'index'])
+        ->name('lecturer.topics.missions');
+    Route::get('/lecturer/missions/create', [MissionController::class, 'create'])
+        ->name('lecturer.missions.create');
+    Route::get('/lecturer/topics/{topic}/missions/create', [MissionController::class, 'create'])
+        ->name('lecturer.topics.missions.create');
+    Route::post('/lecturer/missions', [MissionController::class, 'store'])
+        ->name('lecturer.missions.store');
+    Route::get('/lecturer/missions/{mission}', [MissionController::class, 'show'])
+        ->name('lecturer.missions.show');
+    Route::get('/lecturer/missions/{mission}/edit', [MissionController::class, 'edit'])
+        ->name('lecturer.missions.edit');
+    Route::put('/lecturer/missions/{mission}', [MissionController::class, 'update'])
+        ->name('lecturer.missions.update');
+    Route::delete('/lecturer/missions/{mission}', [MissionController::class, 'destroy'])
+        ->name('lecturer.missions.destroy');
+
+    // Puzzle Authoring within a Mission
+    Route::get('/lecturer/missions/{mission}/puzzles/create', [MissionController::class, 'createPuzzle'])
+        ->name('lecturer.missions.puzzles.create');
+    Route::post('/lecturer/missions/{mission}/puzzles', [MissionController::class, 'storePuzzle'])
+        ->name('lecturer.missions.puzzles.store');
+    Route::get('/lecturer/puzzles/{puzzle}/edit', [MissionController::class, 'editPuzzle'])
+        ->name('lecturer.missions.puzzles.edit');
+    Route::put('/lecturer/puzzles/{puzzle}', [MissionController::class, 'updatePuzzle'])
+        ->name('lecturer.missions.puzzles.update');
+    Route::delete('/lecturer/puzzles/{puzzle}', [MissionController::class, 'destroyPuzzle'])
+        ->name('lecturer.missions.puzzles.destroy');
+    Route::post('/lecturer/puzzles/{puzzle}/toggle-status', [MissionController::class, 'togglePuzzleStatus'])
+        ->name('lecturer.missions.puzzles.toggle');
+    Route::get('/lecturer/puzzles/{puzzle}/preview', [MissionController::class, 'previewPuzzle'])
+        ->name('lecturer.missions.puzzles.preview');
 });
 
 // Puzzle routes are student-only — prevents lecturers from awarding themselves XP

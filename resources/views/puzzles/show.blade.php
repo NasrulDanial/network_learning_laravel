@@ -36,21 +36,39 @@
 @section('content')
 <div style="max-width: 960px; margin: 0 auto; padding: 12px 0;">
 
+    @if (!empty($isPreview))
+        <div style="background: rgba(234, 179, 8, 0.15); border: 1px solid rgba(234, 179, 8, 0.4); color: #facc15; border-radius: 12px; padding: 12px 18px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 0.88rem;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-flask-vial"></i>
+                <span><strong>LECTURER TEST PREVIEW:</strong> Experiencing puzzle gameplay exactly as students will. Testing mode active — Zero XP credited, Zero attempts recorded.</span>
+            </div>
+            @if ($puzzle->mission_id)
+                <a href="{{ route('lecturer.missions.show', $puzzle->mission_id) }}" style="color: #facc15; font-weight: 700; text-decoration: underline; white-space: nowrap;">Exit Preview</a>
+            @endif
+        </div>
+    @else
+        <div style="margin-bottom: 12px;">
+            <a href="{{ route('student.topic', $puzzle->topic_id) }}" style="font-size: 0.85rem; color: var(--nl-cyan, #22d3ee); text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-arrow-left"></i> Back to Mission Board
+            </a>
+        </div>
+    @endif
+
     <!-- Telemetry Header Card -->
     <div style="background: var(--nl-glass-card); backdrop-filter: var(--nl-glass-blur); border: 1px solid var(--nl-glass-border); border-radius: var(--nl-radius-panel); padding: 24px; margin-bottom: 20px; box-shadow: 0 16px 36px rgba(0,0,0,0.4);">
         <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;">
             <div style="flex: 1; min-width: 260px;">
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
                     <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e;"></span>
-                    <span class="sheet-badge" style="font-size: 0.72rem;">
-                        MISSION NODE: #{{ $puzzle->puzzle_id }} // {{ strtoupper($puzzle->puzzle_type) }}_SIMULATION
+                    <span class="sheet-badge" style="font-size: 0.72rem; text-transform: uppercase;">
+                        NODE #{{ $puzzle->puzzle_id }} // {{ strtoupper(str_replace('_', ' ', $puzzle->puzzle_type)) }} // ORDER {{ $puzzle->activity_order ?? 1 }}
                     </span>
                 </div>
-                <h1 style="font-size: 1.5rem; font-weight: 800; color: #FFFFFF; margin: 0; letter-spacing: -0.02em;">
-                    {{ $puzzle->instruction }}
+                <h1 style="font-size: 1.45rem; font-weight: 800; color: #FFFFFF; margin: 0 0 4px 0; letter-spacing: -0.02em;">
+                    {{ $puzzle->question_text }}
                 </h1>
-                <p style="font-size: 0.88rem; color: var(--nl-text-secondary); margin-top: 6px; margin-bottom: 0;">
-                    Configure network nodes and verify topology convergence before transmitting telemetry.
+                <p style="font-size: 0.88rem; color: var(--nl-text-secondary); margin: 0; line-height: 1.4;">
+                    {{ $puzzle->instruction }}
                 </p>
             </div>
 
@@ -72,13 +90,13 @@
                     <span style="width: 10px; height: 10px; border-radius: 50%; background: #f59e0b; display: inline-block;"></span>
                     <span style="width: 10px; height: 10px; border-radius: 50%; background: #22c55e; display: inline-block;"></span>
                 </div>
-                <span style="color: #22d3ee; font-weight: 600; margin-left: 6px;">eth0 [1 Gbps Full-Duplex]</span>
+                <span style="color: #22d3ee; font-weight: 600; margin-left: 6px;">eth0 [Interactive Simulation Node]</span>
             </div>
-            <span>ENGINE: PHASER 3 // CANVAS AUTO-SCALE</span>
+            <span>ENGINE: PHASER 3 // AUTO-SCALE</span>
         </div>
 
         <!-- Phaser Mount Container -->
-        <div id="phaser-game" style="width: 100%; min-height: 460px; background: #070d18; border-radius: 0 0 18px 18px; overflow: hidden; position: relative;">
+        <div id="phaser-game" style="width: 100%; min-height: 480px; background: #070d18; border-radius: 0 0 18px 18px; overflow: hidden; position: relative;">
             <div id="game-loader" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: #070d18; z-index: 20;">
                 <div style="width: 44px; height: 44px; border: 3px solid rgba(255, 255, 255, 0.1); border-top-color: var(--nl-cyan); border-radius: 50%; animation: phaserSpin 0.9s linear infinite;"></div>
                 <span style="font-size: 0.78rem; font-weight: 600; color: var(--nl-cyan); letter-spacing: 0.1em;">
@@ -109,13 +127,25 @@
     <script src="{{ asset('js/puzzles/puzzleUtils.js') }}"></script>
 
     <script>
-        const puzzleData = @json($puzzle->only(['puzzle_id', 'topic_id', 'puzzle_type', 'instruction', 'points']));
-        const submitUrl  = "{{ route('puzzles.submit', $puzzle->puzzle_id) }}";
+        window.isPreview    = {!! json_encode(!empty($isPreview)) !!};
+        window.puzzleData   = {!! json_encode($puzzle->only(['puzzle_id', 'topic_id', 'puzzle_type', 'question_text', 'instruction', 'points'])) !!};
+        window.activityData = {!! json_encode($puzzle->getSafeActivityData()) !!};
+        window.submitUrl    = "{{ route('puzzles.submit', $puzzle->puzzle_id) }}";
     </script>
 
-    @if ($puzzle->puzzle_type === 'drag_and_drop' || $puzzle->puzzle_type === 'matching')
-        <script src="{{ asset('js/puzzles/DeviceMapper.js') }}"></script>
+    @if ($puzzle->puzzle_type === 'identification')
+        <script src="{{ asset('js/puzzles/TemplateIdentification.js') }}"></script>
+    @elseif ($puzzle->puzzle_type === 'matching')
+        <script src="{{ asset('js/puzzles/TemplateMatching.js') }}"></script>
     @elseif ($puzzle->puzzle_type === 'sequencing')
-        <script src="{{ asset('js/puzzles/OsiSequencer.js') }}"></script>
+        <script src="{{ asset('js/puzzles/TemplateSequencing.js') }}"></script>
+    @elseif ($puzzle->puzzle_type === 'classification')
+        <script src="{{ asset('js/puzzles/TemplateClassification.js') }}"></script>
+    @elseif ($puzzle->puzzle_type === 'drag_and_drop')
+        <script src="{{ asset('js/puzzles/DeviceMapper.js') }}"></script>
+    @elseif ($puzzle->puzzle_type === 'scenario')
+        <script src="{{ asset('js/puzzles/TemplateScenario.js') }}"></script>
+    @else
+        <script src="{{ asset('js/puzzles/DeviceMapper.js') }}"></script>
     @endif
 @endsection

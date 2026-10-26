@@ -1,0 +1,194 @@
+/**
+ * TemplateClassification.js
+ * Phaser 3 Puzzle Archetype 4: Multi-Bin Categorization & Sorting.
+ */
+class TemplateClassification extends Phaser.Scene {
+    constructor() {
+        super({ key: 'TemplateClassification' });
+        this.bins = [];
+        this.itemTokens = [];
+        this.placements = {}; // itemId -> categoryId
+    }
+
+    create() {
+        const { width, height } = this.scale;
+        document.getElementById('game-loader')?.remove();
+
+        const data = window.activityData || {};
+        const categories = data.categories || [
+            { id: 'cat_1', label: 'Layer 2 - Data Link' },
+            { id: 'cat_2', label: 'Layer 3 - Network' },
+            { id: 'cat_3', label: 'Layer 4 - Transport' }
+        ];
+
+        const items = data.items || [
+            { id: 'item_1', label: 'Switch' },
+            { id: 'item_2', label: 'Router' },
+            { id: 'item_3', label: 'TCP Segment' },
+            { id: 'item_4', label: 'MAC Frame' }
+        ];
+
+        this.totalItems = items.length;
+
+        // Title
+        this.add.text(width / 2, 28, window.puzzleData?.question_text || 'Categorize Protocols & Networking Hardware', {
+            font: 'bold 18px "Inter", sans-serif',
+            fill: '#ffffff'
+        }).setOrigin(0.5);
+
+        this.add.text(width / 2, 52, 'Drag each item into its correct operational category bucket below.', {
+            font: '12px "Inter", sans-serif',
+            fill: '#94a3b8'
+        }).setOrigin(0.5);
+
+        // ── Category Bins (Bottom Area) ──────────────────────────────────
+        const binCount = categories.length;
+        const binWidth = Math.min(220, (width * 0.92) / binCount - 16);
+        const binHeight = 160;
+        const binY = height * 0.65;
+        const totalBinsWidth = binCount * binWidth + (binCount - 1) * 16;
+        const binStartX = (width - totalBinsWidth) / 2 + (binWidth / 2);
+
+        categories.forEach((cat, idx) => {
+            const bx = binStartX + idx * (binWidth + 16);
+            const zone = this.add.zone(bx, binY, binWidth, binHeight).setRectangleDropZone(binWidth, binHeight);
+            zone.setData('categoryId', cat.id);
+
+            const g = this.add.graphics();
+            g.fillStyle(0x0c1e36, 0.7);
+            g.fillRect(bx - (binWidth / 2), binY - (binHeight / 2), binWidth, binHeight);
+            g.lineStyle(2, 0x10b981, 0.7);
+            g.strokeRect(bx - (binWidth / 2), binY - (binHeight / 2), binWidth, binHeight);
+
+            this.add.text(bx, binY - (binHeight / 2) + 18, cat.label, {
+                font: 'bold 12px "Inter", sans-serif',
+                fill: '#34d399',
+                align: 'center',
+                wordWrap: { width: binWidth - 14 }
+            }).setOrigin(0.5);
+
+            this.bins.push(zone);
+        });
+
+        // ── Item Tokens (Top Staging Grid) ───────────────────────────────
+        const cols = Math.min(items.length, 4);
+        const tokenWidth = 160;
+        const tokenHeight = 44;
+        const gridStartX = (width - (cols * (tokenWidth + 12))) / 2 + (tokenWidth / 2);
+
+        items.forEach((item, idx) => {
+            const col = idx % cols;
+            const row = Math.floor(idx / cols);
+            const tx = gridStartX + col * (tokenWidth + 12);
+            const ty = 95 + row * 52;
+
+            const container = this.add.container(tx, ty);
+            const bg = this.add.rectangle(0, 0, tokenWidth, tokenHeight, 0x1e293b)
+                .setStrokeStyle(1, 0x38bdf8);
+
+            const txt = this.add.text(0, 0, item.label, {
+                font: '12px "Inter", sans-serif',
+                fill: '#e2e8f0',
+                align: 'center',
+                wordWrap: { width: tokenWidth - 16 }
+            }).setOrigin(0.5);
+
+            container.add([bg, txt]);
+            container.setSize(tokenWidth, tokenHeight);
+            container.setInteractive({ useHandCursor: true });
+            this.input.setDraggable(container);
+
+            container.setData('itemId', item.id);
+            container.setData('homeX', tx);
+            container.setData('homeY', ty);
+            container._bg = bg;
+
+            this.itemTokens.push(container);
+        });
+
+        // ── Drag & Drop Events ───────────────────────────────────────────
+        this.input.on('dragstart', (pointer, gameObject) => {
+            this.children.bringToTop(gameObject);
+            gameObject._bg.setFillStyle(0x0f2a4a);
+            gameObject._bg.setStrokeStyle(2, 0x22d3ee);
+        });
+
+        this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
+            gameObject.x = dragX;
+            gameObject.y = dragY;
+        });
+
+        this.input.on('drop', (pointer, gameObject, dropZone) => {
+            const itemId = gameObject.getData('itemId');
+            const catId = dropZone.getData('categoryId');
+
+            this.placements[itemId] = catId;
+            gameObject.x = dropZone.x + (Math.random() * 20 - 10);
+            gameObject.y = dropZone.y + (Math.random() * 40 - 10);
+            gameObject._bg.setFillStyle(0x064e3b);
+            gameObject._bg.setStrokeStyle(1, 0x34d399);
+        });
+
+        this.input.on('dragend', (pointer, gameObject, dropped) => {
+            if (!dropped) {
+                const itemId = gameObject.getData('itemId');
+                delete this.placements[itemId];
+                gameObject.x = gameObject.getData('homeX');
+                gameObject.y = gameObject.getData('homeY');
+                gameObject._bg.setFillStyle(0x1e293b);
+                gameObject._bg.setStrokeStyle(1, 0x38bdf8);
+            }
+        });
+
+        // ── Submit Button ────────────────────────────────────────────────
+        const submitBtn = this.add.container(width / 2, height - 35);
+        const btnBg = this.add.rectangle(0, 0, 230, 40, 0x059669)
+            .setStrokeStyle(1, 0x34d399)
+            .setInteractive({ useHandCursor: true });
+
+        const btnLabel = this.add.text(0, 0, '📂 SUBMIT CLASSIFICATION', {
+            font: 'bold 13px "Inter", sans-serif',
+            fill: '#ffffff'
+        }).setOrigin(0.5);
+
+        submitBtn.add([btnBg, btnLabel]);
+
+        btnBg.on('pointerover', () => btnBg.setFillStyle(0x10b981));
+        btnBg.on('pointerout',  () => btnBg.setFillStyle(0x059669));
+        btnBg.on('pointerdown', () => this.handleSubmit());
+
+        this._submitBtnBg = btnBg;
+    }
+
+    handleSubmit() {
+        const placedCount = Object.keys(this.placements).length;
+        if (placedCount < this.totalItems) {
+            PuzzleUtils.showToast(`⚠️ Please categorize all ${this.totalItems} items. (${placedCount}/${this.totalItems} placed)`, 'warning');
+            return;
+        }
+
+        if (this._submitBtnBg) {
+            this._submitBtnBg.disableInteractive();
+            this._submitBtnBg.setFillStyle(0x334155);
+        }
+
+        PuzzleUtils.submitResponse({
+            placements: this.placements
+        });
+    }
+}
+
+const config = {
+    type: Phaser.AUTO,
+    parent: 'phaser-game',
+    width: 800,
+    height: 500,
+    backgroundColor: '#071426',
+    scene: TemplateClassification,
+    scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+    },
+};
+
+new Phaser.Game(config);

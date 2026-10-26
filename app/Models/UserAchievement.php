@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class UserAchievement extends Model
 {
-    protected $primaryKey = 'id';
+    protected $primaryKey = 'user_achievement_id';
 
     protected $fillable = [
         'user_id',

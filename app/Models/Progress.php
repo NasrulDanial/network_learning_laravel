@@ -16,6 +16,10 @@ class Progress extends Model
         'learning_status',
         'quiz_status',
         'progress_percentage',
+        'completed_missions',
+        'total_xp',
+        'current_level',
+        'current_rank',
     ];
 
     public function user()

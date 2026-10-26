@@ -7,6 +7,9 @@ use App\Models\Question;
 use App\Models\Quiz;
 use App\Models\Result;
 use App\Models\Topic;
+use App\Models\Mission;
+use App\Models\UserMissionProgress;
+use App\Models\UserPuzzleProgress;
 use Illuminate\Http\Request;
 
 class StudentController extends Controller
@@ -130,11 +133,55 @@ class StudentController extends Controller
         ->orderBy('quiz_id', 'asc')
         ->first();
 
+    // Load PBL missions with their published puzzles and student progress
+    $missions = Mission::where('topic_id', $topic->topic_id)
+        ->where('status', 'published')
+        ->withCount(['puzzles' => function ($q) {
+            $q->where('status', 'published');
+        }])
+        ->orderBy('mission_order', 'asc')
+        ->get();
+
+    // Attach student's mission progress and puzzle progress to each mission
+    $missionProgressMap = UserMissionProgress::where('user_id', $userId)
+        ->whereIn('mission_id', $missions->pluck('mission_id'))
+        ->get()
+        ->keyBy('mission_id');
+
+    // First mission is always unlocked; others unlocked via UserMissionProgress
+    foreach ($missions as $idx => $m) {
+        $prog = $missionProgressMap->get($m->mission_id);
+        $m->student_is_unlocked = ($idx === 0) || ($prog && $prog->is_unlocked);
+        $m->student_is_completed = $prog && $prog->is_completed;
+        $m->student_score_pct = $prog ? $prog->best_score_percentage : 0;
+
+        // Load puzzles for this mission with student's puzzle progress
+        $puzzles = $m->puzzles()
+            ->where('status', 'published')
+            ->orderBy('activity_order', 'asc')
+            ->get();
+
+        $puzzleProgressMap = UserPuzzleProgress::where('user_id', $userId)
+            ->whereIn('puzzle_id', $puzzles->pluck('puzzle_id'))
+            ->get()
+            ->keyBy('puzzle_id');
+
+        foreach ($puzzles as $puzzle) {
+            $pProg = $puzzleProgressMap->get($puzzle->puzzle_id);
+            $puzzle->student_is_completed = $pProg && $pProg->is_completed;
+            $puzzle->student_best_score = $pProg ? $pProg->best_score : 0;
+            $puzzle->student_attempts = $pProg ? $pProg->attempts_count : 0;
+        }
+
+        $m->setRelation('puzzles', $puzzles);
+    }
+
     return view('student.topic', [
         'pageTitle' => 'Learning Topic',
         'activePage' => 'learning',
-        'topic' => $topic,
-        'quiz' => $quiz,
+        'topic'     => $topic,
+        'quiz'      => $quiz,
+        'missions'  => $missions,
     ]);
 }
 
