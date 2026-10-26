@@ -99,6 +99,10 @@
                 </h2>
             </div>
             <div style="display: flex; gap: 8px;">
+                <a class="button primary" href="{{ route('lecturer.missions.index') }}" style="font-size: 0.82rem; padding: 8px 16px;">
+                    <i class="fa-solid fa-puzzle-piece"></i>
+                    <span>Missions (PBL)</span>
+                </a>
                 <a class="button secondary" href="{{ route('lecturer.student-performance.index') }}" style="font-size: 0.82rem; padding: 8px 16px;">
                     <i class="fa-solid fa-users-viewfinder"></i>
                     <span>All Records</span>
