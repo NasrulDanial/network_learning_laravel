@@ -174,11 +174,15 @@ class TemplateMatching extends Phaser.Scene {
     }
 
     handleSubmit() {
+        if (this._isSubmitting) return;
+
         const pairedCount = Object.keys(this.pairs).length;
         if (pairedCount < this.totalLeft) {
             PuzzleUtils.showToast(`⚠️ Please connect all ${this.totalLeft} pairs before submitting. (${pairedCount}/${this.totalLeft} mapped)`, 'warning');
             return;
         }
+
+        this._isSubmitting = true;
 
         if (this._submitBtnBg) {
             this._submitBtnBg.disableInteractive();
@@ -187,6 +191,24 @@ class TemplateMatching extends Phaser.Scene {
 
         PuzzleUtils.submitResponse({
             pairs: this.pairs
+        }, {
+            onSuccess: () => {
+                if (this._submitBtnBg) this._submitBtnBg.setFillStyle(0x059669);
+            },
+            onRetry: () => {
+                this._isSubmitting = false;
+                if (this._submitBtnBg) {
+                    this._submitBtnBg.setInteractive({ useHandCursor: true });
+                    this._submitBtnBg.setFillStyle(0x0284c7);
+                }
+            },
+            onError: () => {
+                this._isSubmitting = false;
+                if (this._submitBtnBg) {
+                    this._submitBtnBg.setInteractive({ useHandCursor: true });
+                    this._submitBtnBg.setFillStyle(0x0284c7);
+                }
+            }
         });
     }
 }

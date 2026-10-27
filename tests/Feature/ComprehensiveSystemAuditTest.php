@@ -275,4 +275,101 @@ class ComprehensiveSystemAuditTest extends TestCase
             $this->assertArrayNotHasKey('correct_choice', $data);
         }
     }
+
+    public function test_lecturer_preview_evaluates_answers_without_logging_attempts_or_awarding_xp()
+    {
+        $puzzle = Puzzle::where('status', 'published')->first();
+        if (!$puzzle) return;
+
+        $initialAttempts = PuzzleAttempt::where('puzzle_id', $puzzle->puzzle_id)->count();
+
+        $response = $this->actingAs($this->lecturer)->postJson(
+            route('lecturer.missions.puzzles.preview.submit', $puzzle->puzzle_id),
+            ['selected_option' => 'opt_1']
+        );
+
+        $response->assertStatus(200);
+        $data = $response->json();
+        $this->assertEquals(0, $data['earned_xp']);
+        $this->assertStringContainsString('Lecturer Sandbox Preview', $data['clearance_status']);
+
+        // Assert zero database mutations in puzzle_attempts
+        $this->assertEquals($initialAttempts, PuzzleAttempt::where('puzzle_id', $puzzle->puzzle_id)->count());
+    }
+
+    public function test_tampered_is_correct_rejected_with_422()
+    {
+        $puzzle = Puzzle::where('status', 'published')->first();
+        if (!$puzzle) return;
+
+        $response = $this->actingAs($this->student)->postJson("/puzzles/{$puzzle->puzzle_id}/submit", [
+            'is_correct' => true,
+            'score'      => 9999,
+        ]);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_quiz_attempt_idempotency_prevents_repeat_xp_farming()
+    {
+        // Create an isolated student directly (no factory — avoids email_verified_at
+        // which is not in the users table schema).
+        $isolatedStudent = User::create([
+            'name'     => 'Idempotency Test Student',
+            'email'    => 'idempotency_test_' . uniqid() . '@example.com',
+            'password' => bcrypt('password'),
+            'role'     => 'student',
+        ]);
+
+        // Load the first quiz and its actual questions so we can build a
+        // 100 % correct answer payload — guaranteeing a Pass result.
+        $quiz      = Quiz::with(['questions', 'topic'])->firstOrFail();
+        $questions = $quiz->questions;
+
+        // Build a fully-correct answers map keyed by real question_id.
+        $correctAnswers = [];
+        foreach ($questions as $question) {
+            $correctAnswers[$question->question_id] = $question->correct_answer;
+        }
+
+        // ── Round 1: first ever Pass ─────────────────────────────────────────
+        $response = $this->actingAs($isolatedStudent)->post('/student/quiz/submit', [
+            'quiz_id' => $quiz->quiz_id,
+            'answers' => $correctAnswers,
+        ]);
+
+        $response->assertStatus(302);   // redirect on success
+
+        $firstResult = Result::where('user_id', $isolatedStudent->user_id)
+            ->where('quiz_id', $quiz->quiz_id)
+            ->latest('result_id')
+            ->firstOrFail();
+
+        $this->assertEquals('Pass', $firstResult->status,
+            'Round-1 submission with all correct answers must produce a Pass.');
+        $this->assertGreaterThan(0, $firstResult->points_earned,
+            'First ever Pass should award XP (points_earned > 0).');
+
+        // ── Round 2: repeat Pass — XP must be 0 (idempotent guard) ──────────
+        $response2 = $this->actingAs($isolatedStudent)->post('/student/quiz/submit', [
+            'quiz_id' => $quiz->quiz_id,
+            'answers' => $correctAnswers,
+        ]);
+
+        $response2->assertStatus(302);
+
+        $secondResult = Result::where('user_id', $isolatedStudent->user_id)
+            ->where('quiz_id', $quiz->quiz_id)
+            ->latest('result_id')
+            ->firstOrFail();
+
+        $this->assertEquals('Pass', $secondResult->status,
+            'Round-2 submission must still be a Pass.');
+        $this->assertEquals(0, $secondResult->points_earned,
+            'Repeat Pass must award 0 XP to prevent farming.');
+
+        // Clean up the isolated user record so the live DB stays tidy.
+        Result::where('user_id', $isolatedStudent->user_id)->delete();
+        $isolatedStudent->delete();
+    }
 }

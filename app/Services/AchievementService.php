@@ -10,9 +10,18 @@ class AchievementService
 {
     public static function checkAndAward($userId)
     {
-        // Aggregate user's overall progress across all topics
-        $totalXp = Progress::where('user_id', $userId)->sum('total_xp');
-        $completedMissions = Progress::where('user_id', $userId)->sum('completed_missions');
+        // Unified authoritative calculations across both PBL missions and conventional quizzes
+        $pblXp = (int) Progress::where('user_id', $userId)->sum('total_xp');
+        $quizXp = (int) \App\Models\Result::where('user_id', $userId)->sum('points_earned');
+        $totalXp = $pblXp + $quizXp;
+
+        $completedTopics = Progress::where('user_id', $userId)
+            ->where('learning_status', 'Completed')
+            ->count();
+
+        $completedMissions = \App\Models\UserMissionProgress::where('user_id', $userId)
+            ->where('is_completed', true)
+            ->count();
 
         $achievements = Achievement::all();
         $newBadges = [];
@@ -25,18 +34,19 @@ class AchievementService
             if (!$hasBadge) {
                 $earned = false;
 
-                if ($achievement->requirement_type === 'topics_completed' && $completedMissions >= $achievement->requirement_value) {
+                if ($achievement->requirement_type === 'topics_completed' && $completedTopics >= $achievement->requirement_value) {
+                    $earned = true;
+                } elseif ($achievement->requirement_type === 'missions_completed' && $completedMissions >= $achievement->requirement_value) {
                     $earned = true;
                 } elseif ($achievement->requirement_type === 'xp_earned' && $totalXp >= $achievement->requirement_value) {
                     $earned = true;
                 }
 
                 if ($earned) {
-                    UserAchievement::create([
-                        'user_id' => $userId,
-                        'achievement_id' => $achievement->achievement_id,
-                        'date_earned' => now(),
-                    ]);
+                    UserAchievement::firstOrCreate(
+                        ['user_id' => $userId, 'achievement_id' => $achievement->achievement_id],
+                        ['date_earned' => now()]
+                    );
                     $newBadges[] = $achievement->badge_name;
                 }
             }

@@ -134,10 +134,14 @@ class TemplateIdentification extends Phaser.Scene {
     }
 
     handleSubmit() {
+        if (this._isSubmitting) return;
+
         if (!this.selectedOptionId) {
             PuzzleUtils.showToast('⚠️ Please select an option before transmitting telemetry.', 'warning');
             return;
         }
+
+        this._isSubmitting = true;
 
         if (this._btnBg) {
             this._btnBg.disableInteractive();
@@ -146,6 +150,24 @@ class TemplateIdentification extends Phaser.Scene {
 
         PuzzleUtils.submitResponse({
             selected_option: this.selectedOptionId
+        }, {
+            onSuccess: () => {
+                if (this._btnBg) this._btnBg.setFillStyle(0x059669);
+            },
+            onRetry: () => {
+                this._isSubmitting = false;
+                if (this._btnBg) {
+                    this._btnBg.setInteractive({ useHandCursor: true });
+                    this._btnBg.setFillStyle(0x0284c7);
+                }
+            },
+            onError: () => {
+                this._isSubmitting = false;
+                if (this._btnBg) {
+                    this._btnBg.setInteractive({ useHandCursor: true });
+                    this._btnBg.setFillStyle(0x0284c7);
+                }
+            }
         });
     }
 }

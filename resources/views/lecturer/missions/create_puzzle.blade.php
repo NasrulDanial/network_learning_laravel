@@ -106,8 +106,8 @@
                 >{{ old('instruction') }}</textarea>
             </div>
 
-            <!-- Grid: Points, Difficulty, Order, Status -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 20px;">
+            <!-- Grid: Points, Difficulty, Order, Status, Max Attempts -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 20px;">
                 <div>
                     <label for="points" style="display: block; font-size: 0.85rem; font-weight: 600; color: rgba(255, 255, 255, 0.8); margin-bottom: 8px;">
                         XP Points (25 - 500) <span style="color: #f87171;">*</span>
@@ -142,6 +142,21 @@
                 </div>
 
                 <div>
+                    <label for="max_attempts" style="display: block; font-size: 0.85rem; font-weight: 600; color: rgba(255, 255, 255, 0.8); margin-bottom: 8px;">
+                        Max Attempts (0 = Unlimited)
+                    </label>
+                    <input
+                        type="number"
+                        id="max_attempts"
+                        name="max_attempts"
+                        min="0"
+                        max="100"
+                        value="{{ old('max_attempts', 0) }}"
+                        style="width: 100%; padding: 12px 16px; border-radius: 12px; background: rgba(7, 20, 38, 0.8); border: 1px solid rgba(255, 255, 255, 0.15); color: #FFFFFF; font-size: 0.92rem;"
+                    />
+                </div>
+
+                <div>
                     <label for="activity_order" style="display: block; font-size: 0.85rem; font-weight: 600; color: rgba(255, 255, 255, 0.8); margin-bottom: 8px;">
                         Activity Order <span style="color: #f87171;">*</span>
                     </label>
@@ -170,6 +185,20 @@
                         <option value="draft" {{ old('status') === 'draft' ? 'selected' : '' }}>Draft (Hidden)</option>
                     </select>
                 </div>
+            </div>
+
+            <!-- Optional Explanation, Feedback & Hint -->
+            <div style="margin-bottom: 16px;">
+                <label for="explanation" style="display: block; font-size: 0.82rem; font-weight: 600; color: rgba(255, 255, 255, 0.7); margin-bottom: 6px;">
+                    Pedagogical Explanation / Educational Debrief (optional)
+                </label>
+                <textarea
+                    id="explanation"
+                    name="explanation"
+                    rows="2"
+                    placeholder="Technical rationale explained to students following puzzle evaluation..."
+                    style="width: 100%; padding: 10px 14px; border-radius: 10px; background: rgba(7, 20, 38, 0.8); border: 1px solid rgba(255, 255, 255, 0.12); color: #FFFFFF; font-size: 0.88rem; font-family: inherit; resize: vertical;"
+                >{{ old('explanation') }}</textarea>
             </div>
 
             <!-- Optional Feedback & Hint -->

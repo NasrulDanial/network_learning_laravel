@@ -203,6 +203,9 @@ class DeviceMapper extends Phaser.Scene {
             return;
         }
 
+        if (this._isSubmitting) return;
+        this._isSubmitting = true;
+
         if (this._submitBtnBg) {
             this._submitBtnBg.disableInteractive();
             this._submitBtnBg.setFillStyle(0x334155);
@@ -210,6 +213,24 @@ class DeviceMapper extends Phaser.Scene {
 
         PuzzleUtils.submitResponse({
             placements: this.placements
+        }, {
+            onSuccess: () => {
+                if (this._submitBtnBg) this._submitBtnBg.setFillStyle(0x059669);
+            },
+            onRetry: () => {
+                this._isSubmitting = false;
+                if (this._submitBtnBg) {
+                    this._submitBtnBg.setInteractive({ useHandCursor: true });
+                    this._submitBtnBg.setFillStyle(0x0284c7);
+                }
+            },
+            onError: () => {
+                this._isSubmitting = false;
+                if (this._submitBtnBg) {
+                    this._submitBtnBg.setInteractive({ useHandCursor: true });
+                    this._submitBtnBg.setFillStyle(0x0284c7);
+                }
+            }
         });
     }
 }

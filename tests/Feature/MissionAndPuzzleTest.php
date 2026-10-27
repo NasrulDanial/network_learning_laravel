@@ -67,7 +67,7 @@ class MissionAndPuzzleTest extends TestCase
         $newUser = User::where('email', 'like', 'hacker%')->latest()->first();
         if ($newUser) {
             $this->assertEquals('student', $newUser->role, 'Registration must never create a lecturer via public form');
-            $newUser->forceDelete();
+            $newUser->delete();
         }
     }
 
@@ -243,23 +243,17 @@ class MissionAndPuzzleTest extends TestCase
     /** @test */
     public function student_cannot_submit_fake_is_correct_true_to_earn_xp()
     {
-        // Even if client sends is_correct=true, the server ignores it.
-        // The response score is determined server-side from the actual answer.
+        // Client claiming is_correct=true or fake score without valid answer payload
+        // must be rejected with 422 Unprocessable Entity by the server.
         $response = $this->actingAs($this->student)->postJson(
             route('puzzles.submit', $this->identPuzzle->puzzle_id),
             [
-                'is_correct' => true,   // Tampered field — should be IGNORED
-                'score'      => 9999,   // Tampered score — should be IGNORED
-                // No selected_option submitted → evaluator will reject
+                'is_correct' => true,   // Tampered field
+                'score'      => 9999,   // Tampered score
             ]
         );
 
-        $response->assertStatus(200);
-        $data = $response->json();
-
-        // Server-evaluated score must not be the tampered value
-        $this->assertNotEquals(9999, $data['score'] ?? 0);
-        $this->assertFalse($data['is_correct'] ?? false);
+        $response->assertStatus(422);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -288,7 +282,7 @@ class MissionAndPuzzleTest extends TestCase
 
         $response->assertStatus(403);
 
-        $draftPuzzle->forceDelete();
+        $draftPuzzle->delete();
     }
 
     // ═══════════════════════════════════════════════════════════════

@@ -177,6 +177,8 @@ Route::middleware(['auth', 'role:lecturer'])->group(function () {
         ->name('lecturer.missions.puzzles.toggle');
     Route::get('/lecturer/puzzles/{puzzle}/preview', [MissionController::class, 'previewPuzzle'])
         ->name('lecturer.missions.puzzles.preview');
+    Route::post('/lecturer/puzzles/{puzzle}/preview-submit', [MissionController::class, 'evaluatePreview'])
+        ->name('lecturer.missions.puzzles.preview.submit');
 });
 
 // Puzzle routes are student-only — prevents lecturers from awarding themselves XP

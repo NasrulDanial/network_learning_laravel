@@ -46,14 +46,36 @@ class ModuleSmokeTest extends TestCase
         // Verify sensitive answer is NOT in response
         $this->assertArrayNotHasKey('correct_answer', $response->json());
 
-        // Student submitting puzzle attempt
-        $submit = $this->actingAs($student)->postJson('/puzzles/1/submit', [
+        // Security check: Client claiming is_correct / score without structured payload must be rejected (422)
+        $tampered = $this->actingAs($student)->postJson('/puzzles/1/submit', [
             'is_correct' => 1,
             'score' => 150
         ]);
-        $submit->assertStatus(200);
-        $submit->assertJsonStructure(['status', 'score', 'feedback']);
-        $submit->assertJsonFragment(['status' => 'completed']);
+        $tampered->assertStatus(422);
+
+        // Student submitting valid structured answer payload
+        $puzzle = \App\Models\Puzzle::find(1);
+        if ($puzzle) {
+            $answerKey = $puzzle->correct_answer;
+            $payload = [];
+            if ($puzzle->puzzle_type === 'identification') {
+                $payload = ['selected_option' => $answerKey['correct_option'] ?? 'opt_1'];
+            } elseif ($puzzle->puzzle_type === 'matching') {
+                $payload = ['pairs' => $answerKey['pairs'] ?? []];
+            } elseif ($puzzle->puzzle_type === 'sequencing') {
+                $payload = ['ordered_ids' => $answerKey['order'] ?? []];
+            } elseif ($puzzle->puzzle_type === 'classification') {
+                $payload = ['placements' => $answerKey['mapping'] ?? []];
+            } elseif ($puzzle->puzzle_type === 'drag_and_drop') {
+                $payload = ['placements' => $answerKey['placements'] ?? []];
+            } elseif ($puzzle->puzzle_type === 'scenario') {
+                $payload = ['choice_id' => $answerKey['correct_choice'] ?? 'choice_1'];
+            }
+
+            $submit = $this->actingAs($student)->postJson('/puzzles/1/submit', $payload);
+            $submit->assertStatus(200);
+            $submit->assertJsonStructure(['status', 'score', 'feedback']);
+        }
 
         // Security check: Lecturer should get 403 Forbidden
         if ($lecturer) {

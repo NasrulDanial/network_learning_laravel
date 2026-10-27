@@ -172,6 +172,9 @@ class TemplateSequencing extends Phaser.Scene {
             return;
         }
 
+        if (this._isSubmitting) return;
+        this._isSubmitting = true;
+
         const orderedIds = this.slots.map(s => s.getData('occupiedBy'));
 
         if (this._submitBtnBg) {
@@ -181,6 +184,24 @@ class TemplateSequencing extends Phaser.Scene {
 
         PuzzleUtils.submitResponse({
             ordered_ids: orderedIds
+        }, {
+            onSuccess: () => {
+                if (this._submitBtnBg) this._submitBtnBg.setFillStyle(0x059669);
+            },
+            onRetry: () => {
+                this._isSubmitting = false;
+                if (this._submitBtnBg) {
+                    this._submitBtnBg.setInteractive({ useHandCursor: true });
+                    this._submitBtnBg.setFillStyle(0x0284c7);
+                }
+            },
+            onError: () => {
+                this._isSubmitting = false;
+                if (this._submitBtnBg) {
+                    this._submitBtnBg.setInteractive({ useHandCursor: true });
+                    this._submitBtnBg.setFillStyle(0x0284c7);
+                }
+            }
         });
     }
 }
