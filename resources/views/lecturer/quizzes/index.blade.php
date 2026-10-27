@@ -144,40 +144,27 @@
                         <td style="text-align: right; white-space: nowrap;">
                             <div style="display: inline-flex; align-items: center; gap: 6px;">
 
-                                <!-- 1. Mission Steps Button (Opens Right-Side Slide-Over) -->
-                                <button
-                                    type="button"
+                                <!-- 1. Edit Questions (Blueprint B4: points to genuine Question management) -->
+                                <a
+                                    href="{{ route('lecturer.questions.index', $quiz->quiz_id) }}"
                                     class="button secondary"
-                                    style="padding: 6px 12px; font-size: 0.78rem; border-radius: 8px;"
-                                    onclick="openMissionStepsSlideOver({{ $quiz->quiz_id }}, '{{ addslashes($quiz->title) }}')"
-                                    data-nl-tooltip="Manage the sequence of challenge sub-tasks and objectives"
+                                    style="padding: 6px 12px; font-size: 0.78rem; border-radius: 8px; text-decoration: none; display: inline-flex; align-items: center; gap: 5px;"
+                                    title="Manage multiple-choice questions for this challenge"
                                 >
-                                    <i class="fa-solid fa-list-check"></i>
-                                    <span id="btn-step-count-{{ $quiz->quiz_id }}">Steps ({{ (int) $quiz->total_questions }})</span>
-                                </button>
+                                    <i class="fa-solid fa-list-check" style="color: var(--nl-cyan);"></i>
+                                    <span>Edit Questions ({{ (int) $quiz->total_questions }})</span>
+                                </a>
 
-                                <!-- 2. Settings Button (Opens Centered Modal for Gamification & Meta) -->
+                                <!-- 2. Quiz Settings Button -->
                                 <button
                                     type="button"
                                     class="button secondary"
                                     style="padding: 6px 12px; font-size: 0.78rem; border-radius: 8px;"
                                     onclick="openQuizSettingsModal({{ $quiz->quiz_id }}, '{{ addslashes($quiz->title) }}', {{ $quiz->topic_id }}, {{ (int) $quiz->passing_mark }}, '{{ $categoryKey }}', '{{ addslashes($instruction) }}', {{ $xpReward }})"
-                                    data-nl-tooltip="Configure game economy, XP rewards, and mission briefing"
+                                    title="Configure passing threshold and topic association"
                                 >
                                     <i class="fa-solid fa-sliders"></i>
                                     <span>Settings</span>
-                                </button>
-
-                                <!-- 3. Design Board Button (Primary Highlighted Action -> Full-Screen Modal) -->
-                                <button
-                                    type="button"
-                                    class="button"
-                                    style="padding: 6px 14px; font-size: 0.78rem; border-radius: 8px;"
-                                    onclick="openPuzzleCanvasModal({{ $quiz->quiz_id }}, {{ $quiz->topic_id }}, '{{ addslashes($quiz->title) }}', '{{ $categoryKey }}', {{ $xpReward }})"
-                                    data-nl-tooltip="Launch the visual canvas to map the correct topology or sequence"
-                                >
-                                    <i class="fa-solid fa-shapes"></i>
-                                    <span>Design Board</span>
                                 </button>
 
                                 <!-- 4. Delete Action (Opens Red-Accented Warning Modal) -->

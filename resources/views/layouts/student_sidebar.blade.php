@@ -64,7 +64,7 @@
                 <span class="nav-icon" aria-hidden="true">
                     <i class="fa-solid fa-shield-halved"></i>
                 </span>
-                <span class="nav-text">Quiz Challenges</span>
+                <span class="nav-text">Practice Arena</span>
             </a>
 
             <a
@@ -75,6 +75,26 @@
                     <i class="fa-solid fa-chart-line"></i>
                 </span>
                 <span class="nav-text">My Progress</span>
+            </a>
+
+            <a
+                href="{{ route('student.achievements') }}"
+                class="nav-item {{ $active === 'achievements' ? 'active' : '' }}"
+            >
+                <span class="nav-icon" aria-hidden="true">
+                    <i class="fa-solid fa-award"></i>
+                </span>
+                <span class="nav-text">Achievements</span>
+            </a>
+
+            <a
+                href="{{ route('student.profile') }}"
+                class="nav-item {{ $active === 'profile' ? 'active' : '' }}"
+            >
+                <span class="nav-icon" aria-hidden="true">
+                    <i class="fa-solid fa-id-card"></i>
+                </span>
+                <span class="nav-text">My Profile</span>
             </a>
         </nav>
 

@@ -86,6 +86,16 @@
                 </span>
                 <span class="nav-text">Student Performance</span>
             </a>
+
+            <a
+                href="{{ route('lecturer.profile') }}"
+                class="nav-item {{ $active === 'profile' ? 'active' : '' }}"
+            >
+                <span class="nav-icon" aria-hidden="true">
+                    <i class="fa-solid fa-id-card"></i>
+                </span>
+                <span class="nav-text">Instructor Profile</span>
+            </a>
         </nav>
 
         <div class="sidebar-footer">

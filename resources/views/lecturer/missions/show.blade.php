@@ -161,17 +161,17 @@
 
                     <!-- Right: Actions -->
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <!-- Safe Lecturer Preview -->
-                        <a
-                            href="{{ route('lecturer.missions.puzzles.preview', $puzzle->puzzle_id) }}"
-                            target="_blank"
+                        <!-- Safe Inline Lecturer Preview Drawer (Blueprint B3) -->
+                        <button
+                            type="button"
                             class="button secondary"
-                            style="padding: 8px 14px; font-size: 0.82rem; border-radius: 10px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"
-                            title="Preview activity as student (Zero XP, Zero attempts logged)"
+                            style="padding: 8px 14px; font-size: 0.82rem; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;"
+                            onclick="openSheetModal('Preview: {{ addslashes($puzzle->question_text) }}', 'LECTURER SANDBOX // DOES NOT COUNT', '{{ route('lecturer.missions.puzzles.preview', $puzzle->puzzle_id) }}', true)"
+                            title="Open inline sandbox preview (Zero XP, Zero attempts logged)"
                         >
                             <i class="fa-solid fa-eye" style="color: var(--nl-cyan, #22d3ee);"></i>
-                            <span>Test Preview</span>
-                        </a>
+                            <span>Inline Preview</span>
+                        </button>
 
                         <!-- Toggle Status -->
                         <form method="POST" action="{{ route('lecturer.missions.puzzles.toggle', $puzzle->puzzle_id) }}" style="display: inline;">

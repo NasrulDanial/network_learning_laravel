@@ -14,6 +14,11 @@ class Topic extends Model
         'content',
         'created_by',
         'topic_order',
+        'cover_image',
+        'objectives',
+        'difficulty',
+        'status',
+        'estimated_time_minutes',
     ];
 
     public function creator()

@@ -195,29 +195,15 @@
                         </td>
 
                         <td>
-                            <button
-                                type="button"
+                            <a
+                                href="{{ route('lecturer.student-performance.show', $result->user_id) }}"
                                 class="button secondary"
-                                style="padding: 6px 12px; font-size: 0.75rem;"
-                                onclick="togglePopover('popover-{{ $result->result_id }}', this)"
+                                style="padding: 6px 12px; font-size: 0.75rem; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"
+                                title="Open detailed performance dossier for {{ $result->student_name }}"
                             >
-                                <i class="fa-solid fa-circle-info"></i>
-                                <span>Inspect</span>
-                            </button>
-
-                            <!-- Contextual Popover for Row Details -->
-                            <div id="popover-{{ $result->result_id }}" class="popover-card">
-                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                                    <span class="sheet-badge" style="font-size: 0.68rem;">RESULT #{{ $result->result_id }}</span>
-                                    <span style="font-size: 0.75rem; color: var(--nl-text-tertiary);">{{ $result->date_taken }}</span>
-                                </div>
-                                <div style="font-size: 0.88rem; font-weight: 700; color: #FFFFFF; margin-bottom: 2px;">{{ $result->student_name }}</div>
-                                <div style="font-size: 0.78rem; color: var(--nl-cyan); margin-bottom: 8px;">{{ $result->quiz_title }}</div>
-                                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--nl-text-secondary); border-top: 1px solid var(--nl-glass-border); padding-top: 8px;">
-                                    <span>Accuracy: {{ round($result->percentage) }}%</span>
-                                    <span>XP: +{{ (int) $result->points_earned }}</span>
-                                </div>
-                            </div>
+                                <i class="fa-solid fa-user-gear"></i>
+                                <span>View Dossier</span>
+                            </a>
                         </td>
                     </tr>
                 @endforeach
@@ -238,31 +224,4 @@
 @endsection
 
 @section('scripts')
-<script>
-function togglePopover(popoverId, triggerBtn) {
-    const allPopovers = document.querySelectorAll('.popover-card');
-    const target = document.getElementById(popoverId);
-
-    allPopovers.forEach(p => {
-        if (p !== target) p.classList.remove('show');
-    });
-
-    if (!target) return;
-
-    if (target.classList.contains('show')) {
-        target.classList.remove('show');
-    } else {
-        const rect = triggerBtn.getBoundingClientRect();
-        target.style.top = (rect.bottom + window.scrollY + 6) + 'px';
-        target.style.left = Math.max(16, rect.left + window.scrollX - 180) + 'px';
-        target.classList.add('show');
-    }
-}
-
-document.addEventListener('click', (e) => {
-    if (!e.target.closest('.popover-card') && !e.target.closest('button[onclick^="togglePopover"]')) {
-        document.querySelectorAll('.popover-card').forEach(p => p.classList.remove('show'));
-    }
-});
-</script>
 @endsection

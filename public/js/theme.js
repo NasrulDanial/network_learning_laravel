@@ -14,10 +14,22 @@ document.addEventListener('DOMContentLoaded', () => {
             if (toggleIcon) toggleIcon.textContent = '☀️';
             if (toggleLbl)  toggleLbl.textContent  = 'Light Mode';
         }
+
+        // Notify Chart.js or any other theme-sensitive components if active
+        if (typeof window.onThemeChange === 'function') {
+            window.onThemeChange(theme);
+        }
     }
 
-    // Apply saved theme on load
-    applyTheme(localStorage.getItem('netlearn-theme') || 'dark');
+    // Determine initial theme: saved preference -> system preference -> dark fallback
+    const savedTheme = localStorage.getItem('netlearn-theme');
+    if (savedTheme) {
+        applyTheme(savedTheme);
+    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+        applyTheme('light');
+    } else {
+        applyTheme('dark');
+    }
 
     if (toggleBtn) {
         toggleBtn.addEventListener('click', () => {
@@ -25,6 +37,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const next    = current === 'light' ? 'dark' : 'light';
             localStorage.setItem('netlearn-theme', next);
             applyTheme(next);
+        });
+    }
+
+    // Listen to OS theme changes only if user hasn't set an explicit preference
+    if (window.matchMedia) {
+        window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e) => {
+            if (!localStorage.getItem('netlearn-theme')) {
+                applyTheme(e.matches ? 'light' : 'dark');
+            }
         });
     }
 });

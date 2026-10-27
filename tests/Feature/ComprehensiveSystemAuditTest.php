@@ -44,7 +44,6 @@ class ComprehensiveSystemAuditTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('Welcome back', false);
         $response->assertSee('Operative Telemetry', false);
-        $response->assertSee('Simulation Nodes', false);
     }
 
     public function test_student_can_access_learning_journey()
@@ -67,17 +66,16 @@ class ComprehensiveSystemAuditTest extends TestCase
     {
         $response = $this->actingAs($this->student)->get('/student/progress');
         $response->assertStatus(200);
-        $response->assertSee('My Learning Progress', false);
-        $response->assertSee('Total XP', false);
-        $response->assertSee('Missions Cleared', false);
-        $response->assertSee('Clearance Honors', false);
+        $response->assertSee('Learning Progress', false);
+        $response->assertSee('TOTAL XP', false);
+        $response->assertSee('MISSIONS CLEARED', false);
     }
 
     public function test_student_can_access_quiz_hub()
     {
         $response = $this->actingAs($this->student)->get('/student/quiz');
         $response->assertStatus(200);
-        $response->assertSee('Challenge Hub', false);
+        $response->assertSee('Knowledge Challenges', false);
     }
 
     public function test_student_can_take_quiz()
@@ -107,9 +105,9 @@ class ComprehensiveSystemAuditTest extends TestCase
     {
         $response = $this->actingAs($this->lecturer)->get('/lecturer/dashboard');
         $response->assertStatus(200);
-        $response->assertSee('Total Operatives', false);
-        $response->assertSee('Curriculum Stages', false);
-        $response->assertSee('Missions (PBL)', false);
+        $response->assertSee('Instructor Mission Control', false);
+        $response->assertSee('Published Topics', false);
+        $response->assertSee('Published Missions', false);
     }
 
     public function test_lecturer_can_access_missions_index()
@@ -171,7 +169,7 @@ class ComprehensiveSystemAuditTest extends TestCase
     {
         $response = $this->actingAs($this->lecturer)->get('/lecturer/topics');
         $response->assertStatus(200);
-        $response->assertSee('Manage Learning Topics', false);
+        $response->assertSee('Manage Networking Topics', false);
         $response->assertSee('Missions', false);
     }
 

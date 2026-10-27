@@ -8,6 +8,7 @@ use App\Http\Controllers\QuizController;
 use App\Http\Controllers\QuestionController;
 use App\Http\Controllers\StudentPerformanceController;
 use App\Http\Controllers\PuzzleController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Lecturer\MissionController;
 use Illuminate\Support\Facades\Route;
 
@@ -64,6 +65,18 @@ Route::middleware(['auth', 'role:student'])->group(function () {
 
     Route::get('/student/progress', [StudentController::class, 'progress'])
         ->name('student.progress');
+
+    Route::get('/student/achievements', [StudentController::class, 'achievements'])
+        ->name('student.achievements');
+
+    Route::get('/student/profile', [ProfileController::class, 'show'])
+        ->name('student.profile');
+
+    Route::put('/student/profile', [ProfileController::class, 'update'])
+        ->name('student.profile.update');
+
+    Route::put('/student/profile/password', [ProfileController::class, 'updatePassword'])
+        ->name('student.profile.password');
 });
 
 Route::middleware(['auth', 'role:lecturer'])->group(function () {
@@ -179,6 +192,24 @@ Route::middleware(['auth', 'role:lecturer'])->group(function () {
         ->name('lecturer.missions.puzzles.preview');
     Route::post('/lecturer/puzzles/{puzzle}/preview-submit', [MissionController::class, 'evaluatePreview'])
         ->name('lecturer.missions.puzzles.preview.submit');
+
+    // Topic Reorder & Status Toggle
+    Route::post('/lecturer/topics/reorder', [TopicController::class, 'reorder'])
+        ->name('lecturer.topics.reorder');
+    Route::post('/lecturer/topics/{topic}/toggle-status', [TopicController::class, 'toggleStatus'])
+        ->name('lecturer.topics.toggle');
+
+    // Student Performance Detail Dossier
+    Route::get('/lecturer/student-performance/{user}', [StudentPerformanceController::class, 'show'])
+        ->name('lecturer.student-performance.show');
+
+    // Instructor Profile & Security
+    Route::get('/lecturer/profile', [ProfileController::class, 'show'])
+        ->name('lecturer.profile');
+    Route::put('/lecturer/profile', [ProfileController::class, 'update'])
+        ->name('lecturer.profile.update');
+    Route::put('/lecturer/profile/password', [ProfileController::class, 'updatePassword'])
+        ->name('lecturer.profile.password');
 });
 
 // Puzzle routes are student-only — prevents lecturers from awarding themselves XP

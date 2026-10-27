@@ -11,6 +11,9 @@ use App\Models\Mission;
 use App\Models\Puzzle;
 use App\Models\UserMissionProgress;
 use App\Models\UserPuzzleProgress;
+use App\Models\Achievement;
+use App\Models\UserAchievement;
+use App\Services\RankProgressionService;
 use Illuminate\Http\Request;
 
 class StudentController extends Controller
@@ -19,20 +22,58 @@ class StudentController extends Controller
     {
         $userId = auth()->user()->user_id;
 
-        $quizPoints = Result::where('user_id', $userId)
-            ->sum('points_earned');
-        $pblPoints = Progress::where('user_id', $userId)
-            ->sum('total_xp');
-        $totalPoints = (int) ($quizPoints + $pblPoints);
+        $quizPoints = (int) Result::where('user_id', $userId)->sum('points_earned');
+        $pblPoints = (int) Progress::where('user_id', $userId)->sum('total_xp');
+        $totalPoints = $quizPoints + $pblPoints;
 
-        $overallProgress = Progress::where('user_id', $userId)
-            ->avg('progress_percentage');
+        $rankInfo = RankProgressionService::getRankTelemetry($totalPoints);
 
         $completedTopics = Progress::where('user_id', $userId)
             ->where('learning_status', 'Completed')
             ->count();
 
-        $overallProgress = $overallProgress ?? 0;
+        $completedMissions = UserMissionProgress::where('user_id', $userId)
+            ->where('is_completed', true)
+            ->count();
+
+        $averageQuizScore = (float) (Result::where('user_id', $userId)->avg('percentage') ?? 0);
+        $badgesEarnedCount = UserAchievement::where('user_id', $userId)->count();
+
+        $overallProgress = (float) (Progress::where('user_id', $userId)->avg('progress_percentage') ?? 0);
+
+        // Find Next Up "Continue Learning" target
+        $nextTopic = Topic::query()
+            ->leftJoin('progress', function ($join) use ($userId) {
+                $join->on('topics.topic_id', '=', 'progress.topic_id')
+                    ->where('progress.user_id', '=', $userId);
+            })
+            ->where(function ($q) {
+                $q->whereNull('progress.learning_status')
+                    ->orWhere('progress.learning_status', '!=', 'Completed');
+            })
+            ->orderBy('topics.topic_order', 'asc')
+            ->first();
+
+        if (!$nextTopic) {
+            $nextTopic = Topic::orderBy('topic_order', 'asc')->first();
+        }
+
+        $continueTarget = null;
+        if ($nextTopic) {
+            // Find first incomplete mission in this topic
+            $nextMission = Mission::where('topic_id', $nextTopic->topic_id)
+                ->where('status', 'published')
+                ->orderBy('mission_order', 'asc')
+                ->first();
+
+            $continueTarget = [
+                'topic_id' => $nextTopic->topic_id,
+                'topic_title' => $nextTopic->title,
+                'topic_order' => $nextTopic->topic_order,
+                'mission_title' => $nextMission ? $nextMission->title : 'Core Assessment Lab',
+                'url' => route('student.topic', $nextTopic->topic_id),
+            ];
+        }
 
         $recentPuzzles = Puzzle::where('status', 'published')
             ->with(['mission', 'topic'])
@@ -41,13 +82,24 @@ class StudentController extends Controller
             ->take(2)
             ->get();
 
+        $latestAchievement = UserAchievement::with('achievement')
+            ->where('user_id', $userId)
+            ->orderByDesc('date_earned')
+            ->first();
+
         return view('student.dashboard', [
             'pageTitle' => 'Student Dashboard',
             'activePage' => 'dashboard',
             'totalPoints' => $totalPoints,
             'overallProgress' => $overallProgress,
             'completedTopics' => $completedTopics,
+            'completedMissions' => $completedMissions,
+            'averageQuizScore' => $averageQuizScore,
+            'badgesEarnedCount' => $badgesEarnedCount,
             'recentPuzzles' => $recentPuzzles,
+            'rankInfo' => $rankInfo,
+            'continueTarget' => $continueTarget,
+            'latestAchievement' => $latestAchievement,
         ]);
     }
 
@@ -56,6 +108,10 @@ class StudentController extends Controller
         $userId = auth()->user()->user_id;
 
         $topics = Topic::query()
+            ->where(function ($q) {
+                $q->where('topics.status', 'published')
+                  ->orWhereNull('topics.status');
+            })
             ->leftJoin('progress', function ($join) use ($userId) {
                 $join->on('topics.topic_id', '=', 'progress.topic_id')
                     ->where('progress.user_id', '=', $userId);
@@ -67,6 +123,11 @@ class StudentController extends Controller
                 'topics.topic_id',
                 'topics.title',
                 'topics.description',
+                'topics.cover_image',
+                'topics.objectives',
+                'topics.difficulty',
+                'topics.estimated_time_minutes',
+                'topics.status',
                 'topics.topic_order',
                 'progress.learning_status',
                 'progress.quiz_status',
@@ -481,89 +542,189 @@ public function result(Result $result)
     ]);
 }
 
-public function progress()
-{
-    $userId = auth()->user()->user_id;
+    public function progress()
+    {
+        $userId = auth()->user()->user_id;
 
-    // Collapse 3 separate Result queries into one DB round-trip
-    $resultStats = Result::where('user_id', $userId)
-        ->selectRaw('COALESCE(SUM(points_earned), 0) as total_points, COUNT(*) as total_attempts, COALESCE(SUM(status = "Pass"), 0) as passed_attempts')
-        ->first();
+        // Aggregate Results in one query
+        $resultStats = Result::where('user_id', $userId)
+            ->selectRaw('COALESCE(SUM(points_earned), 0) as total_points, COUNT(*) as total_attempts, COALESCE(SUM(status = "Pass"), 0) as passed_attempts, AVG(percentage) as avg_score')
+            ->first();
 
-    $quizPoints     = (int) ($resultStats->total_points    ?? 0);
-    $pblPoints      = (int) Progress::where('user_id', $userId)->sum('total_xp');
-    $totalPoints    = $quizPoints + $pblPoints;
-    $totalAttempts  = (int) ($resultStats->total_attempts  ?? 0);
-    $passedAttempts = (int) ($resultStats->passed_attempts ?? 0);
+        $quizPoints     = (int) ($resultStats->total_points    ?? 0);
+        $pblPoints      = (int) Progress::where('user_id', $userId)->sum('total_xp');
+        $totalPoints    = $quizPoints + $pblPoints;
+        $totalAttempts  = (int) ($resultStats->total_attempts  ?? 0);
+        $passedAttempts = (int) ($resultStats->passed_attempts ?? 0);
+        $averageScore   = (float) ($resultStats->avg_score     ?? 0);
+        $passRate       = $totalAttempts > 0 ? round(($passedAttempts / $totalAttempts) * 100) : 0;
 
-    $completedTopics = Progress::where('user_id', $userId)
-        ->where('learning_status', 'Completed')
-        ->count();
+        $rankInfo = RankProgressionService::getRankTelemetry($totalPoints);
 
-    $completedMissions = (int) Progress::where('user_id', $userId)->sum('completed_missions');
+        $completedTopics = Progress::where('user_id', $userId)
+            ->where('learning_status', 'Completed')
+            ->count();
 
-    $overallProgress = Progress::where('user_id', $userId)
-        ->avg('progress_percentage');
+        $completedMissions = UserMissionProgress::where('user_id', $userId)
+            ->where('is_completed', true)
+            ->count();
 
-    $overallProgress = $overallProgress ?? 0;
+        $overallProgress = (float) (Progress::where('user_id', $userId)->avg('progress_percentage') ?? 0);
 
-    $topicProgress = Topic::query()
-        ->leftJoin('progress', function ($join) use ($userId) {
-            $join->on('topics.topic_id', '=', 'progress.topic_id')
-                ->where('progress.user_id', '=', $userId);
-        })
-        ->withCount(['missions' => function ($q) {
-            $q->where('status', 'published');
-        }])
-        ->select(
-            'topics.topic_id',
-            'topics.title',
-            'topics.description',
-            'topics.topic_order',
-            'progress.learning_status',
-            'progress.quiz_status',
-            'progress.progress_percentage',
-            'progress.completed_missions',
-            'progress.total_xp'
-        )
-        ->orderBy('topics.topic_order', 'asc')
-        ->get();
+        $topicProgress = Topic::query()
+            ->leftJoin('progress', function ($join) use ($userId) {
+                $join->on('topics.topic_id', '=', 'progress.topic_id')
+                    ->where('progress.user_id', '=', $userId);
+            })
+            ->withCount(['missions' => function ($q) {
+                $q->where('status', 'published');
+            }])
+            ->select(
+                'topics.topic_id',
+                'topics.title',
+                'topics.description',
+                'topics.topic_order',
+                'progress.learning_status',
+                'progress.quiz_status',
+                'progress.progress_percentage',
+                'progress.completed_missions',
+                'progress.total_xp'
+            )
+            ->orderBy('topics.topic_order', 'asc')
+            ->get();
 
-    $recentResults = Result::query()
-        ->join('quizzes', 'results.quiz_id', '=', 'quizzes.quiz_id')
-        ->join('topics', 'quizzes.topic_id', '=', 'topics.topic_id')
-        ->where('results.user_id', $userId)
-        ->select(
-            'results.result_id',
-            'results.score',
-            'results.total_questions',
-            'results.percentage',
-            'results.status',
-            'results.points_earned',
-            'results.date_taken',
-            'quizzes.title as quiz_title',
-            'topics.title as topic_title'
-        )
-        ->orderByDesc('results.date_taken')
-        ->limit(5)
-        ->get();
+        $recentResults = Result::query()
+            ->join('quizzes', 'results.quiz_id', '=', 'quizzes.quiz_id')
+            ->join('topics', 'quizzes.topic_id', '=', 'topics.topic_id')
+            ->where('results.user_id', $userId)
+            ->select(
+                'results.result_id',
+                'results.score',
+                'results.total_questions',
+                'results.percentage',
+                'results.status',
+                'results.points_earned',
+                'results.date_taken',
+                'quizzes.title as quiz_title',
+                'topics.title as topic_title',
+                'topics.topic_id'
+            )
+            ->orderByDesc('results.date_taken')
+            ->limit(5)
+            ->get();
 
-    $achievements = \App\Models\UserAchievement::where('user_id', $userId)
-        ->with('achievement')
-        ->get();
+        // Actionable "Review Recommended" list: quizzes or topics with low scores or failed attempts
+        $recommendedReviews = Result::query()
+            ->join('quizzes', 'results.quiz_id', '=', 'quizzes.quiz_id')
+            ->join('topics', 'quizzes.topic_id', '=', 'topics.topic_id')
+            ->where('results.user_id', $userId)
+            ->where(function ($q) {
+                $q->where('results.status', 'Fail')
+                  ->orWhere('results.percentage', '<', 70);
+            })
+            ->select(
+                'quizzes.quiz_id',
+                'quizzes.title as quiz_title',
+                'topics.topic_id',
+                'topics.title as topic_title',
+                'results.percentage',
+                'results.status',
+                'results.date_taken'
+            )
+            ->orderBy('results.percentage', 'asc')
+            ->limit(3)
+            ->get();
 
-    return view('student.progress', [
-        'pageTitle' => 'My Progress',
-        'activePage' => 'progress',
-        'totalPoints' => $totalPoints,
-        'totalAttempts' => $totalAttempts,
-        'passedAttempts' => $passedAttempts,
-        'completedTopics' => $completedTopics,
-        'completedMissions' => $completedMissions,
-        'overallProgress' => $overallProgress,
-        'topicProgress' => $topicProgress,
-        'recentResults' => $recentResults,
-        'achievements' => $achievements,
-    ]);
-}
+        $achievements = UserAchievement::where('user_id', $userId)
+            ->with('achievement')
+            ->orderByDesc('date_earned')
+            ->get();
+
+        return view('student.progress', [
+            'pageTitle' => 'My Progress',
+            'activePage' => 'progress',
+            'totalPoints' => $totalPoints,
+            'totalAttempts' => $totalAttempts,
+            'passedAttempts' => $passedAttempts,
+            'averageScore' => $averageScore,
+            'passRate' => $passRate,
+            'completedTopics' => $completedTopics,
+            'completedMissions' => $completedMissions,
+            'overallProgress' => $overallProgress,
+            'topicProgress' => $topicProgress,
+            'recentResults' => $recentResults,
+            'recommendedReviews' => $recommendedReviews,
+            'achievements' => $achievements,
+            'rankInfo' => $rankInfo,
+        ]);
+    }
+
+    /**
+     * Dedicated Achievements & Badges Showcase.
+     */
+    public function achievements()
+    {
+        $userId = auth()->user()->user_id;
+
+        $quizPoints = (int) Result::where('user_id', $userId)->sum('points_earned');
+        $pblPoints = (int) Progress::where('user_id', $userId)->sum('total_xp');
+        $totalXp = $quizPoints + $pblPoints;
+
+        $completedTopics = Progress::where('user_id', $userId)
+            ->where('learning_status', 'Completed')
+            ->count();
+
+        $completedMissions = UserMissionProgress::where('user_id', $userId)
+            ->where('is_completed', true)
+            ->count();
+
+        $userAchievements = UserAchievement::where('user_id', $userId)
+            ->pluck('date_earned', 'achievement_id')
+            ->toArray();
+
+        $allAchievements = Achievement::all()->map(function ($ach) use ($userAchievements, $totalXp, $completedTopics, $completedMissions) {
+            $isEarned = isset($userAchievements[$ach->achievement_id]);
+            $dateEarned = $isEarned ? $userAchievements[$ach->achievement_id] : null;
+
+            $currentVal = 0;
+            if ($ach->requirement_type === 'xp_earned') {
+                $currentVal = $totalXp;
+            } elseif ($ach->requirement_type === 'topics_completed') {
+                $currentVal = $completedTopics;
+            } elseif ($ach->requirement_type === 'missions_completed') {
+                $currentVal = $completedMissions;
+            }
+
+            $reqVal = (int) $ach->requirement_value;
+            $progressPct = $reqVal > 0 ? min(100, (int) round(($currentVal / $reqVal) * 100)) : 100;
+
+            $status = $isEarned ? 'Earned' : ($progressPct > 0 ? 'In Progress' : 'Locked');
+
+            return [
+                'id' => $ach->achievement_id,
+                'name' => $ach->badge_name,
+                'description' => $ach->description,
+                'badge_icon' => $ach->badge_icon ?? 'fa-award',
+                'requirement_type' => $ach->requirement_type,
+                'requirement_value' => $reqVal,
+                'current_value' => $currentVal,
+                'progress_pct' => $progressPct,
+                'status' => $status,
+                'is_earned' => $isEarned,
+                'date_earned' => $dateEarned,
+            ];
+        });
+
+        $earnedCount = $allAchievements->where('is_earned', true)->count();
+        $totalCount = $allAchievements->count();
+
+        return view('student.achievements', [
+            'pageTitle' => 'Achievements & Honors',
+            'activePage' => 'achievements',
+            'achievements' => $allAchievements,
+            'earnedCount' => $earnedCount,
+            'totalCount' => $totalCount,
+            'totalXp' => $totalXp,
+        ]);
+    }
 }

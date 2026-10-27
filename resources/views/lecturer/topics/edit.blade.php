@@ -1,89 +1,195 @@
 @extends('layouts.app')
 
 @section('content')
+<div style="margin-bottom: 20px;">
     <a class="breadcrumb-link" href="{{ route('lecturer.topics.index') }}">
         <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
-        Back to Manage Topics
+        <span>Back to Manage Topics</span>
     </a>
+</div>
 
-    <section class="page-banner">
-        <p class="eyebrow">Edit Topic</p>
-        <h1>Update Learning Topic</h1>
-        <p>
-            Modify the selected networking learning topic.
-        </p>
-    </section>
+<section class="page-banner" style="margin-bottom: 24px;">
+    <p class="eyebrow">Curriculum Editing</p>
+    <h1>Edit Learning Stage: {{ $topic->title }}</h1>
+    <p>Update stage configuration, learning objectives, instructional theory, and cover imagery.</p>
+</section>
 
-    @if ($errors->any())
-        <div class="message error" style="margin-bottom: 1.5rem;">
+@if ($errors->any())
+    <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); color: #f87171; border-radius: 12px; padding: 12px 18px; margin-bottom: 20px; font-size: 0.88rem;">
+        <ul style="margin: 0; padding-left: 20px;">
             @foreach ($errors->all() as $error)
-                <p style="margin-bottom: 0;">{{ $error }}</p>
+                <li>{{ $error }}</li>
             @endforeach
-        </div>
-    @endif
+        </ul>
+    </div>
+@endif
 
-    <section class="management-card">
-        <form
-            method="POST"
-            action="{{ route('lecturer.topics.update', $topic->topic_id) }}"
-        >
-            @csrf
-            @method('PUT')
+<div style="background: var(--nl-glass-card); backdrop-filter: var(--nl-glass-blur); border: 1px solid var(--nl-glass-border); border-radius: var(--nl-radius-panel); padding: 28px; box-shadow: 0 16px 40px rgba(0,0,0,0.3);">
+    <form method="POST" action="{{ route('lecturer.topics.update', $topic->topic_id) }}" enctype="multipart/form-data">
+        @csrf
+        @method('PUT')
 
-            <div class="form-grid">
-                <div class="form-group">
-                    <label for="title">Topic Title</label>
-                    <input
-                        id="title"
-                        type="text"
-                        name="title"
-                        value="{{ old('title', $topic->title) }}"
-                        required
-                    >
-                </div>
-
-                <div class="form-group">
-                    <label for="topic_order">Topic Order</label>
-                    <input
-                        id="topic_order"
-                        type="number"
-                        name="topic_order"
-                        min="1"
-                        value="{{ old('topic_order', $topic->topic_order) }}"
-                        required
-                    >
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label for="description">Short Description</label>
-                <textarea
-                    id="description"
-                    name="description"
-                    rows="3"
-                >{{ old('description', $topic->description) }}</textarea>
-            </div>
-
-            <div class="form-group">
-                <label for="content">Learning Content</label>
-                <textarea
-                    id="content"
-                    name="content"
-                    rows="12"
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
+            <!-- Title -->
+            <div class="form-row">
+                <label for="title">Topic Title <span style="color: #f87171;">*</span></label>
+                <input
+                    id="title"
+                    type="text"
+                    name="title"
+                    class="macos-input"
+                    value="{{ old('title', $topic->title) }}"
                     required
-                >{{ old('content', $topic->content) }}</textarea>
+                >
             </div>
 
-            <div class="actions">
-                <button type="submit">
-                    <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
-                    Update Topic
-                </button>
-
-                <a class="button secondary" href="{{ route('lecturer.topics.index') }}">
-                    Cancel
-                </a>
+            <!-- Sequence Order -->
+            <div class="form-row">
+                <label for="topic_order">Stage Sequence Order <span style="color: #f87171;">*</span></label>
+                <input
+                    id="topic_order"
+                    type="number"
+                    name="topic_order"
+                    class="macos-input"
+                    min="1"
+                    value="{{ old('topic_order', $topic->topic_order) }}"
+                    required
+                >
             </div>
-        </form>
-    </section>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+            <!-- Difficulty -->
+            <div class="form-row">
+                <label for="difficulty">Pedagogical Difficulty</label>
+                <select id="difficulty" name="difficulty" class="macos-select">
+                    <option value="beginner" {{ old('difficulty', $topic->difficulty ?? 'beginner') === 'beginner' ? 'selected' : '' }}>Beginner (Foundational)</option>
+                    <option value="intermediate" {{ old('difficulty', $topic->difficulty) === 'intermediate' ? 'selected' : '' }}>Intermediate (Core Concepts)</option>
+                    <option value="advanced" {{ old('difficulty', $topic->difficulty) === 'advanced' ? 'selected' : '' }}>Advanced (Complex Protocols)</option>
+                </select>
+            </div>
+
+            <!-- Status -->
+            <div class="form-row">
+                <label for="status">Publication State</label>
+                <select id="status" name="status" class="macos-select">
+                    <option value="published" {{ old('status', $topic->status ?? 'published') === 'published' ? 'selected' : '' }}>Published (Active to Students)</option>
+                    <option value="draft" {{ old('status', $topic->status) === 'draft' ? 'selected' : '' }}>Draft (Hidden in Development)</option>
+                </select>
+            </div>
+
+            <!-- Estimated Learning Time -->
+            <div class="form-row">
+                <label for="estimated_time_minutes">Estimated Learning Time (Mins)</label>
+                <input
+                    type="number"
+                    id="estimated_time_minutes"
+                    name="estimated_time_minutes"
+                    class="macos-input"
+                    min="5"
+                    max="300"
+                    step="5"
+                    value="{{ old('estimated_time_minutes', $topic->estimated_time_minutes ?? 30) }}"
+                >
+            </div>
+        </div>
+
+        <!-- Short Description -->
+        <div class="form-row">
+            <label for="description">Curriculum Card Summary (Concise)</label>
+            <textarea
+                id="description"
+                name="description"
+                rows="2"
+                class="macos-input"
+            >{{ old('description', $topic->description) }}</textarea>
+        </div>
+
+        <!-- Learning Objectives / Outcomes -->
+        <div class="form-row">
+            <label for="objectives">Learning Objectives & Outcomes</label>
+            <textarea
+                id="objectives"
+                name="objectives"
+                rows="3"
+                class="macos-input"
+            >{{ old('objectives', $topic->objectives) }}</textarea>
+            <span class="field-hint">Specify concrete operational competencies students will develop in this curriculum stage.</span>
+        </div>
+
+        <!-- Cover Image Upload & Current Image Preview -->
+        <div class="form-row">
+            <label for="cover_image">Stage Cover Imagery</label>
+
+            @if ($topic->cover_image && \Illuminate\Support\Facades\Storage::disk('public')->exists($topic->cover_image))
+                <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--nl-glass-border); border-radius: 12px; padding: 12px 16px;">
+                    <img src="{{ asset('storage/' . $topic->cover_image) }}" alt="Current cover" style="height: 70px; border-radius: 8px; border: 1px solid var(--nl-glass-border);">
+                    <div>
+                        <span style="font-size: 0.82rem; color: #FFFFFF; font-weight: 600; display: block;">Current Cover Graphic</span>
+                        <label style="font-size: 0.78rem; color: #f87171; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; margin-top: 4px;">
+                            <input type="checkbox" name="remove_cover_image" value="1">
+                            <span>Remove existing image (revert to deterministic graphic)</span>
+                        </label>
+                    </div>
+                </div>
+            @endif
+
+            <input
+                type="file"
+                id="cover_image"
+                name="cover_image"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                class="macos-input"
+                onchange="previewCoverImage(this)"
+            >
+            <span class="field-hint">Upload a replacement image (PNG, JPG, WEBP, max 2MB).</span>
+
+            <div id="coverImagePreviewContainer" style="display: none; margin-top: 12px;">
+                <img id="coverImagePreview" src="" alt="New cover preview" style="max-height: 140px; border-radius: 10px; border: 1px solid var(--nl-glass-border);">
+            </div>
+        </div>
+
+        <!-- Core Structured Learning Content -->
+        <div class="form-row">
+            <label for="content">Theoretical Learning Material & Notes <span style="color: #f87171;">*</span></label>
+            <textarea
+                id="content"
+                name="content"
+                rows="10"
+                class="macos-input"
+                style="line-height: 1.55; font-family: inherit;"
+                required
+            >{{ old('content', $topic->content) }}</textarea>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--nl-glass-border);">
+            <a class="button secondary" href="{{ route('lecturer.topics.index') }}">
+                Cancel
+            </a>
+            <button type="submit" class="button">
+                <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
+                <span>Update Stage</span>
+            </button>
+        </div>
+    </form>
+</div>
+@endsection
+
+@section('scripts')
+<script>
+function previewCoverImage(input) {
+    const container = document.getElementById('coverImagePreviewContainer');
+    const preview = document.getElementById('coverImagePreview');
+    if (!input.files || !input.files[0]) {
+        container.style.display = 'none';
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        preview.src = e.target.result;
+        container.style.display = 'block';
+    };
+    reader.readAsDataURL(input.files[0]);
+}
+</script>
 @endsection

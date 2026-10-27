@@ -24,6 +24,13 @@
         const isCollapsed = localStorage.getItem('netlearn_sidebar_collapsed') === 'true';
         if (isCollapsed && window.innerWidth > 1024) {
             sidebar.classList.add('collapsed');
+            if (collapseBtn) {
+                collapseBtn.setAttribute('aria-expanded', 'false');
+                collapseBtn.setAttribute('title', 'Expand Sidebar');
+            }
+        } else if (collapseBtn) {
+            collapseBtn.setAttribute('aria-expanded', 'true');
+            collapseBtn.setAttribute('title', 'Collapse Sidebar');
         }
 
         if (collapseBtn) {
@@ -31,13 +38,16 @@
                 sidebar.classList.toggle('collapsed');
                 const state = sidebar.classList.contains('collapsed');
                 localStorage.setItem('netlearn_sidebar_collapsed', state);
+                collapseBtn.setAttribute('aria-expanded', (!state).toString());
+                collapseBtn.setAttribute('title', state ? 'Expand Sidebar' : 'Collapse Sidebar');
             });
         }
 
         if (mobileMenuBtn) {
             mobileMenuBtn.addEventListener('click', () => {
-                sidebar.classList.toggle('open');
-                if (overlay) overlay.classList.toggle('active');
+                const isOpen = sidebar.classList.toggle('open');
+                if (overlay) overlay.classList.toggle('active', isOpen);
+                mobileMenuBtn.setAttribute('aria-expanded', isOpen.toString());
             });
         }
 
@@ -45,8 +55,17 @@
             overlay.addEventListener('click', () => {
                 sidebar.classList.remove('open');
                 overlay.classList.remove('active');
+                if (mobileMenuBtn) mobileMenuBtn.setAttribute('aria-expanded', 'false');
             });
         }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && sidebar.classList.contains('open')) {
+                sidebar.classList.remove('open');
+                if (overlay) overlay.classList.remove('active');
+                if (mobileMenuBtn) mobileMenuBtn.setAttribute('aria-expanded', 'false');
+            }
+        });
     }
 
     // ── 2. Native View Transitions SPA Cross-fade ──
