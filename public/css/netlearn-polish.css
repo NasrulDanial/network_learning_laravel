@@ -1,0 +1,279 @@
+/* ==========================================================================
+   NETLEARN POLISH LAYER
+   Loaded after style.css and netlearn-premium.css. Holds shared components
+   that pages reuse, plus light-theme corrections for legacy inline colours.
+   Uses existing tokens only (--nl-*, --bg-*, --text-*), never new palettes.
+   ========================================================================== */
+
+/* ── Accessibility helpers ─────────────────────────────────────────────── */
+.visually-hidden {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+    outline: 2px solid var(--nl-cyan);
+    outline-offset: 2px;
+}
+
+[hidden] {
+    display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────────── */
+.button.danger,
+button.danger {
+    background: rgba(239, 68, 68, 0.14);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #fca5a5;
+}
+
+.button.danger:hover,
+button.danger:hover {
+    background: rgba(239, 68, 68, 0.24);
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.25);
+}
+
+.button[disabled],
+button[disabled] {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+[data-theme="light"] .button.danger,
+[data-theme="light"] button.danger {
+    color: #B91C1C;
+    background: rgba(220, 38, 38, 0.08);
+    border-color: rgba(220, 38, 38, 0.35);
+}
+
+/* ── Status badges: every state has text + icon, and distinct colours ─── */
+.status-not-started,
+.status-not-attempted,
+.status-draft {
+    background-color: rgba(148, 163, 184, 0.14);
+    color: #cbd5e1;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+}
+
+.status-locked {
+    background-color: rgba(100, 116, 139, 0.18);
+    color: #cbd5e1;
+    border: 1px solid rgba(100, 116, 139, 0.32);
+}
+
+.status-warning {
+    background-color: rgba(245, 158, 11, 0.14);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.status-published,
+.status-unlocked,
+.status-available {
+    background-color: rgba(34, 211, 238, 0.12);
+    color: #67e8f9;
+    border: 1px solid rgba(34, 211, 238, 0.28);
+}
+
+[data-theme="light"] .status-completed,
+[data-theme="light"] .status-pass,
+[data-theme="light"] .status-passed {
+    color: #15803D;
+    background-color: rgba(22, 163, 74, 0.1);
+    border-color: rgba(22, 163, 74, 0.3);
+}
+
+[data-theme="light"] .status-progress,
+[data-theme="light"] .status-in-progress,
+[data-theme="light"] .status-inprogress,
+[data-theme="light"] .status-started,
+[data-theme="light"] .status-attempted,
+[data-theme="light"] .status-warning {
+    color: #92400E;
+    background-color: rgba(217, 119, 6, 0.1);
+    border-color: rgba(217, 119, 6, 0.32);
+}
+
+[data-theme="light"] .status-fail,
+[data-theme="light"] .status-failed {
+    color: #B91C1C;
+    background-color: rgba(220, 38, 38, 0.08);
+    border-color: rgba(220, 38, 38, 0.3);
+}
+
+[data-theme="light"] .status-locked,
+[data-theme="light"] .status-not-started,
+[data-theme="light"] .status-not-attempted,
+[data-theme="light"] .status-draft {
+    color: #334155;
+    background-color: rgba(100, 116, 139, 0.1);
+    border-color: rgba(100, 116, 139, 0.3);
+}
+
+[data-theme="light"] .status-published,
+[data-theme="light"] .status-unlocked,
+[data-theme="light"] .status-available {
+    color: #0E7490;
+    background-color: rgba(8, 145, 178, 0.08);
+    border-color: rgba(8, 145, 178, 0.3);
+}
+
+/* ── Messages ──────────────────────────────────────────────────────────── */
+.message {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.message.warning {
+    background-color: rgba(245, 158, 11, 0.12);
+    color: #fcd34d;
+    border-color: rgba(245, 158, 11, 0.28);
+}
+
+[data-theme="light"] .message.success {
+    color: #166534;
+    background-color: rgba(22, 163, 74, 0.08);
+    border-color: rgba(22, 163, 74, 0.3);
+}
+
+[data-theme="light"] .message.error {
+    color: #991B1B;
+    background-color: rgba(220, 38, 38, 0.07);
+    border-color: rgba(220, 38, 38, 0.3);
+}
+
+[data-theme="light"] .message.warning {
+    color: #92400E;
+    background-color: rgba(217, 119, 6, 0.08);
+    border-color: rgba(217, 119, 6, 0.32);
+}
+
+/* ── Tables ────────────────────────────────────────────────────────────── */
+.table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.table-wrap table {
+    width: 100%;
+    min-width: 720px;
+}
+
+.empty-inline {
+    text-align: center;
+    color: var(--nl-text-secondary);
+    padding: 1.5rem 1rem 0.5rem;
+    margin: 0;
+}
+
+/* ── Quiz library (lecturer) ───────────────────────────────────────────── */
+.quiz-lib-banner {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.quiz-lib-banner > div {
+    flex: 1 1 420px;
+}
+
+.quiz-lib-banner a:not(.button) {
+    color: var(--nl-cyan);
+    font-weight: 600;
+}
+
+.quiz-lib-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.quiz-lib-toolbar input[type="search"] {
+    flex: 1 1 280px;
+    max-width: 420px;
+    margin: 0;
+}
+
+.quiz-lib-count,
+.quiz-lib-muted {
+    color: var(--nl-text-secondary);
+    font-size: 0.85rem;
+}
+
+.quiz-lib-card {
+    padding: 1rem 1.25rem;
+}
+
+.quiz-lib-title {
+    display: block;
+    color: var(--nl-text-primary);
+    margin-bottom: 0.3rem;
+}
+
+.quiz-lib-topic {
+    display: block;
+    color: var(--nl-text-secondary);
+    margin-bottom: 0.3rem;
+}
+
+.quiz-lib-table td {
+    vertical-align: middle;
+}
+
+.quiz-lib-actions {
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+}
+
+.quiz-lib-actions form {
+    margin: 0;
+}
+
+.quiz-lib-actions .button,
+.quiz-lib-actions button {
+    padding: 7px 12px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+    .quiz-lib-actions {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+    }
+}

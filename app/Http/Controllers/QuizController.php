@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Quiz;
 use App\Models\Topic;
-use App\Models\Puzzle;
 use Illuminate\Http\Request;
 
 class QuizController extends Controller
@@ -13,8 +12,9 @@ class QuizController extends Controller
     {
         $topics = Topic::orderBy('topic_order', 'asc')->get();
 
-        $quizzes = Quiz::with(['topic', 'puzzle'])
-            ->withCount('questions')
+        $quizzes = Quiz::with('topic')
+            ->withCount(['questions', 'results'])
+            ->withAvg('results', 'percentage')
             ->join('topics', 'quizzes.topic_id', '=', 'topics.topic_id')
             ->select('quizzes.*')
             ->orderBy('topics.topic_order', 'asc')
@@ -46,38 +46,13 @@ class QuizController extends Controller
             'topic_id'        => ['required', 'integer', 'exists:topics,topic_id'],
             'title'           => ['required', 'string', 'max:150'],
             'passing_mark'    => ['required', 'integer', 'min:0', 'max:100'],
-            'scenario'        => ['nullable', 'string'],
-            'puzzle_category' => ['nullable', 'string'],
-            'xp_points'       => ['nullable', 'integer', 'min:25', 'max:1000'],
         ]);
 
-        $quiz = Quiz::create([
+        Quiz::create([
             'topic_id'     => $data['topic_id'],
             'title'        => $data['title'],
             'passing_mark' => $data['passing_mark'],
         ]);
-
-        if (!empty($data['puzzle_category'])) {
-            $typeMap = [
-                'topology' => 'drag_and_drop',
-                'routing'  => 'scenario',
-                'protocol' => 'sequencing',
-                'subnet'   => 'identification',
-            ];
-            $dbType = $typeMap[$data['puzzle_category']] ?? 'drag_and_drop';
-
-            // Board puzzles live outside missions; never touch authored mission activities
-            Puzzle::whereNull('mission_id')->firstOrCreate(
-                ['topic_id' => $data['topic_id']],
-                [
-                    'puzzle_type'    => $dbType,
-                    'question_text'  => 'Interactive simulation challenge for ' . $data['title'],
-                    'instruction'    => $data['scenario'] ?? 'Complete the network simulation according to laboratory specifications.',
-                    'correct_answer' => ['configured' => true],
-                    'points'         => $data['xp_points'] ?? 150,
-                ]
-            );
-        }
 
         return redirect()
             ->route('lecturer.quizzes.index')
@@ -102,9 +77,6 @@ class QuizController extends Controller
             'topic_id'        => ['required', 'integer', 'exists:topics,topic_id'],
             'title'           => ['required', 'string', 'max:150'],
             'passing_mark'    => ['required', 'integer', 'min:0', 'max:100'],
-            'scenario'        => ['nullable', 'string'],
-            'puzzle_category' => ['nullable', 'string'],
-            'xp_points'       => ['nullable', 'integer', 'min:25', 'max:1000'],
         ]);
 
         $quiz->update([
@@ -113,33 +85,6 @@ class QuizController extends Controller
             'passing_mark' => $data['passing_mark'],
         ]);
 
-        if (!empty($data['puzzle_category'])) {
-            $typeMap = [
-                'topology' => 'drag_and_drop',
-                'routing'  => 'scenario',
-                'protocol' => 'sequencing',
-                'subnet'   => 'identification',
-            ];
-            $dbType = $typeMap[$data['puzzle_category']] ?? 'drag_and_drop';
-
-            // Board puzzles live outside missions; never retype an authored mission activity
-            $puzzle = Puzzle::whereNull('mission_id')->firstOrNew(['topic_id' => $data['topic_id']]);
-            $puzzle->puzzle_type = $dbType;
-            if (!empty($data['scenario'])) {
-                $puzzle->instruction = $data['scenario'];
-            }
-            if (!empty($data['xp_points'])) {
-                $puzzle->points = $data['xp_points'];
-            }
-            if (empty($puzzle->question_text)) {
-                $puzzle->question_text = 'Interactive simulation challenge for ' . $data['title'];
-            }
-            if (empty($puzzle->correct_answer)) {
-                $puzzle->correct_answer = ['configured' => true];
-            }
-            $puzzle->save();
-        }
-
         return redirect()
             ->route('lecturer.quizzes.index')
             ->with('success', 'Quiz updated successfully.');
@@ -147,6 +92,14 @@ class QuizController extends Controller
 
     public function destroy(Quiz $quiz)
     {
+        // Deleting would cascade away student results; keep assessment history intact
+        $resultCount = $quiz->results()->count();
+        if ($resultCount > 0) {
+            return redirect()
+                ->route('lecturer.quizzes.index')
+                ->withErrors(['quiz' => "\"{$quiz->title}\" has {$resultCount} student result(s) and cannot be deleted. Edit its settings or questions instead."]);
+        }
+
         $quiz->delete();
 
         return redirect()

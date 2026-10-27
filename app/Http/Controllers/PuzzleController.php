@@ -145,7 +145,7 @@ class PuzzleController extends Controller
         if (!$isValidPayload) {
             return response()->json([
                 'status'  => 'error',
-                'message' => "Invalid simulation telemetry payload for '{$type}'. Missing required answer parameters."
+                'message' => 'Please complete the activity (select, match or place every item) before submitting.'
             ], 422);
         }
 
@@ -162,129 +162,5 @@ class PuzzleController extends Controller
         $result['new_rank'] = $result['clearance_rank'];
 
         return response()->json($result);
-    }
-
-    /**
-     * Store or update puzzle simulation configuration authored by a lecturer.
-     */
-    public function configurePuzzle(Request $request)
-    {
-        $validated = $request->validate([
-            'topic_id'       => 'nullable|integer|exists:topics,topic_id',
-            'quiz_id'        => 'nullable|integer|exists:quizzes,quiz_id',
-            'mission_id'     => 'nullable|integer|exists:missions,mission_id',
-            'puzzle_type'    => 'required|string',
-            'points'         => 'sometimes|integer|min:25|max:1000',
-            'instruction'    => 'nullable|string',
-            'question_text'  => 'nullable|string',
-            'hint'           => 'nullable|string',
-            'explanation'    => 'nullable|string',
-            'correct_answer' => 'nullable',
-            'activity_data'  => 'nullable',
-        ]);
-
-        $topicId = $validated['topic_id'] ?? null;
-        if (!$topicId && !empty($validated['quiz_id'])) {
-            $quiz = \App\Models\Quiz::find($validated['quiz_id']);
-            $topicId = $quiz ? $quiz->topic_id : null;
-        }
-
-        if (!$topicId) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Valid topic_id or quiz_id is required to attach simulation.'
-            ], 422);
-        }
-
-        // Board simulations stay outside student missions unless a mission is chosen explicitly;
-        // auto-attaching them injected required puzzles students could not solve.
-        $missionId = $validated['mission_id'] ?? null;
-
-        $typeMap = [
-            'topology' => 'drag_and_drop',
-            'routing'  => 'scenario',
-            'protocol' => 'sequencing',
-            'subnet'   => 'identification',
-        ];
-        $dbType = $typeMap[$validated['puzzle_type']] ?? $validated['puzzle_type'];
-
-        $answer = $request->input('correct_answer');
-        if (is_string($answer)) {
-            $decoded = json_decode($answer, true);
-            if (json_last_error() === JSON_ERROR_NONE) {
-                $answer = $decoded;
-            }
-        }
-        if (empty($answer)) {
-            $answer = ['configured' => true, 'timestamp' => now()->toIso8601String()];
-        }
-
-        $activityData = $request->input('activity_data');
-        if (is_string($activityData)) {
-            $decoded = json_decode($activityData, true);
-            if (json_last_error() === JSON_ERROR_NONE) {
-                $activityData = $decoded;
-            }
-        }
-
-        // Only ever update a board puzzle (no mission) so authored mission activities are never overwritten
-        $puzzle = $request->filled('puzzle_id')
-            ? Puzzle::whereNull('mission_id')->find((int) $request->input('puzzle_id'))
-            : Puzzle::whereNull('mission_id')
-                ->where('topic_id', $topicId)
-                ->where('puzzle_type', $dbType)
-                ->first();
-
-        $puzzle = $puzzle ?? new Puzzle(['topic_id' => $topicId]);
-        $puzzle->fill([
-            'mission_id'     => $missionId,
-            'puzzle_type'    => $dbType,
-            'question_text'  => $validated['question_text'] ?? ('Interactive simulation challenge for topic #' . $topicId),
-            'instruction'    => $validated['instruction'] ?? 'Complete the network simulation according to laboratory specifications.',
-            'correct_answer' => $answer,
-            'activity_data'  => $activityData,
-            'points'         => $validated['points'] ?? 150,
-            'hint'           => $validated['hint'] ?? null,
-            'explanation'    => $validated['explanation'] ?? null,
-            'status'         => 'published',
-        ]);
-        $puzzle->save();
-
-        return response()->json([
-            'status'  => 'success',
-            'message' => 'Simulation board configuration successfully saved and synchronized!',
-            'puzzle'  => [
-                'puzzle_id'   => $puzzle->puzzle_id,
-                'topic_id'    => $puzzle->topic_id,
-                'mission_id'  => $puzzle->mission_id,
-                'puzzle_type' => $puzzle->puzzle_type,
-                'points'      => $puzzle->points,
-            ]
-        ]);
-    }
-
-    /**
-     * Fetch existing authored puzzle board state for lecturer editing.
-     */
-    public function getBoardState(Request $request, $topicId)
-    {
-        $puzzle = Puzzle::whereNull('mission_id')->where('topic_id', $topicId)->first();
-        if (!$puzzle) {
-            return response()->json(['status' => 'empty', 'puzzle' => null]);
-        }
-
-        return response()->json([
-            'status' => 'success',
-            'puzzle' => [
-                'puzzle_id'      => $puzzle->puzzle_id,
-                'topic_id'       => $puzzle->topic_id,
-                'mission_id'     => $puzzle->mission_id,
-                'puzzle_type'    => $puzzle->puzzle_type,
-                'points'         => $puzzle->points,
-                'instruction'    => $puzzle->instruction,
-                'correct_answer' => $puzzle->correct_answer,
-                'activity_data'  => $puzzle->activity_data,
-            ]
-        ]);
     }
 }

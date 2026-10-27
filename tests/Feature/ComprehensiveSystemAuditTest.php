@@ -144,7 +144,7 @@ class ComprehensiveSystemAuditTest extends TestCase
     {
         $response = $this->actingAs($this->lecturer)->get('/lecturer/quizzes');
         $response->assertStatus(200);
-        $response->assertSee('Manage Quiz Challenges & Missions', false);
+        $response->assertSee('Manage Quizzes');
     }
 
     public function test_lecturer_can_access_quiz_create()

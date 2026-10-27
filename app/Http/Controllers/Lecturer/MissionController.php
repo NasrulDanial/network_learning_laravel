@@ -7,11 +7,20 @@ use Illuminate\Http\Request;
 use App\Models\Topic;
 use App\Models\Mission;
 use App\Models\Puzzle;
+use App\Models\PuzzleAttempt;
+use App\Models\UserMissionProgress;
 use App\Services\PuzzleEvaluatorService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class MissionController extends Controller
 {
+    // Duplicate positions make the student sequence and unlock order ambiguous
+    private const ORDER_MESSAGES = [
+        'mission_order.unique'  => 'Another mission in this topic already uses this order number. Choose a free position.',
+        'activity_order.unique' => 'Another activity in this mission already uses this order number. Choose a free position.',
+    ];
+
     /**
      * Display a listing of missions for a given topic or all missions.
      */
@@ -68,11 +77,12 @@ class MissionController extends Controller
             'description'   => 'nullable|string',
             'objective'     => 'nullable|string',
             'difficulty'    => 'required|in:beginner,intermediate,advanced',
-            'mission_order' => 'required|integer|min:1',
+            'mission_order' => ['required', 'integer', 'min:1',
+                Rule::unique('missions', 'mission_order')->where('topic_id', $request->input('topic_id'))],
             'pass_mark'     => 'required|integer|min:0|max:100',
             'xp_reward'     => 'required|integer|min:25|max:1000',
             'status'        => 'required|in:draft,published',
-        ]);
+        ], self::ORDER_MESSAGES);
 
         $mission = Mission::create($validated);
 
@@ -122,17 +132,33 @@ class MissionController extends Controller
             'description'   => 'nullable|string',
             'objective'     => 'nullable|string',
             'difficulty'    => 'required|in:beginner,intermediate,advanced',
-            'mission_order' => 'required|integer|min:1',
+            'mission_order' => ['required', 'integer', 'min:1',
+                Rule::unique('missions', 'mission_order')
+                    ->where('topic_id', $request->input('topic_id'))
+                    ->ignore($mission->mission_id, 'mission_id')],
             'pass_mark'     => 'required|integer|min:0|max:100',
             'xp_reward'     => 'required|integer|min:25|max:1000',
             'status'        => 'required|in:draft,published',
-        ]);
+        ], self::ORDER_MESSAGES);
 
         $oldTopicId = $mission->topic_id;
+        $topicChanged = (int) $oldTopicId !== (int) $validated['topic_id'];
+
+        // Moving a mission with student history would split that history across topics
+        if ($topicChanged) {
+            $history = PuzzleAttempt::whereIn('puzzle_id', $mission->puzzles()->pluck('puzzle_id'))->count()
+                + UserMissionProgress::where('mission_id', $mission->mission_id)->count();
+            if ($history > 0) {
+                return back()->withInput()->withErrors([
+                    'topic_id' => 'This mission already has student attempts, so it cannot be moved to another topic. Create a new mission in that topic instead.',
+                ]);
+            }
+        }
+
         $mission->update($validated);
 
         // Keep child puzzles synchronized with mission topic
-        if ((int)$oldTopicId !== (int)$validated['topic_id']) {
+        if ($topicChanged) {
             $mission->puzzles()->update(['topic_id' => $validated['topic_id']]);
         }
 
@@ -146,6 +172,15 @@ class MissionController extends Controller
      */
     public function destroy(Mission $mission)
     {
+        // Puzzles and attempts cascade from a mission; refuse rather than erase student history
+        $attempts = PuzzleAttempt::whereIn('puzzle_id', $mission->puzzles()->pluck('puzzle_id'))->count()
+            + UserMissionProgress::where('mission_id', $mission->mission_id)->count();
+        if ($attempts > 0) {
+            return redirect()
+                ->route('lecturer.missions.show', $mission->mission_id)
+                ->with('error', "\"{$mission->title}\" has {$attempts} student attempt/progress record(s) and cannot be deleted. Set it to Draft to hide it from students instead.");
+        }
+
         $topicId = $mission->topic_id;
         $title = $mission->title;
         $mission->delete();
@@ -188,7 +223,8 @@ class MissionController extends Controller
             'question_text'       => 'required|string|max:255',
             'instruction'         => 'required|string|max:500',
             'points'              => 'required|integer|min:25|max:500',
-            'activity_order'      => 'required|integer|min:1',
+            'activity_order'      => ['required', 'integer', 'min:1',
+                Rule::unique('puzzles', 'activity_order')->where('mission_id', $mission->mission_id)],
             'difficulty'          => 'required|in:beginner,intermediate,advanced',
             'max_attempts'        => 'nullable|integer|min:0|max:100',
             'hint'                => 'nullable|string|max:255',
@@ -196,7 +232,7 @@ class MissionController extends Controller
             'correct_feedback'    => 'nullable|string|max:255',
             'incorrect_feedback'  => 'nullable|string|max:255',
             'status'              => 'required|in:draft,published',
-        ]);
+        ], self::ORDER_MESSAGES);
 
         $puzzleType = $validated['puzzle_type'];
 
@@ -256,7 +292,10 @@ class MissionController extends Controller
             'question_text'       => 'required|string|max:255',
             'instruction'         => 'required|string|max:500',
             'points'              => 'required|integer|min:25|max:500',
-            'activity_order'      => 'required|integer|min:1',
+            'activity_order'      => ['required', 'integer', 'min:1',
+                Rule::unique('puzzles', 'activity_order')
+                    ->where('mission_id', $puzzle->mission_id)
+                    ->ignore($puzzle->puzzle_id, 'puzzle_id')],
             'difficulty'          => 'required|in:beginner,intermediate,advanced',
             'max_attempts'        => 'nullable|integer|min:0|max:100',
             'hint'                => 'nullable|string|max:255',
@@ -264,7 +303,7 @@ class MissionController extends Controller
             'correct_feedback'    => 'nullable|string|max:255',
             'incorrect_feedback'  => 'nullable|string|max:255',
             'status'              => 'required|in:draft,published',
-        ]);
+        ], self::ORDER_MESSAGES);
 
         $processed = $this->processActivityPayload($request, $puzzleType);
         if ($processed['error']) {
@@ -297,6 +336,13 @@ class MissionController extends Controller
      */
     public function destroyPuzzle(Puzzle $puzzle)
     {
+        $attempts = $puzzle->attempts()->count();
+        if ($attempts > 0) {
+            return redirect()
+                ->route('lecturer.missions.show', $puzzle->mission_id)
+                ->with('error', "This activity has {$attempts} student attempt(s) and cannot be deleted. Set it to Draft to hide it from students instead.");
+        }
+
         $missionId = $puzzle->mission_id;
         $puzzle->delete();
 

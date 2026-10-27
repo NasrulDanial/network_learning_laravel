@@ -2,140 +2,173 @@
 
 namespace Tests\Feature;
 
-use Tests\TestCase;
-use App\Models\User;
-use App\Models\Topic;
-use App\Models\Quiz;
 use App\Models\Puzzle;
+use App\Models\Question;
+use App\Models\Quiz;
+use App\Models\Result;
+use App\Models\Topic;
+use App\Models\User;
+use Illuminate\Support\Facades\Hash;
+use Tests\TestCase;
 
 class QuizManagementTest extends TestCase
 {
-    public function test_lecturer_can_view_quizzes_management()
+    private User $lecturer;
+    private User $student;
+    private Topic $topic;
+
+    protected function setUp(): void
     {
-        $lecturer = User::where('role', 'lecturer')->first();
-        if (!$lecturer) return;
+        parent::setUp();
 
-        $response = $this->actingAs($lecturer)->get('/lecturer/quizzes');
-        $response->assertStatus(200);
-        $response->assertSee('Manage Quiz Challenges & Missions', false);
-        $response->assertSee('Steps');
-        $response->assertSee('Settings');
-        $response->assertSee('Design Board');
-    }
-
-    public function test_mission_steps_api()
-    {
-        $lecturer = User::where('role', 'lecturer')->first();
-        $quiz = Quiz::first();
-        if (!$lecturer || !$quiz) return;
-
-        // 1. Get steps
-        $getResponse = $this->actingAs($lecturer)->getJson("/lecturer/quizzes/{$quiz->quiz_id}/steps-data");
-        $getResponse->assertStatus(200);
-        $getResponse->assertJsonStructure(['status', 'quiz', 'steps']);
-
-        // 2. Add step
-        $addResponse = $this->actingAs($lecturer)->postJson("/lecturer/quizzes/{$quiz->quiz_id}/steps-data", [
-            'instruction' => 'Connect Router 1 to Distribution Switch 01'
+        $this->lecturer = User::create([
+            'name' => 'Quiz Test Lecturer',
+            'email' => 'quiz_lecturer_' . uniqid() . '@netlearn.test',
+            'password' => Hash::make('password123'),
+            'role' => 'lecturer',
         ]);
-        $addResponse->assertStatus(200);
-        $addResponse->assertJsonFragment(['status' => 'success']);
-        $questionId = $addResponse->json('step.question_id');
 
-        // 3. Delete step
-        $delResponse = $this->actingAs($lecturer)->deleteJson("/lecturer/quizzes/{$quiz->quiz_id}/steps-data/{$questionId}");
-        $delResponse->assertStatus(200);
-        $delResponse->assertJsonFragment(['status' => 'success']);
+        $this->student = User::create([
+            'name' => 'Quiz Test Student',
+            'email' => 'quiz_student_' . uniqid() . '@netlearn.test',
+            'password' => Hash::make('password123'),
+            'role' => 'student',
+        ]);
+
+        $this->topic = Topic::create([
+            'title' => 'Quiz Library Test Topic',
+            'content' => 'Test content',
+            'topic_order' => (int) Topic::max('topic_order') + 1,
+            'status' => 'published',
+            'created_by' => $this->lecturer->user_id,
+        ]);
     }
 
-    public function test_lecturer_can_create_and_update_quiz()
+    private function makeQuiz(string $title = 'Library Test Quiz'): Quiz
     {
-        $lecturer = User::where('role', 'lecturer')->first();
-        $topic = Topic::first();
-        if (!$lecturer || !$topic) return;
+        return Quiz::create([
+            'topic_id' => $this->topic->topic_id,
+            'title' => $title,
+            'passing_mark' => 70,
+        ]);
+    }
 
-        // 1. Create a quiz
-        $createResponse = $this->actingAs($lecturer)->post('/lecturer/quizzes', [
-            'topic_id' => $topic->topic_id,
+    public function test_quiz_library_shows_clear_actions_and_no_legacy_controls()
+    {
+        $this->makeQuiz();
+
+        $response = $this->actingAs($this->lecturer)->get('/lecturer/quizzes');
+
+        $response->assertStatus(200);
+        $response->assertSee('Manage Quizzes');
+        $response->assertSee('Library Test Quiz');
+        $response->assertSee('Edit Questions');
+        $response->assertSee('Settings');
+        $response->assertDontSee('Design Board');
+        $response->assertDontSee('Mission Steps');
+        $response->assertDontSee('Add Quiz Challenge');
+    }
+
+    public function test_quiz_library_flags_quiz_without_questions()
+    {
+        $this->makeQuiz('Empty Quiz');
+
+        $this->actingAs($this->lecturer)
+            ->get('/lecturer/quizzes')
+            ->assertSee('No questions — students cannot take it', false);
+    }
+
+    public function test_legacy_steps_and_board_endpoints_are_removed()
+    {
+        $quiz = $this->makeQuiz();
+        $puzzleCount = Puzzle::count();
+        $questionCount = Question::count();
+
+        $this->actingAs($this->lecturer)->getJson("/lecturer/quizzes/{$quiz->quiz_id}/steps-data")->assertStatus(404);
+        $this->actingAs($this->lecturer)->postJson("/lecturer/quizzes/{$quiz->quiz_id}/steps-data", ['instruction' => 'x'])->assertStatus(404);
+        // 405: the path still matches /lecturer/puzzles/{puzzle} for PUT/DELETE, but POST is gone
+        $configure = $this->actingAs($this->lecturer)->postJson('/lecturer/puzzles/configure', [
+            'topic_id' => $this->topic->topic_id,
+            'puzzle_type' => 'topology',
+        ]);
+        $this->assertContains($configure->status(), [404, 405]);
+        $this->actingAs($this->lecturer)->getJson("/lecturer/puzzles/{$this->topic->topic_id}/state")->assertStatus(404);
+
+        // No dummy questions or unsolvable board puzzles can be created any more
+        $this->assertSame($puzzleCount, Puzzle::count());
+        $this->assertSame($questionCount, Question::count());
+    }
+
+    public function test_lecturer_can_create_and_update_quiz_without_side_effects()
+    {
+        $puzzleCount = Puzzle::count();
+
+        $this->actingAs($this->lecturer)->post('/lecturer/quizzes', [
+            'topic_id' => $this->topic->topic_id,
             'title' => 'Test Automated Lab Quiz',
             'passing_mark' => 75,
-            'scenario' => 'Test scenario narrative',
-            'puzzle_category' => 'topology',
-            'xp_points' => 200,
-        ]);
-        $createResponse->assertRedirect('/lecturer/quizzes');
+        ])->assertRedirect('/lecturer/quizzes');
 
-        $quiz = Quiz::where('title', 'Test Automated Lab Quiz')->first();
-        $this->assertNotNull($quiz);
+        $quiz = Quiz::where('title', 'Test Automated Lab Quiz')->firstOrFail();
         $this->assertEquals(75, $quiz->passing_mark);
 
-        // 2. Update the quiz (ensure PUT updates and does not duplicate)
-        $initialCount = Quiz::count();
-        $updateResponse = $this->actingAs($lecturer)->put('/lecturer/quizzes/' . $quiz->quiz_id, [
-            'topic_id' => $topic->topic_id,
+        $quizCount = Quiz::count();
+        $this->actingAs($this->lecturer)->put('/lecturer/quizzes/' . $quiz->quiz_id, [
+            'topic_id' => $this->topic->topic_id,
             'title' => 'Updated Automated Lab Quiz',
             'passing_mark' => 85,
-            'scenario' => 'Updated scenario',
-            'puzzle_category' => 'subnet',
-            'xp_points' => 250,
-        ]);
-        $updateResponse->assertRedirect('/lecturer/quizzes');
+        ])->assertRedirect('/lecturer/quizzes');
 
-        $this->assertEquals($initialCount, Quiz::count());
         $quiz->refresh();
+        $this->assertSame($quizCount, Quiz::count());
         $this->assertEquals('Updated Automated Lab Quiz', $quiz->title);
         $this->assertEquals(85, $quiz->passing_mark);
 
-        // Clean up
-        $quiz->delete();
+        // Quiz forms must never create or retype puzzle activities
+        $this->assertSame($puzzleCount, Puzzle::count());
     }
 
-    public function test_lecturer_can_configure_puzzle_board()
+    public function test_quiz_with_student_results_cannot_be_deleted()
     {
-        $lecturer = User::where('role', 'lecturer')->first();
-        $topic = Topic::first();
-        if (!$lecturer || !$topic) return;
-
-        $response = $this->actingAs($lecturer)->postJson('/lecturer/puzzles/configure', [
-            'topic_id' => $topic->topic_id,
-            'puzzle_type' => 'topology',
-            'points' => 225,
-            'instruction' => 'Unit test topology setup',
-            'correct_answer' => [
-                'gateway_ip' => '192.168.1.1',
-                'host_ip' => '192.168.1.100',
-                'subnet_mask' => '255.255.255.0'
-            ]
+        $quiz = $this->makeQuiz();
+        Result::create([
+            'user_id' => $this->student->user_id,
+            'quiz_id' => $quiz->quiz_id,
+            'score' => 1,
+            'total_questions' => 1,
+            'percentage' => 100,
+            'status' => 'Pass',
+            'points_earned' => 100,
+            'date_taken' => now(),
         ]);
 
-        $response->assertStatus(200);
-        $response->assertJson([
-            'status' => 'success',
-            'puzzle' => [
-                'topic_id' => $topic->topic_id,
-                'puzzle_type' => 'drag_and_drop',
-                'points' => 225,
-            ]
-        ]);
+        $this->actingAs($this->lecturer)
+            ->delete('/lecturer/quizzes/' . $quiz->quiz_id)
+            ->assertRedirect('/lecturer/quizzes')
+            ->assertSessionHasErrors('quiz');
 
-        $puzzle = Puzzle::where('topic_id', $topic->topic_id)->where('puzzle_type', 'drag_and_drop')->first();
-        $this->assertNotNull($puzzle);
-        $this->assertEquals('drag_and_drop', $puzzle->puzzle_type);
-        $this->assertEquals(225, $puzzle->points);
+        $this->assertNotNull(Quiz::find($quiz->quiz_id));
+        $this->assertSame(1, Result::where('quiz_id', $quiz->quiz_id)->count());
     }
 
-    public function test_student_cannot_configure_puzzle_board()
+    public function test_quiz_without_results_can_be_deleted()
     {
-        $student = User::where('role', 'student')->first();
-        $topic = Topic::first();
-        if (!$student || !$topic) return;
+        $quiz = $this->makeQuiz();
 
-        $response = $this->actingAs($student)->postJson('/lecturer/puzzles/configure', [
-            'topic_id' => $topic->topic_id,
-            'puzzle_type' => 'topology',
-            'points' => 200,
-        ]);
+        $this->actingAs($this->lecturer)
+            ->delete('/lecturer/quizzes/' . $quiz->quiz_id)
+            ->assertRedirect('/lecturer/quizzes')
+            ->assertSessionHas('success');
 
-        $response->assertStatus(403);
+        $this->assertNull(Quiz::find($quiz->quiz_id));
+    }
+
+    public function test_student_cannot_manage_quizzes()
+    {
+        $quiz = $this->makeQuiz();
+
+        $this->actingAs($this->student)->get('/lecturer/quizzes')->assertStatus(403);
+        $this->actingAs($this->student)->delete('/lecturer/quizzes/' . $quiz->quiz_id)->assertStatus(403);
+        $this->assertNotNull(Quiz::find($quiz->quiz_id));
     }
 }

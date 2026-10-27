@@ -88,6 +88,13 @@
     </div>
 @endif
 
+@if (session('error'))
+    <div class="message error" role="alert">
+        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+        <span>{{ session('error') }}</span>
+    </div>
+@endif
+
 <!-- Puzzle Activities List -->
 <div style="background: rgba(13, 33, 56, 0.6); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 24px; padding: 24px; box-shadow: 0 16px 40px rgba(0,0,0,0.3);">
     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">

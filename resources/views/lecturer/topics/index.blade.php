@@ -36,6 +36,13 @@
     </div>
 @endif
 
+@if (session('error'))
+    <div class="message error" role="alert">
+        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+        <span>{{ session('error') }}</span>
+    </div>
+@endif
+
 <!-- Reorder Interactive Drawer / Panel (Blueprint B2: Accessible Alternative to Drag & Drop) -->
 <div id="reorderPanel" style="display: none; background: rgba(34, 211, 238, 0.05); border: 1px solid rgba(34, 211, 238, 0.3); border-radius: 16px; padding: 20px; margin-bottom: 24px;">
     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
