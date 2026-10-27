@@ -23,13 +23,18 @@
     </section>
 
     {{-- Bento Metric Cards --}}
-    <div class="summary-grid" style="margin-bottom: 2rem;">
+    @php
+        $topicTotal = $topicProgress->count();
+        $missionTotal = (int) $topicProgress->sum('missions_count');
+    @endphp
+    <div class="summary-grid progress-summary" style="margin-bottom: 2rem;">
         <div class="stat-card">
             <span class="stat-label">
                 <i class="fa-solid fa-bolt" aria-hidden="true" style="color: #fbbf24;"></i>
                 Total XP
             </span>
             <strong class="stat-value">{{ number_format($totalPoints) }}</strong>
+            <span class="stat-caption">from puzzles, missions and quizzes</span>
         </div>
 
         <div class="stat-card">
@@ -38,6 +43,7 @@
                 Topics Completed
             </span>
             <strong class="stat-value">{{ $completedTopics }}</strong>
+            <span class="stat-caption">of {{ $topicTotal }} {{ Str::plural('topic', $topicTotal) }}</span>
         </div>
 
         <div class="stat-card">
@@ -46,25 +52,35 @@
                 Missions Cleared
             </span>
             <strong class="stat-value">{{ $completedMissions }}</strong>
+            <span class="stat-caption">of {{ $missionTotal }} {{ Str::plural('mission', $missionTotal) }}</span>
         </div>
 
         <div class="stat-card">
             <span class="stat-label">
                 <i class="fa-solid fa-bullseye" aria-hidden="true" style="color: var(--success);"></i>
-                Average Score
+                Average Quiz Score
             </span>
-            <strong class="stat-value">{{ number_format($averageScore, 1) }}%</strong>
+            @if ($totalAttempts > 0)
+                <strong class="stat-value">{{ number_format($averageScore, 1) }}%</strong>
+                <span class="stat-caption">mean of all quiz attempts</span>
+            @else
+                <strong class="stat-value">&mdash;</strong>
+                <span class="stat-caption">no quiz attempts yet</span>
+            @endif
         </div>
 
         <div class="stat-card">
             <span class="stat-label">
                 <i class="fa-solid fa-trophy" aria-hidden="true" style="color: var(--cyan);"></i>
-                Pass Rate
+                Quiz Pass Rate
             </span>
-            <strong class="stat-value">{{ $passRate }}%</strong>
-            <span style="font-size: 0.78rem; color: var(--text-secondary); display: block; margin-top: 4px;">
-                {{ $passedAttempts }} passed / {{ $totalAttempts }} total
-            </span>
+            @if ($totalAttempts > 0)
+                <strong class="stat-value">{{ $passRate }}%</strong>
+                <span class="stat-caption">{{ $passedAttempts }} passed of {{ $totalAttempts }} {{ Str::plural('attempt', $totalAttempts) }}</span>
+            @else
+                <strong class="stat-value">&mdash;</strong>
+                <span class="stat-caption">no quiz attempts yet</span>
+            @endif
         </div>
     </div>
 

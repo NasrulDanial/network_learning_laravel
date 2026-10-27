@@ -87,15 +87,6 @@
                 <span class="nav-text">Student Performance</span>
             </a>
 
-            <a
-                href="{{ route('lecturer.profile') }}"
-                class="nav-item {{ $active === 'profile' ? 'active' : '' }}"
-            >
-                <span class="nav-icon" aria-hidden="true">
-                    <i class="fa-solid fa-id-card"></i>
-                </span>
-                <span class="nav-text">Instructor Profile</span>
-            </a>
         </nav>
 
         <div class="sidebar-footer">
@@ -140,21 +131,7 @@
                 <h2>{{ $pageTitle ?? 'Instructor Mission Control' }}</h2>
             </div>
 
-            <div class="header-user-meta">
-                <div style="display: flex; align-items: center; gap: 8px; margin-right: 12px; font-size: 0.8rem; color: var(--nl-text-secondary);">
-                    <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e;"></span>
-                    <span>Admin Active</span>
-                </div>
-
-                <div class="header-user-avatar" aria-hidden="true" style="border-radius: 10px; background: rgba(139, 92, 246, 0.15); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.3);">
-                    <i class="fa-solid fa-chalkboard-user"></i>
-                </div>
-
-                <div class="header-user-details">
-                    <span class="user-meta-name" style="font-weight: 600; font-size: 0.88rem;">{{ auth()->user()->name }}</span>
-                    <span class="user-meta-role" style="font-size: 0.72rem; color: var(--nl-text-secondary); display: block;">Lead Instructor</span>
-                </div>
-            </div>
+            @include('layouts.partials.header_account', ['profileRoute' => 'lecturer.profile', 'roleLabel' => 'Lecturer', 'accent' => 'purple'])
         </header>
 
         <main class="content-body">

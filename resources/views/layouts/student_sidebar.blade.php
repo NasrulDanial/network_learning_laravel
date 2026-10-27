@@ -87,15 +87,6 @@
                 <span class="nav-text">Achievements</span>
             </a>
 
-            <a
-                href="{{ route('student.profile') }}"
-                class="nav-item {{ $active === 'profile' ? 'active' : '' }}"
-            >
-                <span class="nav-icon" aria-hidden="true">
-                    <i class="fa-solid fa-id-card"></i>
-                </span>
-                <span class="nav-text">My Profile</span>
-            </a>
         </nav>
 
         <div class="sidebar-footer">
@@ -140,21 +131,7 @@
                 <h2>{{ $pageTitle ?? 'Operative Control Console' }}</h2>
             </div>
 
-            <div class="header-user-meta">
-                <div style="display: flex; align-items: center; gap: 8px; margin-right: 12px; font-size: 0.8rem; color: var(--nl-text-secondary);">
-                    <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e;"></span>
-                    <span>Online</span>
-                </div>
-
-                <div class="header-user-avatar" aria-hidden="true" style="border-radius: 10px; background: rgba(34, 211, 238, 0.1); color: var(--nl-cyan); border: 1px solid rgba(34, 211, 238, 0.25);">
-                    <i class="fa-solid fa-user-astronaut"></i>
-                </div>
-
-                <div class="header-user-details">
-                    <span class="user-meta-name" style="font-weight: 600; font-size: 0.88rem;">{{ auth()->user()->name }}</span>
-                    <span class="user-meta-role" style="font-size: 0.72rem; color: var(--nl-text-secondary); display: block;">Student Operative</span>
-                </div>
-            </div>
+            @include('layouts.partials.header_account', ['profileRoute' => 'student.profile', 'roleLabel' => 'Student', 'accent' => 'cyan'])
         </header>
 
         <main class="content-body">

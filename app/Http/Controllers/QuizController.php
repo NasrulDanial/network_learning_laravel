@@ -12,11 +12,12 @@ class QuizController extends Controller
     {
         $topics = Topic::orderBy('topic_order', 'asc')->get();
 
+        // select() must come before withCount/withAvg, otherwise it discards their columns
         $quizzes = Quiz::with('topic')
-            ->withCount(['questions', 'results'])
-            ->withAvg('results', 'percentage')
             ->join('topics', 'quizzes.topic_id', '=', 'topics.topic_id')
             ->select('quizzes.*')
+            ->withCount(['questions', 'results'])
+            ->withAvg('results', 'percentage')
             ->orderBy('topics.topic_order', 'asc')
             ->orderBy('quizzes.quiz_id', 'asc')
             ->get();

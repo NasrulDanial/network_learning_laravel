@@ -147,7 +147,7 @@
         {{-- Right Column: Password & Honors --}}
         <div style="display: flex; flex-direction: column; gap: 24px;">
             {{-- Password Form --}}
-            <div class="management-card" style="margin-bottom: 0;">
+            <div class="management-card" id="change-password" style="margin-bottom: 0; scroll-margin-top: 90px;">
                 <h3 style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border);">
                     <i class="fa-solid fa-key" style="color: #fbbf24;"></i> Security Credentials
                 </h3>

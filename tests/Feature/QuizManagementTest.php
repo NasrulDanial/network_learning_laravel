@@ -69,6 +69,22 @@ class QuizManagementTest extends TestCase
         $response->assertDontSee('Add Quiz Challenge');
     }
 
+    public function test_quiz_library_shows_real_question_counts()
+    {
+        $quiz = $this->makeQuiz('Counted Quiz');
+        foreach (['Q1?', 'Q2?', 'Q3?'] as $text) {
+            Question::create([
+                'quiz_id' => $quiz->quiz_id, 'question_text' => $text,
+                'option_a' => 'A', 'option_b' => 'B', 'option_c' => 'C', 'option_d' => 'D', 'correct_answer' => 'A',
+            ]);
+        }
+
+        $quizzes = $this->actingAs($this->lecturer)->get('/lecturer/quizzes')->assertOk()->viewData('quizzes');
+
+        // select() used to run after withCount() and silently reset every count to 0
+        $this->assertSame(3, (int) $quizzes->firstWhere('quiz_id', $quiz->quiz_id)->questions_count);
+    }
+
     public function test_quiz_library_flags_quiz_without_questions()
     {
         $this->makeQuiz('Empty Quiz');

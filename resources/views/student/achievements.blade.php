@@ -41,23 +41,26 @@
 
     {{-- Filter Pills --}}
     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 1.5rem;">
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button type="button" class="button" onclick="filterBadges('all', this)" style="padding: 6px 14px; font-size: 0.82rem;">
-                <i class="fa-solid fa-layer-group"></i>
-                All Badges ({{ $totalCount }})
-            </button>
-            <button type="button" class="button secondary" onclick="filterBadges('earned', this)" style="padding: 6px 14px; font-size: 0.82rem;">
-                <i class="fa-solid fa-check-circle" style="color: var(--success);"></i>
-                Earned ({{ $earnedCount }})
-            </button>
-            <button type="button" class="button secondary" onclick="filterBadges('in-progress', this)" style="padding: 6px 14px; font-size: 0.82rem;">
-                <i class="fa-solid fa-spinner" style="color: var(--warning);"></i>
-                In Progress ({{ $achievements->where('status', 'In Progress')->count() }})
-            </button>
-            <button type="button" class="button secondary" onclick="filterBadges('locked', this)" style="padding: 6px 14px; font-size: 0.82rem;">
-                <i class="fa-solid fa-lock"></i>
-                Locked ({{ $achievements->where('status', 'Locked')->count() }})
-            </button>
+        @php
+            $badgeFilters = [
+                ['all', 'All Badges', $totalCount, 'fa-layer-group', ''],
+                ['earned', 'Earned', $earnedCount, 'fa-circle-check', 'color: var(--success);'],
+                ['in-progress', 'In Progress', $achievements->where('status', 'In Progress')->count(), 'fa-spinner', 'color: var(--warning);'],
+                ['locked', 'Locked', $achievements->where('status', 'Locked')->count(), 'fa-lock', ''],
+            ];
+        @endphp
+        <div class="badge-filters" role="group" aria-label="Filter badges">
+            @foreach ($badgeFilters as [$key, $label, $count, $icon, $iconStyle])
+                <button
+                    type="button"
+                    class="button {{ $key === 'all' ? '' : 'secondary' }}"
+                    data-badge-filter="{{ $key }}"
+                    aria-pressed="{{ $key === 'all' ? 'true' : 'false' }}"
+                >
+                    <i class="fa-solid {{ $icon }}" style="{{ $iconStyle }}" aria-hidden="true"></i>
+                    {{ $label }} ({{ $count }})
+                </button>
+            @endforeach
         </div>
 
         <a href="{{ route('student.learning') }}" class="button secondary" style="padding: 8px 16px; font-size: 0.82rem;">
@@ -65,6 +68,8 @@
             Resume Curriculum
         </a>
     </div>
+
+    <p class="empty-inline" id="badgeFilterEmpty" hidden aria-live="polite">No badges in this group yet.</p>
 
     {{-- Badges Grid --}}
     <div class="dashboard-grid" id="badges-container">
@@ -151,15 +156,32 @@
     </div>
 
 <script>
-function filterBadges(status, btn) {
-    var cards = document.querySelectorAll('.achievement-card');
-    cards.forEach(function(card) {
-        if (status === 'all' || card.dataset.status === status) {
-            card.style.display = 'flex';
-        } else {
-            card.style.display = 'none';
-        }
+(function () {
+    const buttons = document.querySelectorAll('[data-badge-filter]');
+    const cards = document.querySelectorAll('.achievement-card');
+    const empty = document.getElementById('badgeFilterEmpty');
+
+    buttons.forEach(function (button) {
+        button.addEventListener('click', function () {
+            const status = button.dataset.badgeFilter;
+            let visible = 0;
+
+            cards.forEach(function (card) {
+                const show = status === 'all' || card.dataset.status === status;
+                card.hidden = !show;
+                if (show) visible++;
+            });
+
+            // Selected filter uses the primary style; the others stay secondary
+            buttons.forEach(function (b) {
+                const active = b === button;
+                b.classList.toggle('secondary', !active);
+                b.setAttribute('aria-pressed', active ? 'true' : 'false');
+            });
+
+            if (empty) empty.hidden = visible !== 0;
+        });
     });
-}
+})();
 </script>
 @endsection

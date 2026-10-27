@@ -115,7 +115,7 @@
     </div>
 
     {{-- Right: Change Security Credentials --}}
-    <div class="management-card" style="margin-bottom: 0;">
+    <div class="management-card" id="change-password" style="margin-bottom: 0; scroll-margin-top: 90px;">
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border);">
             <i class="fa-solid fa-lock" style="color: #fbbf24;"></i>
             <h3 style="font-size: 1.1rem; font-weight: 700; margin: 0;">Account Security</h3>

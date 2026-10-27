@@ -181,63 +181,57 @@
                         {{ Str::limit($topic->description ?? 'No summary provided.', 120) }}
                     </p>
 
-                    <!-- Meta Badges -->
-                    <div style="display: flex; gap: 14px; font-size: 0.76rem; color: var(--nl-text-tertiary); padding-top: 12px; border-top: 1px solid var(--nl-glass-border); margin-bottom: 16px;">
-                        <span><i class="fa-solid fa-puzzle-piece" style="color: var(--nl-cyan); margin-right: 4px;"></i> {{ $topic->missions_count }} {{ Str::plural('Mission', $topic->missions_count) }}</span>
-                        <span><i class="fa-solid fa-clock" style="margin-right: 4px;"></i> ~{{ $topic->estimated_time_minutes ?? 30 }} mins</span>
-                    </div>
+                    <!-- Meta + actions pinned to the card bottom so every card lines up -->
+                    <div class="topic-card-footer">
+                        <div class="topic-card-meta">
+                            <span><i class="fa-solid fa-puzzle-piece" aria-hidden="true"></i> {{ $topic->missions_count }} {{ Str::plural('Mission', $topic->missions_count) }}</span>
+                            <span><i class="fa-solid fa-clock" aria-hidden="true"></i> ~{{ $topic->estimated_time_minutes ?? 30 }} mins</span>
+                        </div>
 
-                    <!-- Action Buttons Toolbar (Blueprint B2: Preview, Edit, Manage Missions, Publish/Unpublish, Delete) -->
-                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
-                        <a
-                            href="{{ route('lecturer.missions.index', ['topic_id' => $topic->topic_id]) }}"
-                            class="button"
-                            style="padding: 6px 14px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 6px;"
-                            title="Manage PBL missions for this stage"
-                        >
-                            <i class="fa-solid fa-puzzle-piece"></i>
-                            <span>Missions ({{ $topic->missions_count }})</span>
-                        </a>
-
-                        <div style="display: inline-flex; align-items: center; gap: 6px;">
+                        <div class="topic-card-actions">
                             <a
-                                href="{{ route('lecturer.topics.edit', $topic->topic_id) }}"
-                                class="button secondary"
-                                style="padding: 6px 10px; font-size: 0.78rem;"
-                                title="Edit Topic Details"
+                                href="{{ route('lecturer.missions.index', ['topic_id' => $topic->topic_id]) }}"
+                                class="button topic-card-primary"
                             >
-                                <i class="fa-solid fa-pen-to-square"></i>
+                                <i class="fa-solid fa-puzzle-piece" aria-hidden="true"></i>
+                                <span>Manage Missions</span>
                             </a>
 
-                            <!-- Publish / Unpublish Toggle -->
-                            <form method="POST" action="{{ route('lecturer.topics.toggle', $topic->topic_id) }}" style="display: inline;">
+                            <a
+                                href="{{ route('lecturer.topics.edit', $topic->topic_id) }}"
+                                class="button secondary topic-card-icon"
+                                title="Edit topic"
+                                aria-label="Edit {{ $topic->title }}"
+                            >
+                                <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
+                            </a>
+
+                            <form method="POST" action="{{ route('lecturer.topics.toggle', $topic->topic_id) }}">
                                 @csrf
                                 <button
                                     type="submit"
-                                    class="button secondary"
-                                    style="padding: 6px 10px; font-size: 0.78rem;"
+                                    class="button secondary topic-card-icon"
                                     title="{{ $isPublished ? 'Unpublish (hide from students)' : 'Publish to students' }}"
+                                    aria-label="{{ $isPublished ? 'Unpublish' : 'Publish' }} {{ $topic->title }}"
                                 >
-                                    <i class="fa-solid {{ $isPublished ? 'fa-eye-slash' : 'fa-eye' }}"></i>
+                                    <i class="fa-solid {{ $isPublished ? 'fa-eye-slash' : 'fa-eye' }}" aria-hidden="true"></i>
                                 </button>
                             </form>
 
-                            <!-- Delete with Confirmation -->
                             <form
                                 method="POST"
                                 action="{{ route('lecturer.topics.destroy', $topic->topic_id) }}"
-                                onsubmit="return confirm('Delete topic \'{{ addslashes($topic->title) }}\'? Linked missions and historical evaluation attempts will be safely archived or removed.');"
-                                style="display: inline;"
+                                onsubmit="return confirm('Delete topic '{{ addslashes($topic->title) }}' with its missions and quiz? This cannot be undone. Topics that students have already worked on cannot be deleted; unpublish them instead.');"
                             >
                                 @csrf
                                 @method('DELETE')
                                 <button
                                     type="submit"
-                                    class="button secondary"
-                                    style="padding: 6px 10px; font-size: 0.78rem; color: #f87171; border-color: rgba(239, 68, 68, 0.3);"
-                                    title="Delete Topic"
+                                    class="button danger topic-card-icon"
+                                    title="Delete topic"
+                                    aria-label="Delete {{ $topic->title }}"
                                 >
-                                    <i class="fa-solid fa-trash"></i>
+                                    <i class="fa-solid fa-trash" aria-hidden="true"></i>
                                 </button>
                             </form>
                         </div>

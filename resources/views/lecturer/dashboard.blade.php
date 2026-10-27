@@ -179,7 +179,7 @@
     <div style="display: flex; flex-direction: column; gap: 20px;">
 
         <!-- Analytics Charts in Constrained Bento Cards -->
-        <div class="dash-charts" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div class="dash-charts" style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 16px; align-items: start;">
             <div class="chart-card">
                 <span class="eyebrow" style="font-size: 0.7rem; color: var(--nl-cyan); margin-bottom: 8px;">Quiz Pass / Fail</span>
                 @if ($totalQuizAttempts > 0)
@@ -197,7 +197,8 @@
             <div class="chart-card">
                 <span class="eyebrow" style="font-size: 0.7rem; color: var(--nl-cyan); margin-bottom: 8px;">Average Quiz Score by Topic</span>
                 @if ($topicPerformance->count() > 0)
-                    <div class="chart-wrapper-nl">
+                    {{-- Horizontal bars: one row per topic, so the height grows with the topic count --}}
+                    <div class="chart-wrapper-nl" style="height: {{ max(180, 46 * $topicPerformance->count() + 50) }}px; max-height: none;">
                         <canvas id="topicPerformanceChart" role="img" aria-label="Average quiz score per topic"></canvas>
                     </div>
                 @else
@@ -214,8 +215,9 @@
         {
             "passFailLabels": @json(array_keys($passFailData)),
             "passFailValues": @json(array_values($passFailData)),
-            "topicLabels": @json($topicPerformance->pluck('topic_title')),
-            "topicAverages": @json($topicPerformance->pluck('average_percentage')->map(fn ($val) => round($val, 1)))
+            "topicLabels": @json($topicPerformance->map(fn ($t) => 'Stage ' . $t->topic_order . ' · ' . $t->topic_title)),
+            "topicAverages": @json($topicPerformance->pluck('average_percentage')->map(fn ($val) => round($val, 1))),
+            "topicAttempts": @json($topicPerformance->pluck('total_attempts')->map(fn ($val) => (int) $val))
         }
         </script>
 

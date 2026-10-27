@@ -533,10 +533,6 @@ button[disabled] {
         text-overflow: ellipsis;
         margin: 0;
     }
-    /* Keep only the avatar: status text and name/role move into the drawer */
-    .header-user-meta > :not(.header-user-avatar) {
-        display: none !important;
-    }
 }
 
 /* Closed modals were only transparent: still focusable and announced by screen readers */
@@ -615,4 +611,345 @@ button[disabled] {
 }
 .is-embedded .app-layout {
     padding: 0 !important;
+}
+
+/* ── Page transitions ──────────────────────────────────────────────────
+   Native cross-document view transitions: real page loads (all scripts run)
+   with a short cross-fade in supporting browsers; others just navigate. */
+@view-transition {
+    navigation: auto;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation-duration: 0.18s;
+}
+@media (prefers-reduced-motion: reduce) {
+    @view-transition {
+        navigation: none;
+    }
+}
+
+.badge-filters {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.badge-filters .button {
+    padding: 6px 14px;
+    font-size: 0.82rem;
+}
+
+/* Student dashboard summary: one compact row of four on desktop.
+   .widget-stat-mini spans 4 of 12 columns by default, which in this 4-column grid
+   made every card fill a whole row. */
+.widget-grid.dash-stats-4 > .widget-stat-mini {
+    grid-column: auto;
+    min-width: 0;
+    padding: 16px 18px;
+}
+
+/* ── My Progress summary: five balanced tiles ─────────────────────────── */
+.progress-summary {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 1rem;
+}
+.progress-summary .stat-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+.stat-caption {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--nl-text-secondary);
+    margin-top: auto;
+}
+@media (max-width: 1199px) {
+    /* 3 + 2: the bottom pair share the row evenly */
+    .progress-summary { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .progress-summary > * { grid-column: span 2; }
+    .progress-summary > :nth-child(n+4) { grid-column: span 3; }
+}
+@media (max-width: 640px) {
+    .progress-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .progress-summary > * { grid-column: span 1; }
+    .progress-summary > :first-child { grid-column: span 2; }
+    .progress-summary > :nth-child(n+4) { grid-column: span 1; }
+}
+
+/* ── Lecturer topic cards: footer pinned to the bottom, one fixed action row ── */
+.topic-card-footer {
+    margin-top: auto;
+}
+.topic-card-meta {
+    display: flex;
+    gap: 14px;
+    font-size: 0.76rem;
+    color: var(--nl-text-tertiary);
+    padding-top: 12px;
+    border-top: 1px solid var(--nl-glass-border);
+    margin-bottom: 14px;
+}
+.topic-card-meta i {
+    color: var(--nl-cyan);
+    margin-right: 4px;
+}
+.topic-card-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) repeat(3, 38px);
+    gap: 8px;
+    align-items: stretch;
+}
+.topic-card-actions form {
+    margin: 0;
+    display: contents;
+}
+.topic-card-actions .button {
+    box-sizing: border-box;
+    height: 38px;
+    margin: 0;
+    font-size: 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+.topic-card-primary {
+    padding: 0 12px;
+    min-width: 0;
+}
+.topic-card-primary span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* Higher specificity than the global .button / button.secondary padding rules */
+.topic-card-actions .button.topic-card-icon,
+.topic-card-actions button.button.topic-card-icon {
+    width: 38px;
+    min-width: 38px;
+    padding: 0 !important;
+}
+
+/* ── Header account menu (avatar → profile, password, log out) ────────── */
+.account-menu {
+    position: relative;
+    margin-left: auto;
+}
+.account-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 10px 5px 5px;
+    border-radius: 14px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--nl-text-primary);
+    cursor: pointer;
+    box-shadow: none;
+    transform: none !important;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.account-trigger:hover,
+.account-trigger[aria-expanded="true"] {
+    background: var(--nl-glass-card-hover);
+    border-color: var(--nl-glass-border);
+}
+.account-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
+    flex-shrink: 0;
+}
+.account-avatar--cyan {
+    background: rgba(34, 211, 238, 0.14);
+    color: #67e8f9;
+    border: 1px solid rgba(34, 211, 238, 0.35);
+}
+.account-avatar--purple {
+    background: rgba(139, 92, 246, 0.16);
+    color: #c4b5fd;
+    border: 1px solid rgba(139, 92, 246, 0.38);
+}
+.account-avatar--lg {
+    width: 44px;
+    height: 44px;
+    font-size: 0.95rem;
+}
+.account-trigger-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.2;
+    min-width: 0;
+}
+.account-name {
+    font-weight: 600;
+    font-size: 0.88rem;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.account-role {
+    font-size: 0.72rem;
+    color: var(--nl-text-secondary);
+}
+.account-caret {
+    font-size: 0.7rem;
+    color: var(--nl-text-secondary);
+    transition: transform 0.15s ease;
+}
+.account-trigger[aria-expanded="true"] .account-caret {
+    transform: rotate(180deg);
+}
+
+.account-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 280px;
+    z-index: 1200;
+    padding: 8px;
+    border-radius: 16px;
+    background: #0f2238;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
+}
+.account-dropdown-header {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 10px 12px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.account-dropdown-header div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.account-dropdown-header strong {
+    color: var(--nl-text-primary);
+    font-size: 0.92rem;
+}
+.account-dropdown-header span {
+    color: var(--nl-text-secondary);
+    font-size: 0.78rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.account-dropdown-header .account-role-chip {
+    align-self: flex-start;
+    margin-top: 4px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--nl-cyan);
+    border: 1px solid var(--nl-glass-border);
+}
+.account-dropdown form {
+    margin: 0;
+}
+.account-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 10px;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--nl-text-primary);
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 500;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    box-shadow: none;
+    transform: none !important;
+}
+.account-item i {
+    width: 16px;
+    text-align: center;
+    color: var(--nl-text-secondary);
+}
+.account-item:hover,
+.account-item:focus-visible,
+.account-item.is-current {
+    background: rgba(34, 211, 238, 0.1);
+    color: var(--nl-text-primary);
+}
+.account-item--danger,
+.account-item--danger i {
+    color: #fca5a5;
+}
+.account-item--danger:hover,
+.account-item--danger:focus-visible {
+    background: rgba(239, 68, 68, 0.12);
+    color: #fecaca;
+}
+.account-divider {
+    height: 1px;
+    margin: 6px 4px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="light"] .account-dropdown {
+    background: #FFFFFF;
+    border-color: rgba(15, 23, 42, 0.12);
+    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.16);
+}
+[data-theme="light"] .account-dropdown-header,
+[data-theme="light"] .account-divider {
+    border-color: rgba(15, 23, 42, 0.1);
+    background-color: transparent;
+}
+[data-theme="light"] .account-divider {
+    background: rgba(15, 23, 42, 0.1);
+}
+[data-theme="light"] .account-item:hover,
+[data-theme="light"] .account-item:focus-visible,
+[data-theme="light"] .account-item.is-current {
+    background: rgba(8, 145, 178, 0.08);
+}
+[data-theme="light"] .account-item--danger,
+[data-theme="light"] .account-item--danger i {
+    color: #B91C1C;
+}
+[data-theme="light"] .account-avatar--cyan { color: #0E7490; background: rgba(8, 145, 178, 0.1); }
+[data-theme="light"] .account-avatar--purple { color: #6D28D9; background: rgba(124, 58, 237, 0.1); }
+
+/* Phones: avatar only; name and role are in the menu header */
+@media (max-width: 640px) {
+    .account-trigger-text,
+    .account-caret {
+        display: none;
+    }
+    .account-trigger {
+        padding: 3px;
+    }
+}
+
+/* "Log out" is a submit button; style.css forces white text on every submit button with !important */
+.account-dropdown button.account-item--danger,
+.account-dropdown button.account-item--danger i {
+    color: #fca5a5 !important;
+}
+[data-theme="light"] .account-dropdown button.account-item--danger,
+[data-theme="light"] .account-dropdown button.account-item--danger i {
+    color: #B91C1C !important;
 }

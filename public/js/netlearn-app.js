@@ -116,75 +116,68 @@
         });
     }
 
-    // ── 2. Native View Transitions SPA Cross-fade ──
-    function initViewTransitions() {
-        if (!document.startViewTransition) return;
+    // ── 1b. Header account menu (avatar → profile, password, log out) ──
+    function initAccountMenu() {
+        const root = document.querySelector('[data-account-menu]');
+        if (!root || root.dataset.bound === 'true') return;
+        root.dataset.bound = 'true';
 
-        document.addEventListener('click', (e) => {
-            const link = e.target.closest('a');
-            if (!link) return;
+        const trigger = root.querySelector('.account-trigger');
+        const menu = root.querySelector('.account-dropdown');
+        const items = () => [...menu.querySelectorAll('.account-item')];
 
-            const href = link.getAttribute('href');
-            if (!href || href.startsWith('#') || href.startsWith('javascript:') || link.target === '_blank') return;
+        function open(focusFirst) {
+            menu.hidden = false;
+            trigger.setAttribute('aria-expanded', 'true');
+            if (focusFirst) items()[0]?.focus();
+        }
+        function close(returnFocus) {
+            if (menu.hidden) return;
+            menu.hidden = true;
+            trigger.setAttribute('aria-expanded', 'false');
+            if (returnFocus) trigger.focus();
+        }
 
-            const targetUrl = new URL(link.href, window.location.origin);
-            if (targetUrl.origin !== window.location.origin) return;
-
-            // Don't intercept logout or external downloads
-            if (href.includes('/logout') || link.hasAttribute('download')) return;
-
-            // If link requests sheet modal, do not navigate
-            if (link.hasAttribute('data-sheet-url')) return;
-
-            e.preventDefault();
-
-            fetch(targetUrl.href)
-                .then(response => {
-                    if (!response.ok) throw new Error('Network error');
-                    return response.text();
-                })
-                .then(html => {
-                    document.startViewTransition(() => {
-                        const parser = new DOMParser();
-                        const doc = parser.parseFromString(html, 'text/html');
-
-                        // Update page title
-                        document.title = doc.title;
-
-                        // Swap content body
-                        const currentBody = document.querySelector('.content-body');
-                        const newBody = doc.querySelector('.content-body');
-                        if (currentBody && newBody) {
-                            currentBody.innerHTML = newBody.innerHTML;
-                        }
-
-                        // Update header title if present
-                        const currentHeaderTitle = document.querySelector('.header-title');
-                        const newHeaderTitle = doc.querySelector('.header-title');
-                        if (currentHeaderTitle && newHeaderTitle) {
-                            currentHeaderTitle.innerHTML = newHeaderTitle.innerHTML;
-                        }
-
-                        // Update active state in sidebar
-                        const currentNav = document.querySelector('.sidebar-nav');
-                        const newNav = doc.querySelector('.sidebar-nav');
-                        if (currentNav && newNav) {
-                            currentNav.innerHTML = newNav.innerHTML;
-                        }
-
-                        window.history.pushState({}, '', targetUrl.href);
-
-                        // Re-initialize dynamic view components
-                        initPageComponents();
-                    });
-                })
-                .catch(() => {
-                    window.location.href = targetUrl.href;
-                });
+        trigger.addEventListener('click', () => (menu.hidden ? open(false) : close(false)));
+        trigger.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                open(true);
+            }
         });
 
-        window.addEventListener('popstate', () => {
-            window.location.reload();
+        menu.addEventListener('keydown', (e) => {
+            const list = items();
+            const index = list.indexOf(document.activeElement);
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                list[(index + 1) % list.length].focus();
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                list[(index - 1 + list.length) % list.length].focus();
+            } else if (e.key === 'Tab') {
+                close(false);
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!root.contains(e.target)) close(false);
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') close(true);
+        });
+    }
+
+    // ── 2. Page transitions ──
+    // Full page loads only. The old fetch-and-swap navigation replaced just .content-body, so
+    // page scripts (Phaser templates, puzzle editor, filters) never ran. The cross-fade now
+    // comes from the CSS @view-transition rule in netlearn-polish.css.
+
+    // Dialogs must live at <body> level: .main-content uses backdrop-filter, which makes
+    // position:fixed children position against the panel instead of the screen.
+    function hoistOverlays() {
+        document.querySelectorAll('.nl-modal-backdrop, .quiz-slideover-backdrop').forEach((el) => {
+            if (el.parentElement !== document.body) document.body.appendChild(el);
         });
     }
 
@@ -480,46 +473,77 @@
             }
 
             if (topicCanvas) {
+                // Horizontal bars: long topic names stay readable, 0–100% axis is fixed
+                const shorten = (label) => label.length > 34 ? label.slice(0, 33) + '…' : label;
+                const valueLabels = {
+                    id: 'valueLabels',
+                    afterDatasetsDraw(chart) {
+                        const { ctx } = chart;
+                        ctx.save();
+                        ctx.font = '600 11px Inter, sans-serif';
+                        ctx.fillStyle = textColor;
+                        ctx.textBaseline = 'middle';
+                        chart.getDatasetMeta(0).data.forEach((bar, i) => {
+                            const value = chart.data.datasets[0].data[i];
+                            ctx.fillText(value + '%', bar.x + 6, bar.y);
+                        });
+                        ctx.restore();
+                    },
+                };
+
                 topicChartInstance = new Chart(topicCanvas, {
                     type: 'bar',
                     data: {
-                        labels: data.topicLabels,
+                        labels: data.topicLabels.map(shorten),
                         datasets: [{
-                            label: 'Average quiz score %',
+                            label: 'Average quiz score',
                             data: data.topicAverages,
                             backgroundColor: barColor,
                             hoverBackgroundColor: isLight ? '#155E75' : '#22d3ee',
                             borderRadius: 6,
+                            barThickness: 18,
                         }]
                     },
                     options: {
+                        indexAxis: 'y',
                         responsive: true,
                         maintainAspectRatio: false,
+                        layout: { padding: { right: 36 } },
                         scales: {
                             x: {
-                                ticks: {
-                                    color: textColor,
-                                    font: { family: 'Inter', size: 10 },
-                                    maxRotation: 20,
-                                    minRotation: 0
-                                },
-                                grid: { display: false }
-                            },
-                            y: {
                                 beginAtZero: true,
                                 max: 100,
                                 ticks: {
                                     color: textColor,
                                     font: { family: 'Inter', size: 10 },
-                                    stepSize: 25
+                                    stepSize: 25,
+                                    callback: (v) => v + '%'
                                 },
                                 grid: { color: gridColor }
+                            },
+                            y: {
+                                ticks: {
+                                    color: textColor,
+                                    font: { family: 'Inter', size: 11 },
+                                    autoSkip: false
+                                },
+                                grid: { display: false }
                             }
                         },
                         plugins: {
-                            legend: { display: false }
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    title: (items) => data.topicLabels[items[0].dataIndex],
+                                    label: (item) => {
+                                        const attempts = (data.topicAttempts || [])[item.dataIndex] || 0;
+                                        return `Average ${item.raw}% across ${attempts} attempt${attempts === 1 ? '' : 's'}`;
+                                    }
+                                }
+                            }
                         }
-                    }
+                    },
+                    plugins: [valueLabels]
                 });
             }
         } catch (err) {
@@ -527,14 +551,6 @@
         }
     };
 
-    // Master Initializer
-    function initPageComponents() {
-        initSidebar();
-        initSheetTriggers();
-        initQuizStepper();
-        initFinder();
-        initLecturerCharts();
-    }
 
     // Redraw theme-dependent charts when the user switches light/dark mode
     const previousThemeHook = window.onThemeChange;
@@ -545,7 +561,8 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         initSidebar();
-        initViewTransitions();
+        initAccountMenu();
+        hoistOverlays();
         initSheetTriggers();
         initQuizStepper();
         initFinder();

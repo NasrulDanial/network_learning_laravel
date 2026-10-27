@@ -104,6 +104,7 @@ class LecturerDashboardController extends Controller
             ->join('topics', 'quizzes.topic_id', '=', 'topics.topic_id')
             ->select(
                 'topics.title as topic_title',
+                'topics.topic_order',
                 DB::raw('COUNT(results.result_id) as total_attempts'),
                 DB::raw('AVG(results.percentage) as average_percentage')
             )
