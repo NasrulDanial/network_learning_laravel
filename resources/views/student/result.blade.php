@@ -93,7 +93,7 @@
 
             <a class="button secondary" href="{{ route('student.quiz') }}">
                 <i class="fa-solid fa-puzzle-piece" aria-hidden="true"></i>
-                Back to Quiz Hub
+                Back to Topic Quizzes
             </a>
         </div>
     </section>

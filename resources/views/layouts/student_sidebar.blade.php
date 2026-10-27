@@ -64,7 +64,7 @@
                 <span class="nav-icon" aria-hidden="true">
                     <i class="fa-solid fa-shield-halved"></i>
                 </span>
-                <span class="nav-text">Practice Arena</span>
+                <span class="nav-text">Topic Quizzes</span>
             </a>
 
             <a

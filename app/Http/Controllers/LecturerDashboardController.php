@@ -133,6 +133,41 @@ class LecturerDashboardController extends Controller
             ->limit(6)
             ->get();
 
+        // One recent-activity feed across quiz results and puzzle attempts (blueprint B1)
+        $recentActivity = $recentResults->map(function ($result) {
+            return [
+                'type'          => 'quiz',
+                'user_id'       => $result->user_id,
+                'student_name'  => $result->student_name,
+                'student_email' => $result->student_email,
+                'title'         => $result->quiz_title,
+                'context'       => $result->topic_title,
+                'score_label'   => (int) $result->score . '/' . (int) $result->total_questions . ' (' . round($result->percentage) . '%)',
+                'passed'        => $result->status === 'Pass',
+                'date'          => $result->date_taken ? \Illuminate\Support\Carbon::parse($result->date_taken) : null,
+            ];
+        })->concat(
+            PuzzleAttempt::with(['user', 'puzzle.mission'])
+                ->orderByDesc('date_taken')
+                ->limit(6)
+                ->get()
+                ->filter(fn ($attempt) => $attempt->user && $attempt->puzzle)
+                ->map(function ($attempt) {
+                    $max = (int) ($attempt->puzzle->points ?: 100);
+                    return [
+                        'type'          => 'puzzle',
+                        'user_id'       => $attempt->user_id,
+                        'student_name'  => $attempt->user->name,
+                        'student_email' => $attempt->user->email,
+                        'title'         => $attempt->puzzle->question_text,
+                        'context'       => $attempt->puzzle->mission->title ?? 'Puzzle activity',
+                        'score_label'   => (int) $attempt->score . '/' . $max . ' pts',
+                        'passed'        => $attempt->status === 'completed',
+                        'date'          => $attempt->date_taken,
+                    ];
+                })
+        )->sortByDesc(fn ($item) => $item['date'] ? $item['date']->getTimestamp() : 0)->take(8)->values();
+
         return view('lecturer.dashboard', [
             'pageTitle' => 'Instructor Mission Control',
             'activePage' => 'dashboard',
@@ -146,6 +181,9 @@ class LecturerDashboardController extends Controller
             'passFailData' => $passFailData,
             'topicPerformance' => $topicPerformance,
             'recentResults' => $recentResults,
+            'recentActivity' => $recentActivity,
+            'totalQuizAttempts' => $totalQuizAttempts,
+            'totalPuzzleAttempts' => $totalPuzzleAttempts,
             'attentionItems' => $attentionItems,
         ]);
     }

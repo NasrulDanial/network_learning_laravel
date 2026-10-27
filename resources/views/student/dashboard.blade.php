@@ -47,10 +47,14 @@
 
         <!-- Interactive Rank Card: Clicking opens Rank Progression Modal (Blueprint C1) -->
         <div
+            id="rankCardTrigger"
             onclick="openRankModal()"
             role="button"
             tabindex="0"
-            title="Click to view full Career Rank Progression"
+            aria-haspopup="dialog"
+            aria-controls="rankProgressionModal"
+            aria-label="Rank: {{ $rankInfo['current_rank_short'] }}, {{ number_format($rankInfo['total_xp']) }} XP. Open rank progression"
+            title="View your full rank progression"
             style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(34, 211, 238, 0.3); border-radius: 20px; padding: 22px 24px; min-width: 280px; cursor: pointer; transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease; z-index: 2;"
             onmouseover="this.style.transform='translateY(-3px)'; this.style.borderColor='var(--nl-cyan)';"
             onmouseout="this.style.transform='none'; this.style.borderColor='rgba(34, 211, 238, 0.3)';"
@@ -95,7 +99,7 @@
 </div>
 
 <!-- Compact Summary Bento Cards (Blueprint C1: 4 Defined Metrics) -->
-<div class="widget-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 24px; gap: 16px;">
+<div class="widget-grid dash-stats-4" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 24px; gap: 16px;">
     <!-- 1. Total Accumulated XP -->
     <div class="widget-stat-mini">
         <div class="node-icon" style="margin-bottom: 0; background: rgba(251, 191, 36, 0.15); color: #fbbf24; border-color: rgba(251, 191, 36, 0.3);">
@@ -146,7 +150,7 @@
 </div>
 
 <!-- Split Section: Quick Virtual Labs (Left) + Latest Achievement / Curriculum Status (Right) -->
-<div style="display: grid; grid-template-columns: 1.6fr 1fr; gap: 24px; align-items: start; margin-bottom: 24px;">
+<div class="dash-split" style="display: grid; grid-template-columns: 1.6fr 1fr; gap: 24px; align-items: start; margin-bottom: 24px;">
 
     <!-- Left: Virtual Labs Quick Launch -->
     <div style="background: var(--nl-glass-card); backdrop-filter: var(--nl-glass-blur); border: 1px solid var(--nl-glass-border); border-radius: var(--nl-radius-panel); padding: 24px;">
@@ -210,7 +214,7 @@
                 @endforeach
             @endif
 
-            <!-- Practice Arena Shortcut Card -->
+            <!-- Topic Quizzes Shortcut Card -->
             <div style="background: rgba(168, 85, 247, 0.06); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 14px; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
                 <div style="display: flex; align-items: center; gap: 14px;">
                     <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.3); color: #c084fc; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0;">
@@ -218,13 +222,13 @@
                     </div>
                     <div>
                         <span style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: #c084fc; letter-spacing: 0.06em;">
-                            Optional Theory Assessment
+                            Topic Assessment
                         </span>
                         <h3 style="font-size: 0.95rem; font-weight: 700; margin: 2px 0; color: #FFFFFF;">
-                            Practice Arena & Quizzes
+                            Topic Quizzes
                         </h3>
                         <p style="font-size: 0.78rem; color: var(--nl-text-secondary); margin: 0;">
-                            Reinforce theoretical mastery with multiple-choice evaluations across unlocked topics.
+                            Each topic ends with a multiple-choice quiz. Passing it completes the topic and unlocks the next one.
                         </p>
                     </div>
                 </div>
@@ -418,18 +422,42 @@ function openRankModal() {
     if (!modal) return;
     modal.classList.add('active');
     document.body.style.overflow = 'hidden';
+    // Move focus into the dialog so keyboard and screen-reader users land on it
+    const closeBtn = modal.querySelector('.btn-close-slideover');
+    if (closeBtn) setTimeout(() => closeBtn.focus(), 30);
 }
 
 function closeRankModal() {
     const modal = document.getElementById('rankProgressionModal');
-    if (!modal) return;
+    if (!modal || !modal.classList.contains('active')) return;
     modal.classList.remove('active');
     document.body.style.overflow = '';
+    const trigger = document.getElementById('rankCardTrigger');
+    if (trigger) trigger.focus();
 }
 
 document.addEventListener('keydown', (e) => {
+    const modal = document.getElementById('rankProgressionModal');
+    if (!modal || !modal.classList.contains('active')) return;
+
     if (e.key === 'Escape') {
         closeRankModal();
+        return;
+    }
+
+    // Keep Tab focus inside the open dialog
+    if (e.key === 'Tab') {
+        const focusable = [...modal.querySelectorAll('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])')];
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+        }
     }
 });
 

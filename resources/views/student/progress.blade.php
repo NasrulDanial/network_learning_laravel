@@ -276,8 +276,8 @@
             <section class="empty-state">
                 <div class="empty-state-icon" aria-hidden="true"><i class="fa-solid fa-puzzle-piece"></i></div>
                 <h2>No quiz attempts yet</h2>
-                <p>Complete a quiz challenge to see your results here.</p>
-                <a class="button" href="{{ route('student.quiz') }}">Go to Practice Arena</a>
+                <p>Finish a topic's missions, then take its quiz to see your results here.</p>
+                <a class="button" href="{{ route('student.quiz') }}">Go to Topic Quizzes</a>
             </section>
         @endif
     </section>

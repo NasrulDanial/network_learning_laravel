@@ -277,3 +277,326 @@ button[disabled] {
         justify-content: flex-start;
     }
 }
+
+/* ==========================================================================
+   LIGHT THEME: corrections for colours hard-coded inline in Blade views.
+   Many views were authored for the dark theme with inline styles such as
+   color: #FFFFFF or background: rgba(7, 20, 38, 0.8). Attribute selectors
+   map those to theme tokens so text stays legible on light surfaces.
+   Elements with their own saturated background (e.g. solid buttons) keep
+   their colours because only dark-navy / translucent-white fills are remapped.
+   ========================================================================== */
+
+/* Dark navy panels and inputs → light surfaces */
+[data-theme="light"] [style*="background: rgba(7, 20, 38" i],
+[data-theme="light"] [style*="background: rgba(13, 33, 56" i],
+[data-theme="light"] [style*="background: rgba(7, 12, 22" i],
+[data-theme="light"] [style*="background-color: rgba(7, 20, 38" i],
+[data-theme="light"] [style*="background-color: rgba(13, 33, 56" i] {
+    background: #FFFFFF !important;
+    border-color: rgba(15, 23, 42, 0.14) !important;
+    color: var(--nl-text-primary) !important;
+    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06) !important;
+}
+
+/* Translucent white tints are invisible on white; use a faint slate tint */
+[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.0" i],
+[data-theme="light"] [style*="background: rgba(255,255,255,0.0" i] {
+    background: rgba(15, 23, 42, 0.035) !important;
+}
+
+/* Hairline white borders → slate borders */
+[data-theme="light"] [style*="solid rgba(255, 255, 255" i],
+[data-theme="light"] [style*="solid rgba(255,255,255" i] {
+    border-color: rgba(15, 23, 42, 0.12) !important;
+}
+
+/* White / near-white text → primary text */
+[data-theme="light"] [style*="color: #FFFFFF" i]:not([style*="background: #" i]):not([style*="background: linear" i]):not([style*="background: rgba(239, 68, 68, 0.9" i]),
+[data-theme="light"] [style*="color: #fff;" i]:not([style*="background: #" i]):not([style*="background: linear" i]),
+[data-theme="light"] [style*="color: white" i]:not([style*="background: #" i]):not([style*="background: linear" i]),
+[data-theme="light"] [style*="color: rgba(255, 255, 255, 0.8" i],
+[data-theme="light"] [style*="color: rgba(255, 255, 255, 0.75" i],
+[data-theme="light"] [style*="color: rgba(255, 255, 255, 0.7" i] {
+    color: var(--nl-text-primary) !important;
+}
+
+/* Muted white text → secondary text */
+[data-theme="light"] [style*="color: rgba(255, 255, 255, 0.6" i],
+[data-theme="light"] [style*="color: rgba(255, 255, 255, 0.5" i],
+[data-theme="light"] [style*="color: rgba(255, 255, 255, 0.4" i],
+[data-theme="light"] [style*="color: rgba(255,255,255,0.4" i],
+[data-theme="light"] [style*="color: #94a3b8" i] {
+    color: var(--nl-text-secondary) !important;
+}
+
+/* Bright accents tuned for dark surfaces → AA-contrast variants on light */
+[data-theme="light"] [style*="color: #f87171" i],
+[data-theme="light"] [style*="color: #fca5a5" i] { color: #B91C1C !important; }
+[data-theme="light"] [style*="color: #fbbf24" i],
+[data-theme="light"] [style*="color: #facc15" i] { color: #92400E !important; }
+[data-theme="light"] [style*="color: #fb923c" i] { color: #C2410C !important; }
+[data-theme="light"] [style*="color: #4ade80" i],
+[data-theme="light"] [style*="color: #34d399" i] { color: #15803D !important; }
+[data-theme="light"] [style*="color: #c084fc" i],
+[data-theme="light"] [style*="color: #a855f7" i],
+[data-theme="light"] [style*="color: #a78bfa" i] { color: #7E22CE !important; }
+[data-theme="light"] [style*="color: #22d3ee" i],
+[data-theme="light"] [style*="color: var(--nl-cyan" i] { color: #0E7490 !important; }
+
+/* #0891B2 is 3.7:1 on white; #0E7490 meets 4.5:1 for small text (eyebrows, nav, links) */
+[data-theme="light"] {
+    --nl-cyan: #0E7490;
+    --cyan: #0E7490;
+}
+
+/* Generic table headers are painted dark navy in style.css; give light theme its own header */
+[data-theme="light"] th {
+    background-color: #EEF2F7 !important;
+    color: #334155 !important;
+}
+
+[data-theme="light"] .status-pill.pass {
+    color: #166534;
+    background: rgba(22, 163, 74, 0.1);
+    border-color: rgba(22, 163, 74, 0.32);
+}
+
+[data-theme="light"] .status-pill.fail {
+    color: #991B1B;
+    background: rgba(220, 38, 38, 0.08);
+    border-color: rgba(220, 38, 38, 0.3);
+}
+
+[data-theme="light"] [style*="color: #38bdf8" i] { color: #0369A1 !important; }
+
+/* 4.4:1 on tinted badge fills; one step darker clears AA */
+[data-theme="light"] .status-completed,
+[data-theme="light"] .status-pass,
+[data-theme="light"] .status-passed,
+[data-theme="light"] [style*="color: #4ade80" i],
+[data-theme="light"] [style*="color: #34d399" i] {
+    color: #166534 !important;
+}
+
+[data-theme="light"] [style*="color: #fde047" i],
+[data-theme="light"] [style*="color: #fcd34d" i] { color: #92400E !important; }
+[data-theme="light"] [style*="color: #86efac" i] { color: #166534 !important; }
+[data-theme="light"] [style*="color: #93c5fd" i],
+[data-theme="light"] [style*="color: #60a5fa" i] { color: #1D4ED8 !important; }
+[data-theme="light"] [style*="color: #67e8f9" i] { color: #0E7490 !important; }
+[data-theme="light"] [style*="color: #fb7185" i],
+[data-theme="light"] [style*="color: #fda4af" i] { color: #BE123C !important; }
+
+/* Quiz question text was hard-coded white: unreadable on light cards */
+[data-theme="light"] .question-title {
+    color: var(--nl-text-primary) !important;
+}
+
+[data-theme="light"] .count-badge {
+    color: #0E7490 !important;
+}
+
+/* Small text on tinted light panels needs a little more depth than the base tokens */
+[data-theme="light"] {
+    --nl-cyan: #155E75;
+    --cyan: #155E75;
+    --nl-text-tertiary: #526070;
+}
+[data-theme="light"] [style*="color: #64748b" i],
+[data-theme="light"] [style*="color: var(--nl-text-tertiary" i] { color: #526070 !important; }
+
+/* Primary blue (#2F80ED) is 3.2:1 on dark navy; lighten link text in dark theme only */
+:root:not([data-theme="light"]) .action-link.edit {
+    color: #7FB2F5;
+}
+
+/* Dark theme: 40% white is 3.6:1 on navy; 62% clears 4.5:1 for small labels */
+:root:not([data-theme="light"]) {
+    --nl-text-tertiary: rgba(255, 255, 255, 0.62);
+}
+:root:not([data-theme="light"]) [style*="color: #a855f7" i] { color: #C084FC !important; }
+
+/* Chart empty states (lecturer dashboard) */
+.chart-empty {
+    min-height: 180px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    text-align: center;
+    color: var(--nl-text-secondary);
+    padding: 1rem;
+}
+.chart-empty i {
+    font-size: 1.6rem;
+    opacity: 0.6;
+}
+.chart-empty p {
+    margin: 0;
+    font-size: 0.82rem;
+    max-width: 26ch;
+}
+[data-theme="light"] [style*="color: #f59e0b" i] { color: #92400E !important; }
+
+/* ── Responsive dashboards ─────────────────────────────────────────────
+   Grid items default to min-width:auto, so a wide table would squeeze its
+   sibling column. Let columns shrink and tables scroll inside their card. */
+.dash-split > *,
+.dash-charts > *,
+.dash-stats > * {
+    min-width: 0;
+}
+
+@media (max-width: 1180px) {
+    .dash-stats {
+        grid-template-columns: repeat(6, 1fr) !important;
+    }
+    .dash-split {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+@media (max-width: 640px) {
+    .dash-stats {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    .dash-stats > * {
+        grid-column: span 1 !important;
+    }
+    .dash-charts {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* ── Shared sidebar: mobile drawer (≤1024px) ───────────────────────────
+   The floating sidebar is offset 16px from the edge, so translateX(-100%)
+   left a visible sliver. Hide it fully, and make it unfocusable while closed. */
+@media (max-width: 1024px) {
+    .sidebar {
+        transform: translateX(calc(-100% - 32px)) !important;
+        visibility: hidden;
+        transition: transform 0.3s var(--nl-spring, ease), visibility 0s linear 0.3s;
+        z-index: 1000;
+    }
+    .sidebar.open {
+        transform: translateX(0) !important;
+        visibility: visible;
+        transition: transform 0.3s var(--nl-spring, ease), visibility 0s;
+    }
+    /* Collapsed (icon-only) mode is a desktop feature; the drawer always shows labels */
+    .sidebar.collapsed {
+        width: 260px !important;
+    }
+    .sidebar.collapsed ~ .main-content {
+        margin-left: 0 !important;
+    }
+
+    .mobile-menu-btn {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 5px;
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+        padding: 0 10px;
+        border-radius: 12px;
+        background: transparent !important;
+        border: 1px solid var(--nl-glass-border) !important;
+        box-shadow: none !important;
+        cursor: pointer;
+    }
+    .mobile-menu-btn .menu-bar {
+        width: 20px;
+        background-color: var(--nl-text-primary);
+    }
+}
+
+/* ── Compact header on small screens ─────────────────────────────────── */
+@media (max-width: 640px) {
+    .top-header {
+        gap: 10px;
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+    .header-title {
+        min-width: 0;
+        flex: 1;
+    }
+    .header-title h2 {
+        font-size: 1rem !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin: 0;
+    }
+    /* Keep only the avatar: status text and name/role move into the drawer */
+    .header-user-meta > :not(.header-user-avatar) {
+        display: none !important;
+    }
+}
+
+/* Closed modals were only transparent: still focusable and announced by screen readers */
+.nl-modal-backdrop:not(.active) {
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+}
+.nl-modal-backdrop.active {
+    visibility: visible;
+    transition: opacity 0.3s ease, visibility 0s;
+}
+
+/* ── Phone layout for inline fixed-column grids ────────────────────────
+   Views use inline grid-template-columns (e.g. "1fr 1fr", "2fr 1fr auto")
+   with no breakpoints. On phones, stack them into one column. */
+@media (max-width: 640px) {
+    [style*="grid-template-columns"]:not([style*="auto-fill"]):not([style*="auto-fit"]):not([style*="minmax"]) {
+        grid-template-columns: 1fr !important;
+    }
+    [style*="grid-template-columns"]:not([style*="auto-fill"]):not([style*="auto-fit"]):not([style*="minmax"]) > [style*="grid-column"] {
+        grid-column: auto !important;
+    }
+    /* Stat tiles read better two-up than as a long single column */
+    .widget-grid.dash-stats,
+    .widget-grid.dash-stats-4 {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+    .widget-grid.dash-stats > *,
+    .widget-grid.dash-stats-4 > * {
+        grid-column: auto !important;
+        min-width: 0;
+    }
+}
+
+@media (min-width: 641px) and (max-width: 1100px) {
+    .widget-grid.dash-stats-4 {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}
+
+/* ── Narrow screens: card grids, tables and space-between rows ─────────── */
+@media (max-width: 640px) {
+    /* auto-fill grids with a large minimum (e.g. minmax(340px, 1fr)) overflow a phone */
+    [style*="auto-fill"][style*="minmax"],
+    [style*="auto-fit"][style*="minmax"] {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+    /* Label/value rows pushed apart with space-between should wrap rather than overflow */
+    .content-body [style*="justify-content: space-between"] {
+        flex-wrap: wrap;
+        row-gap: 8px;
+    }
+}
+
+@media (max-width: 1024px) {
+    /* Tables without their own scroll wrapper scroll horizontally inside their card */
+    .content-body table:not(.table-wrap table):not(.management-table-wrap table) {
+        display: block;
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}

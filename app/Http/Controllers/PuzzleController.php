@@ -25,18 +25,23 @@ class PuzzleController extends Controller
             return 'This puzzle activity is currently in draft mode.';
         }
 
-        if ($puzzle->mission && $puzzle->mission->status !== 'published') {
+        // Students only play activities inside a mission; standalone puzzles are not part of any path
+        if (!$puzzle->mission) {
+            return 'This activity is not part of a mission.';
+        }
+
+        if ($puzzle->mission->status !== 'published') {
             return 'The mission for this activity is not currently published.';
         }
 
         // Parent topic must be visible and unlocked (same rule as the learning journey)
-        $topic = $puzzle->mission ? $puzzle->mission->topic : $puzzle->topic;
-        if ($topic && !$topic->isUnlockedFor($user->user_id)) {
+        $topic = $puzzle->mission->topic;
+        if (!$topic || !$topic->isUnlockedFor($user->user_id)) {
             return 'Prerequisite curriculum topic must be completed before accessing this activity.';
         }
 
         // Parent mission must be unlocked
-        if ($puzzle->mission && !$puzzle->mission->isUnlockedFor($user->user_id)) {
+        if (!$puzzle->mission->isUnlockedFor($user->user_id)) {
             return 'This mission is locked. Complete previous missions to unlock.';
         }
 

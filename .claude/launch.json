@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "netlearn-testdb",
+      "runtimeExecutable": "php",
+      "runtimeArgs": ["artisan", "serve", "--host=127.0.0.1", "--port=8010"],
+      "env": { "DB_DATABASE": "network_learning_laravel_test" },
+      "port": 8010
+    }
+  ]
+}

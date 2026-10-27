@@ -167,7 +167,7 @@
                     </div>
 
                     <!-- Right: Actions -->
-                    <div style="display: flex; align-items: center; gap: 8px;">
+                    <div class="row-actions" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                         <!-- Safe Inline Lecturer Preview Drawer (Blueprint B3) -->
                         <button
                             type="button"

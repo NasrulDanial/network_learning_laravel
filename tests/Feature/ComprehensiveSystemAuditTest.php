@@ -75,7 +75,7 @@ class ComprehensiveSystemAuditTest extends TestCase
     {
         $response = $this->actingAs($this->student)->get('/student/quiz');
         $response->assertStatus(200);
-        $response->assertSee('Knowledge Challenges', false);
+        $response->assertSee('Topic Quizzes');
     }
 
     public function test_student_can_take_quiz()

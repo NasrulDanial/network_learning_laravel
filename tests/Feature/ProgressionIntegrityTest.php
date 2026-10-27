@@ -157,6 +157,20 @@ class ProgressionIntegrityTest extends TestCase
         $this->assertSame(0, Result::where('user_id', $this->student->user_id)->count());
     }
 
+    public function test_journey_and_progress_pages_report_published_mission_counts()
+    {
+        $topic = $this->topic(1);
+        $this->mission($topic, 1);
+        $this->mission($topic, 2);
+        $this->mission($topic, 3, ['status' => 'draft']);
+
+        foreach (['student.learning' => 'topics', 'student.progress' => 'topicProgress'] as $route => $key) {
+            $rows = $this->actingAs($this->student)->get(route($route))->assertOk()->viewData($key);
+            $row = $rows->firstWhere('topic_id', $topic->topic_id);
+            $this->assertSame(2, (int) $row->missions_count, "{$route} should count only published missions");
+        }
+    }
+
     // ── Mission unlocking ────────────────────────────────────────────────
 
     public function test_later_mission_unlocks_only_after_previous_is_completed()
@@ -177,6 +191,20 @@ class ProgressionIntegrityTest extends TestCase
 
         $this->assertTrue($m2->isUnlockedFor($this->student->user_id));
         $this->actingAs($this->student)->getJson("/puzzles/{$p2->puzzle_id}/data")->assertOk();
+    }
+
+    public function test_standalone_puzzle_without_mission_cannot_be_played()
+    {
+        $topic = $this->topic(1);
+        $mission = $this->mission($topic, 1);
+        $standalone = $this->identificationPuzzle($mission);
+        $standalone->update(['mission_id' => null]);
+
+        $this->actingAs($this->student)->get("/puzzles/{$standalone->puzzle_id}")->assertStatus(403);
+        $this->actingAs($this->student)->getJson("/puzzles/{$standalone->puzzle_id}/data")->assertStatus(403);
+        $this->actingAs($this->student)->postJson("/puzzles/{$standalone->puzzle_id}/submit", ['selected_option' => 'opt_1'])->assertStatus(403);
+
+        $this->assertSame(0, PuzzleAttempt::where('puzzle_id', $standalone->puzzle_id)->count());
     }
 
     public function test_mission_added_after_completion_is_reachable()

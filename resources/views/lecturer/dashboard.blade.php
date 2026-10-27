@@ -29,7 +29,7 @@
 </div>
 
 <!-- 6 Authoritative Summary Metric Bento Cards (Blueprint B1) -->
-<div class="widget-grid" style="grid-template-columns: repeat(12, 1fr); margin-bottom: 24px; gap: 16px;">
+<div class="widget-grid dash-stats" style="grid-template-columns: repeat(12, 1fr); margin-bottom: 24px; gap: 16px;">
     <div class="widget-stat-mini" style="grid-column: span 2;">
         <div class="node-icon" style="margin-bottom: 0; background: rgba(34, 211, 238, 0.1); color: var(--nl-cyan); border-color: rgba(34, 211, 238, 0.25);">
             <i class="fa-solid fa-diagram-project"></i>
@@ -58,7 +58,7 @@
         </div>
         <div>
             <span style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--nl-text-tertiary); font-weight: 600; display: block;">Needs Attention</span>
-            <strong style="font-size: 1.35rem; font-weight: 700; color: {{ count($attentionItems) > 0 ? '#f59e0b' : '#34d399' }};">
+            <strong style="font-size: 1.35rem; font-weight: 700; color: {{ count($attentionItems) > 0 ? '#fbbf24' : '#34d399' }};">
                 {{ count($attentionItems) }}
             </strong>
             <span style="font-size: 0.7rem; color: var(--nl-text-tertiary); display: block;">drafts & empty labs</span>
@@ -72,7 +72,7 @@
         <div>
             <span style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--nl-text-tertiary); font-weight: 600; display: block;">Total Attempts</span>
             <strong style="font-size: 1.35rem; font-weight: 700; color: #FFFFFF;">{{ (int) $totalAttempts }}</strong>
-            <span style="font-size: 0.7rem; color: var(--nl-text-tertiary); display: block;">quizzes + puzzles</span>
+            <span style="font-size: 0.7rem; color: var(--nl-text-tertiary); display: block;">{{ (int) $totalQuizAttempts }} quiz + {{ (int) $totalPuzzleAttempts }} puzzle</span>
         </div>
     </div>
 
@@ -81,9 +81,14 @@
             <i class="fa-solid fa-gauge-high"></i>
         </div>
         <div>
-            <span style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--nl-text-tertiary); font-weight: 600; display: block;">Class Avg Score</span>
-            <strong style="font-size: 1.35rem; font-weight: 700; color: #FFFFFF;">{{ number_format((float) $averageScore, 0) }}%</strong>
-            <span style="font-size: 0.7rem; color: var(--nl-text-tertiary); display: block;">evaluations accuracy</span>
+            <span style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--nl-text-tertiary); font-weight: 600; display: block;">Quiz Avg Score</span>
+            @if ($totalQuizAttempts > 0)
+                <strong style="font-size: 1.35rem; font-weight: 700; color: #FFFFFF;">{{ number_format((float) $averageScore, 0) }}%</strong>
+                <span style="font-size: 0.7rem; color: var(--nl-text-tertiary); display: block;">mean of {{ $totalQuizAttempts }} quiz {{ Str::plural('attempt', $totalQuizAttempts) }}</span>
+            @else
+                <strong style="font-size: 1.35rem; font-weight: 700; color: #FFFFFF;">&mdash;</strong>
+                <span style="font-size: 0.7rem; color: var(--nl-text-tertiary); display: block;">no quiz attempts yet</span>
+            @endif
         </div>
     </div>
 
@@ -92,15 +97,20 @@
             <i class="fa-solid fa-circle-check"></i>
         </div>
         <div>
-            <span style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--nl-text-tertiary); font-weight: 600; display: block;">Class Pass Rate</span>
-            <strong style="font-size: 1.35rem; font-weight: 700; color: #4ade80;">{{ $passRate }}%</strong>
-            <span style="font-size: 0.7rem; color: var(--nl-text-tertiary); display: block;">passing ratio</span>
+            <span style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--nl-text-tertiary); font-weight: 600; display: block;">Quiz Pass Rate</span>
+            @if ($totalQuizAttempts > 0)
+                <strong style="font-size: 1.35rem; font-weight: 700; color: #4ade80;">{{ $passRate }}%</strong>
+                <span style="font-size: 0.7rem; color: var(--nl-text-tertiary); display: block;">attempts at or above pass mark</span>
+            @else
+                <strong style="font-size: 1.35rem; font-weight: 700; color: #FFFFFF;">&mdash;</strong>
+                <span style="font-size: 0.7rem; color: var(--nl-text-tertiary); display: block;">no quiz attempts yet</span>
+            @endif
         </div>
     </div>
 </div>
 
 <!-- Main Split Layout: Content Needing Attention (Left) + Analytics & Recent Activity (Right) -->
-<div style="display: grid; grid-template-columns: 1fr 1.6fr; gap: 24px; margin-bottom: 24px; align-items: start;">
+<div class="dash-split" style="display: grid; grid-template-columns: 1fr 1.6fr; gap: 24px; margin-bottom: 24px; align-items: start;">
 
     <!-- Left Column: Content Needing Attention (Blueprint B1) -->
     <div style="background: var(--nl-glass-card); backdrop-filter: var(--nl-glass-blur); border: 1px solid var(--nl-glass-border); border-radius: var(--nl-radius-panel); padding: 22px;">
@@ -169,19 +179,33 @@
     <div style="display: flex; flex-direction: column; gap: 20px;">
 
         <!-- Analytics Charts in Constrained Bento Cards -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div class="dash-charts" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
             <div class="chart-card">
-                <span class="eyebrow" style="font-size: 0.7rem; color: var(--nl-cyan); margin-bottom: 8px;">Pass / Fail Telemetry</span>
-                <div class="chart-wrapper-nl">
-                    <canvas id="passFailChart"></canvas>
-                </div>
+                <span class="eyebrow" style="font-size: 0.7rem; color: var(--nl-cyan); margin-bottom: 8px;">Quiz Pass / Fail</span>
+                @if ($totalQuizAttempts > 0)
+                    <div class="chart-wrapper-nl">
+                        <canvas id="passFailChart" role="img" aria-label="{{ $passFailData['Pass'] }} passed and {{ $passFailData['Fail'] }} failed quiz attempts"></canvas>
+                    </div>
+                @else
+                    <div class="chart-empty">
+                        <i class="fa-solid fa-chart-pie" aria-hidden="true"></i>
+                        <p>No quiz attempts yet. The pass/fail split appears after students submit a quiz.</p>
+                    </div>
+                @endif
             </div>
 
             <div class="chart-card">
-                <span class="eyebrow" style="font-size: 0.7rem; color: var(--nl-cyan); margin-bottom: 8px;">Stage Accuracy %</span>
-                <div class="chart-wrapper-nl">
-                    <canvas id="topicPerformanceChart"></canvas>
-                </div>
+                <span class="eyebrow" style="font-size: 0.7rem; color: var(--nl-cyan); margin-bottom: 8px;">Average Quiz Score by Topic</span>
+                @if ($topicPerformance->count() > 0)
+                    <div class="chart-wrapper-nl">
+                        <canvas id="topicPerformanceChart" role="img" aria-label="Average quiz score per topic"></canvas>
+                    </div>
+                @else
+                    <div class="chart-empty">
+                        <i class="fa-solid fa-chart-column" aria-hidden="true"></i>
+                        <p>No topic scores yet. Averages appear once quizzes are attempted.</p>
+                    </div>
+                @endif
             </div>
         </div>
 
@@ -206,61 +230,63 @@
                 </a>
             </div>
 
-            @if ($recentResults->count() > 0)
+            @if ($recentActivity->count() > 0)
+                <div class="table-wrap">
                 <table class="table-borderless-glass">
                     <thead>
                         <tr>
-                            <th>Student Operative</th>
-                            <th>Curriculum Activity</th>
-                            <th>Score</th>
-                            <th>Status</th>
-                            <th>Timestamp</th>
+                            <th scope="col">Student</th>
+                            <th scope="col">Activity</th>
+                            <th scope="col">Score</th>
+                            <th scope="col">Result</th>
+                            <th scope="col">When</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach ($recentResults as $result)
+                        @foreach ($recentActivity as $activity)
                             <tr>
                                 <td>
                                     <div style="font-weight: 600; color: #FFFFFF; font-size: 0.86rem;">
-                                        <a href="{{ route('lecturer.student-performance.show', $result->user_id) }}" style="color: #FFFFFF; text-decoration: none;">
-                                            {{ $result->student_name }}
+                                        <a href="{{ route('lecturer.student-performance.show', $activity['user_id']) }}" style="color: #FFFFFF; text-decoration: underline; text-underline-offset: 3px;">
+                                            {{ $activity['student_name'] }}
                                         </a>
                                     </div>
                                     <div style="font-size: 0.72rem; color: var(--nl-text-tertiary);">
-                                        {{ $result->student_email }}
+                                        {{ $activity['student_email'] }}
                                     </div>
                                 </td>
                                 <td>
                                     <div style="font-weight: 500; font-size: 0.84rem; color: var(--nl-cyan);">
-                                        {{ $result->quiz_title }}
+                                        <i class="fa-solid {{ $activity['type'] === 'quiz' ? 'fa-clipboard-question' : 'fa-puzzle-piece' }}" aria-hidden="true"></i>
+                                        <span class="visually-hidden">{{ $activity['type'] === 'quiz' ? 'Quiz:' : 'Puzzle:' }}</span>
+                                        {{ Str::limit($activity['title'], 60) }}
                                     </div>
                                     <div style="font-size: 0.72rem; color: var(--nl-text-tertiary);">
-                                        {{ $result->topic_title }}
+                                        {{ $activity['context'] }}
                                     </div>
                                 </td>
                                 <td>
-                                    <strong style="color: #FFFFFF; font-size: 0.88rem;">
-                                        {{ (int) $result->score }}/{{ (int) $result->total_questions }}
-                                    </strong>
-                                    <span style="font-size: 0.72rem; color: var(--nl-text-secondary); margin-left: 3px;">
-                                        ({{ round($result->percentage) }}%)
-                                    </span>
+                                    <strong style="color: #FFFFFF; font-size: 0.88rem;">{{ $activity['score_label'] }}</strong>
                                 </td>
                                 <td>
-                                    <span class="status-pill {{ $result->status === 'Pass' ? 'pass' : 'fail' }}">
-                                        {{ $result->status }}
+                                    <span class="status-pill {{ $activity['passed'] ? 'pass' : 'fail' }}">
+                                        <i class="fa-solid {{ $activity['passed'] ? 'fa-check' : 'fa-xmark' }}" aria-hidden="true"></i>
+                                        {{ $activity['passed'] ? ($activity['type'] === 'quiz' ? 'Pass' : 'Solved') : ($activity['type'] === 'quiz' ? 'Fail' : 'Not solved') }}
                                     </span>
                                 </td>
                                 <td style="font-size: 0.78rem; color: var(--nl-text-secondary);">
-                                    {{ $result->date_taken }}
+                                    @if ($activity['date'])
+                                        <time datetime="{{ $activity['date']->toIso8601String() }}" title="{{ $activity['date']->format('d M Y, H:i') }}">{{ $activity['date']->diffForHumans() }}</time>
+                                    @endif
                                 </td>
                             </tr>
                         @endforeach
                     </tbody>
                 </table>
+                </div>
             @else
                 <div style="text-align: center; padding: 28px; color: var(--nl-text-tertiary);">
-                    No evaluation attempts recorded yet.
+                    No student activity yet. Quiz submissions and puzzle attempts will appear here.
                 </div>
             @endif
         </div>

@@ -14,7 +14,7 @@
             </div>
             <div style="display: flex; gap: 10px;">
                 <a href="{{ route('student.quiz') }}" class="button secondary" style="padding: 9px 16px; font-size: 0.85rem;">
-                    <i class="fa-solid fa-bolt"></i> Practice Arena
+                    <i class="fa-solid fa-clipboard-question"></i> Topic Quizzes
                 </a>
                 <a href="{{ route('student.progress') }}" class="button" style="padding: 9px 16px; font-size: 0.85rem;">
                     <i class="fa-solid fa-chart-line"></i> My Progress
@@ -49,7 +49,9 @@
                         $stageIcon = '<i class="fa-solid fa-circle-check"></i>';
                     } elseif ($isUnlocked) {
                         $stageClass = 'stage-card stage-unlocked';
-                        $statusClass = 'status-badge status-progress';
+                        $statusClass = $learningStatus === 'In Progress'
+                            ? 'status-badge status-progress'
+                            : 'status-badge status-not-started';
                         $stageIcon = $topicNumber;
                     } else {
                         $stageClass = 'stage-card stage-locked';
@@ -102,9 +104,9 @@
                             <span>Missions (PBL)</span>
                             <strong style="color: var(--cyan);">
                                 @if ($missionsCount > 0)
-                                    {{ $completedMissions }}/{{ $missionsCount }} {{ Str::plural('Mission', $missionsCount) }}
+                                    {{ min($completedMissions, $missionsCount) }}/{{ $missionsCount }} completed
                                 @else
-                                    Curriculum Hub
+                                    No missions yet
                                 @endif
                             </strong>
                         </div>
@@ -122,7 +124,7 @@
                                 ></i>
 
                                 <span>
-                                    {{ $currentCompleted ? 'Review Stage' : 'Begin Stage' }}
+                                    {{ $currentCompleted ? 'Review Stage' : ($learningStatus === 'In Progress' ? 'Continue Stage' : 'Begin Stage') }}
                                 </span>
                             </a>
                         @else

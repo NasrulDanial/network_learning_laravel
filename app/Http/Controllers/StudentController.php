@@ -127,9 +127,6 @@ class StudentController extends Controller
                 $join->on('topics.topic_id', '=', 'progress.topic_id')
                     ->where('progress.user_id', '=', $userId);
             })
-            ->withCount(['missions' => function ($q) {
-                $q->where('status', 'published');
-            }])
             ->select(
                 'topics.topic_id',
                 'topics.title',
@@ -146,6 +143,10 @@ class StudentController extends Controller
                 'progress.completed_missions',
                 'progress.total_xp'
             )
+            // withCount must come after select(), otherwise select() discards the count column
+            ->withCount(['missions' => function ($q) {
+                $q->where('status', 'published');
+            }])
             ->orderBy('topics.topic_order', 'asc')
             ->get();
 
@@ -301,7 +302,7 @@ public function quizHub()
     }
 
     return view('student.quiz_hub', [
-        'pageTitle' => 'Quiz Challenges',
+        'pageTitle' => 'Topic Quizzes',
         'activePage' => 'quiz',
         'quizzes' => $quizzes,
     ]);
@@ -521,9 +522,6 @@ public function result(Result $result)
                 $join->on('topics.topic_id', '=', 'progress.topic_id')
                     ->where('progress.user_id', '=', $userId);
             })
-            ->withCount(['missions' => function ($q) {
-                $q->where('status', 'published');
-            }])
             ->select(
                 'topics.topic_id',
                 'topics.title',
@@ -535,6 +533,10 @@ public function result(Result $result)
                 'progress.completed_missions',
                 'progress.total_xp'
             )
+            // withCount must come after select(), otherwise select() discards the count column
+            ->withCount(['missions' => function ($q) {
+                $q->where('status', 'published');
+            }])
             ->orderBy('topics.topic_order', 'asc')
             ->get();
 

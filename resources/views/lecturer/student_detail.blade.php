@@ -63,7 +63,7 @@
 </div>
 
 <!-- Split Grid: Topic Completion & Bottlenecks (Left) + Attempts History (Right) -->
-<div style="display: grid; grid-template-columns: 1fr 1.6fr; gap: 24px; align-items: start;">
+<div class="dash-split" style="display: grid; grid-template-columns: 1fr 1.6fr; gap: 24px; align-items: start;">
 
     <!-- Left Column: Topic Completion & Weak Areas -->
     <div style="display: flex; flex-direction: column; gap: 24px;">

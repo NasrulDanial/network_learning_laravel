@@ -26,44 +26,92 @@
             sidebar.classList.add('collapsed');
             if (collapseBtn) {
                 collapseBtn.setAttribute('aria-expanded', 'false');
-                collapseBtn.setAttribute('title', 'Expand Sidebar');
+                collapseBtn.setAttribute('title', 'Expand sidebar');
+                collapseBtn.setAttribute('aria-label', 'Expand sidebar');
             }
         } else if (collapseBtn) {
             collapseBtn.setAttribute('aria-expanded', 'true');
-            collapseBtn.setAttribute('title', 'Collapse Sidebar');
+            collapseBtn.setAttribute('title', 'Collapse sidebar');
+            collapseBtn.setAttribute('aria-label', 'Collapse sidebar');
         }
+
+        // initSidebar() runs again after in-app page transitions; bind handlers only once
+        if (sidebar.dataset.handlersBound === 'true') return;
+        sidebar.dataset.handlersBound = 'true';
 
         if (collapseBtn) {
             collapseBtn.addEventListener('click', () => {
+                // On phones/tablets the sidebar is a drawer: this button acts as its close control
+                if (window.innerWidth <= 1024) {
+                    closeDrawer(true);
+                    return;
+                }
                 sidebar.classList.toggle('collapsed');
                 const state = sidebar.classList.contains('collapsed');
                 localStorage.setItem('netlearn_sidebar_collapsed', state);
                 collapseBtn.setAttribute('aria-expanded', (!state).toString());
-                collapseBtn.setAttribute('title', state ? 'Expand Sidebar' : 'Collapse Sidebar');
+                collapseBtn.setAttribute('title', state ? 'Expand sidebar' : 'Collapse sidebar');
+                collapseBtn.setAttribute('aria-label', state ? 'Expand sidebar' : 'Collapse sidebar');
             });
+        }
+
+        function openDrawer() {
+            sidebar.classList.add('open');
+            if (overlay) overlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            if (mobileMenuBtn) {
+                mobileMenuBtn.setAttribute('aria-expanded', 'true');
+                mobileMenuBtn.setAttribute('aria-label', 'Close menu');
+            }
+            if (collapseBtn) collapseBtn.setAttribute('aria-label', 'Close menu');
+            // Move focus into the drawer so keyboard users land on the navigation
+            const firstLink = sidebar.querySelector('.sidebar-nav a, a, button');
+            if (firstLink) setTimeout(() => firstLink.focus(), 50);
+        }
+
+        function closeDrawer(returnFocus) {
+            if (!sidebar.classList.contains('open')) return;
+            sidebar.classList.remove('open');
+            if (overlay) overlay.classList.remove('active');
+            document.body.style.overflow = '';
+            if (mobileMenuBtn) {
+                mobileMenuBtn.setAttribute('aria-expanded', 'false');
+                mobileMenuBtn.setAttribute('aria-label', 'Open menu');
+                if (returnFocus) mobileMenuBtn.focus();
+            }
+            if (collapseBtn) {
+                collapseBtn.setAttribute('aria-label', sidebar.classList.contains('collapsed') ? 'Expand sidebar' : 'Collapse sidebar');
+            }
         }
 
         if (mobileMenuBtn) {
             mobileMenuBtn.addEventListener('click', () => {
-                const isOpen = sidebar.classList.toggle('open');
-                if (overlay) overlay.classList.toggle('active', isOpen);
-                mobileMenuBtn.setAttribute('aria-expanded', isOpen.toString());
+                sidebar.classList.contains('open') ? closeDrawer(true) : openDrawer();
             });
         }
 
         if (overlay) {
-            overlay.addEventListener('click', () => {
-                sidebar.classList.remove('open');
-                overlay.classList.remove('active');
-                if (mobileMenuBtn) mobileMenuBtn.setAttribute('aria-expanded', 'false');
-            });
+            overlay.addEventListener('click', () => closeDrawer(true));
         }
 
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && sidebar.classList.contains('open')) {
-                sidebar.classList.remove('open');
-                if (overlay) overlay.classList.remove('active');
-                if (mobileMenuBtn) mobileMenuBtn.setAttribute('aria-expanded', 'false');
+            if (e.key === 'Escape') closeDrawer(true);
+        });
+
+        // Following a navigation link on a phone should not leave the drawer covering the page
+        sidebar.addEventListener('click', (e) => {
+            if (e.target.closest('a') && window.innerWidth <= 1024) closeDrawer(false);
+        });
+
+        // Crossing the 1024px breakpoint: desktop keeps the saved collapse preference,
+        // the mobile drawer always shows full labels and never keeps a stale scroll lock.
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 1024) {
+                closeDrawer(false);
+                const wantsCollapsed = localStorage.getItem('netlearn_sidebar_collapsed') === 'true';
+                sidebar.classList.toggle('collapsed', wantsCollapsed);
+            } else {
+                sidebar.classList.remove('collapsed');
             }
         });
     }
@@ -378,6 +426,14 @@
         try {
             const data = JSON.parse(dataScript.textContent);
 
+            // Read colours from the active theme so labels stay legible in light and dark mode
+            const rootStyle = getComputedStyle(document.documentElement);
+            const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+            const textColor = rootStyle.getPropertyValue('--nl-text-secondary').trim() || 'rgba(255, 255, 255, 0.75)';
+            const gridColor = isLight ? 'rgba(15, 23, 42, 0.08)' : 'rgba(255, 255, 255, 0.06)';
+            const surfaceColor = isLight ? '#FFFFFF' : 'rgba(13, 33, 56, 0.95)';
+            const barColor = isLight ? 'rgba(14, 116, 144, 0.75)' : 'rgba(34, 211, 238, 0.65)';
+
             if (passFailChartInstance) {
                 passFailChartInstance.destroy();
                 passFailChartInstance = null;
@@ -396,7 +452,7 @@
                         datasets: [{
                             data: hasPassFail ? data.passFailValues : [1],
                             backgroundColor: hasPassFail ? ['#10b981', '#ef4444'] : ['rgba(255,255,255,0.08)'],
-                            borderColor: 'rgba(13, 33, 56, 0.95)',
+                            borderColor: surfaceColor,
                             borderWidth: 3,
                         }]
                     },
@@ -407,7 +463,7 @@
                             legend: {
                                 position: 'bottom',
                                 labels: {
-                                    color: 'rgba(255, 255, 255, 0.75)',
+                                    color: textColor,
                                     font: { family: 'Inter', size: 11 },
                                     boxWidth: 12,
                                     padding: 10
@@ -424,10 +480,10 @@
                     data: {
                         labels: data.topicLabels,
                         datasets: [{
-                            label: 'Convergence %',
+                            label: 'Average quiz score %',
                             data: data.topicAverages,
-                            backgroundColor: 'rgba(34, 211, 238, 0.65)',
-                            hoverBackgroundColor: '#22d3ee',
+                            backgroundColor: barColor,
+                            hoverBackgroundColor: isLight ? '#155E75' : '#22d3ee',
                             borderRadius: 6,
                         }]
                     },
@@ -437,7 +493,7 @@
                         scales: {
                             x: {
                                 ticks: {
-                                    color: 'rgba(255, 255, 255, 0.55)',
+                                    color: textColor,
                                     font: { family: 'Inter', size: 10 },
                                     maxRotation: 20,
                                     minRotation: 0
@@ -448,11 +504,11 @@
                                 beginAtZero: true,
                                 max: 100,
                                 ticks: {
-                                    color: 'rgba(255, 255, 255, 0.55)',
+                                    color: textColor,
                                     font: { family: 'Inter', size: 10 },
                                     stepSize: 25
                                 },
-                                grid: { color: 'rgba(255, 255, 255, 0.06)' }
+                                grid: { color: gridColor }
                             }
                         },
                         plugins: {
@@ -474,6 +530,13 @@
         initFinder();
         initLecturerCharts();
     }
+
+    // Redraw theme-dependent charts when the user switches light/dark mode
+    const previousThemeHook = window.onThemeChange;
+    window.onThemeChange = function (theme) {
+        if (typeof previousThemeHook === 'function') previousThemeHook(theme);
+        initLecturerCharts();
+    };
 
     document.addEventListener('DOMContentLoaded', () => {
         initSidebar();

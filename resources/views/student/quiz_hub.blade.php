@@ -4,12 +4,11 @@
     <section class="page-banner">
         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
             <div>
-                <p class="eyebrow">Practice Arena</p>
-                <h1>Theoretical Knowledge Challenges</h1>
+                <p class="eyebrow">Topic Assessments</p>
+                <h1>Topic Quizzes</h1>
                 <p style="margin-bottom: 0;">
-                    Test your networking theory comprehension through stage-specific
-                    question evaluations. Passing quizzes reinforces foundational concepts
-                    and awards XP towards your clearance tier.
+                    Each topic ends with a short multiple-choice quiz. Passing it completes
+                    the topic and unlocks the next one in your learning journey.
                 </p>
             </div>
             <div style="display: flex; gap: 10px;">
@@ -23,16 +22,17 @@
         </div>
     </section>
 
-    {{-- Practice Arena Info Banner --}}
+    {{-- How quizzes count --}}
     <div class="management-card" style="margin-bottom: 1.5rem; padding: 16px 20px; display: flex; align-items: center; gap: 14px; border-color: rgba(34, 211, 238, 0.2);">
         <div style="width: 36px; height: 36px; border-radius: var(--radius-sm); background: rgba(34, 211, 238, 0.1); border: 1px solid rgba(34, 211, 238, 0.25); color: var(--cyan); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
             <i class="fa-solid fa-info"></i>
         </div>
         <p style="margin: 0; font-size: 0.88rem; color: var(--text-secondary); line-height: 1.5;">
-            <strong style="color: var(--text-main);">Self-Paced Practice:</strong>
-            These assessments validate your protocol and conceptual understanding.
-            You can repeat them anytime. For hands-on interactive labs, visit the
-            <a href="{{ route('student.learning') }}">Curriculum Journey</a>.
+            <strong style="color: var(--text-main);">How quizzes count:</strong>
+            you can retake a quiz as often as you like, and your topic stays completed once you pass.
+            XP is awarded once per quiz: 100 XP for your first pass (or 20 XP if your first attempt
+            does not pass). Interactive puzzle missions are in your
+            <a href="{{ route('student.learning') }}">Learning Journey</a>.
         </p>
     </div>
 
