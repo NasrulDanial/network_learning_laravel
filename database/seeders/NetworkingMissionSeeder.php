@@ -16,7 +16,7 @@ use App\Models\User;
  * Seeds one complete example of all 6 PBL puzzle archetypes across two missions
  * attached to the first two curriculum topics.
  *
- * Safe to run multiple times — uses updateOrCreate.
+ * Safe to run multiple times — only creates missing demo records (firstOrCreate) and never overwrites lecturer edits.
  * ZERO destructive operations — existing user data is preserved.
  */
 class NetworkingMissionSeeder extends Seeder
@@ -27,7 +27,7 @@ class NetworkingMissionSeeder extends Seeder
         $lecturerId = $lecturer?->user_id ?? 1;
 
         // ── Topic 1: OSI Reference Model ────────────────────────────────────
-        $osiTopic = Topic::updateOrCreate(
+        $osiTopic = Topic::firstOrCreate(
             ['topic_order' => 1],
             [
                 'title'       => 'OSI Reference Model & PDU Encapsulation',
@@ -38,7 +38,7 @@ class NetworkingMissionSeeder extends Seeder
         );
 
         // ── Topic 2: Network Infrastructure & Broadcast Domains ────────────
-        $hwTopic = Topic::updateOrCreate(
+        $hwTopic = Topic::firstOrCreate(
             ['topic_order' => 2],
             [
                 'title'       => 'Network Infrastructure & Broadcast Domains',
@@ -52,7 +52,7 @@ class NetworkingMissionSeeder extends Seeder
         // MISSION 1 — OSI Topic — contains Archetypes: Identification,
         //             Matching, Sequencing
         // ════════════════════════════════════════════════════════════════════
-        $mission1 = Mission::updateOrCreate(
+        $mission1 = Mission::firstOrCreate(
             ['topic_id' => $osiTopic->topic_id, 'mission_order' => 1],
             [
                 'title'       => 'Mission 1: OSI Layer Fundamentals',
@@ -66,7 +66,7 @@ class NetworkingMissionSeeder extends Seeder
         );
 
         // ── Activity 1A: Identification ──────────────────────────────────────
-        Puzzle::updateOrCreate(
+        Puzzle::firstOrCreate(
             ['mission_id' => $mission1->mission_id, 'activity_order' => 1],
             [
                 'topic_id'           => $osiTopic->topic_id,
@@ -94,7 +94,7 @@ class NetworkingMissionSeeder extends Seeder
         );
 
         // ── Activity 1B: Matching ────────────────────────────────────────────
-        Puzzle::updateOrCreate(
+        Puzzle::firstOrCreate(
             ['mission_id' => $mission1->mission_id, 'activity_order' => 2],
             [
                 'topic_id'           => $osiTopic->topic_id,
@@ -134,7 +134,7 @@ class NetworkingMissionSeeder extends Seeder
         );
 
         // ── Activity 1C: Sequencing ──────────────────────────────────────────
-        Puzzle::updateOrCreate(
+        Puzzle::firstOrCreate(
             ['mission_id' => $mission1->mission_id, 'activity_order' => 3],
             [
                 'topic_id'           => $osiTopic->topic_id,
@@ -166,7 +166,7 @@ class NetworkingMissionSeeder extends Seeder
         // MISSION 2 — Hardware Topic — contains Archetypes: Classification,
         //             Drag & Drop (spatial), Scenario Decision
         // ════════════════════════════════════════════════════════════════════
-        $mission2 = Mission::updateOrCreate(
+        $mission2 = Mission::firstOrCreate(
             ['topic_id' => $hwTopic->topic_id, 'mission_order' => 1],
             [
                 'title'       => 'Mission 1: Network Device Deployment',
@@ -180,7 +180,7 @@ class NetworkingMissionSeeder extends Seeder
         );
 
         // ── Activity 2A: Classification ─────────────────────────────────────
-        Puzzle::updateOrCreate(
+        Puzzle::firstOrCreate(
             ['mission_id' => $mission2->mission_id, 'activity_order' => 1],
             [
                 'topic_id'           => $hwTopic->topic_id,
@@ -229,7 +229,7 @@ class NetworkingMissionSeeder extends Seeder
         );
 
         // ── Activity 2B: Drag & Drop (Spatial Device Placement) ─────────────
-        Puzzle::updateOrCreate(
+        Puzzle::firstOrCreate(
             ['mission_id' => $mission2->mission_id, 'activity_order' => 2],
             [
                 'topic_id'           => $hwTopic->topic_id,
@@ -267,7 +267,7 @@ class NetworkingMissionSeeder extends Seeder
         );
 
         // ── Activity 2C: Scenario Decision ──────────────────────────────────
-        Puzzle::updateOrCreate(
+        Puzzle::firstOrCreate(
             ['mission_id' => $mission2->mission_id, 'activity_order' => 3],
             [
                 'topic_id'           => $hwTopic->topic_id,
