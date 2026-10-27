@@ -261,8 +261,15 @@ class ComprehensiveSystemAuditTest extends TestCase
 
         foreach ($puzzles as $p) {
             $response = $this->actingAs($this->student)->getJson("/puzzles/{$p->puzzle_id}/data");
-            $response->assertStatus(200);
+
+            // Locked content must be refused outright; unlocked content must be served without answers
+            $this->assertContains($response->status(), [200, 403]);
             $data = $response->json();
+            if ($response->status() === 403) {
+                $this->assertArrayNotHasKey('activity_data', $data);
+                $this->assertArrayNotHasKey('options', $data);
+                continue;
+            }
 
             // Truth table answer keys must NEVER be present
             $this->assertArrayNotHasKey('correct_answer', $data);

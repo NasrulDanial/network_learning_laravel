@@ -296,9 +296,8 @@ class NetworkingMissionSeeder extends Seeder
             ]
         );
 
-        // ── Update mission_id references on the legacy puzzles if still null ─
-        Puzzle::whereNull('mission_id')->where('topic_id', $osiTopic->topic_id)->update(['mission_id' => $mission1->mission_id]);
-        Puzzle::whereNull('mission_id')->where('topic_id', $hwTopic->topic_id)->update(['mission_id' => $mission2->mission_id]);
+        // Puzzles without a mission are intentionally standalone (e.g. lecturer board simulations).
+        // Do not auto-attach them here: that injected unsolvable required activities into Mission 1.
 
         // ════════════════════════════════════════════════════════════════════
         // Achievement Clearance Badges
