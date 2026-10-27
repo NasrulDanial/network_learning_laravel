@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\Topic;
 use App\Models\Mission;
 use App\Models\Puzzle;
+use App\Services\PuzzleEvaluatorService;
 use Illuminate\Support\Facades\DB;
 
 class MissionController extends Controller
@@ -127,7 +128,13 @@ class MissionController extends Controller
             'status'        => 'required|in:draft,published',
         ]);
 
+        $oldTopicId = $mission->topic_id;
         $mission->update($validated);
+
+        // Keep child puzzles synchronized with mission topic
+        if ((int)$oldTopicId !== (int)$validated['topic_id']) {
+            $mission->puzzles()->update(['topic_id' => $validated['topic_id']]);
+        }
 
         return redirect()
             ->route('lecturer.missions.show', $mission->mission_id)
@@ -185,7 +192,9 @@ class MissionController extends Controller
             'points'              => 'required|integer|min:25|max:500',
             'activity_order'      => 'required|integer|min:1',
             'difficulty'          => 'required|in:beginner,intermediate,advanced',
+            'max_attempts'        => 'nullable|integer|min:0|max:100',
             'hint'                => 'nullable|string|max:255',
+            'explanation'         => 'nullable|string|max:1000',
             'correct_feedback'    => 'nullable|string|max:255',
             'incorrect_feedback'  => 'nullable|string|max:255',
             'status'              => 'required|in:draft,published',
@@ -206,7 +215,9 @@ class MissionController extends Controller
             'points'              => $validated['points'],
             'activity_order'      => $validated['activity_order'],
             'difficulty'          => $validated['difficulty'],
+            'max_attempts'        => $validated['max_attempts'] ?? 0,
             'hint'                => $validated['hint'],
+            'explanation'         => $validated['explanation'] ?? null,
             'correct_feedback'    => $validated['correct_feedback'],
             'incorrect_feedback'  => $validated['incorrect_feedback'],
             'activity_data'       => $processed['activity_data'],
@@ -247,7 +258,9 @@ class MissionController extends Controller
             'points'              => 'required|integer|min:25|max:500',
             'activity_order'      => 'required|integer|min:1',
             'difficulty'          => 'required|in:beginner,intermediate,advanced',
+            'max_attempts'        => 'nullable|integer|min:0|max:100',
             'hint'                => 'nullable|string|max:255',
+            'explanation'         => 'nullable|string|max:1000',
             'correct_feedback'    => 'nullable|string|max:255',
             'incorrect_feedback'  => 'nullable|string|max:255',
             'status'              => 'required|in:draft,published',
@@ -264,7 +277,9 @@ class MissionController extends Controller
             'points'              => $validated['points'],
             'activity_order'      => $validated['activity_order'],
             'difficulty'          => $validated['difficulty'],
+            'max_attempts'        => $validated['max_attempts'] ?? 0,
             'hint'                => $validated['hint'],
+            'explanation'         => $validated['explanation'] ?? null,
             'correct_feedback'    => $validated['correct_feedback'],
             'incorrect_feedback'  => $validated['incorrect_feedback'],
             'activity_data'       => $processed['activity_data'],
@@ -315,6 +330,29 @@ class MissionController extends Controller
     }
 
     /**
+     * Lecturer Sandbox Preview Evaluation.
+     * Evaluates response against real answer key and returns pedagogical feedback,
+     * but records ZERO attempts and awards ZERO XP.
+     */
+    public function evaluatePreview(Request $request, Puzzle $puzzle, PuzzleEvaluatorService $evaluator)
+    {
+        $evaluation = $evaluator->evaluate($puzzle, $request->all());
+
+        return response()->json([
+            'status'           => $evaluation['is_correct'] ? 'completed' : 'failed',
+            'is_correct'       => $evaluation['is_correct'],
+            'score'            => $evaluation['score'],
+            'max_score'        => $evaluation['max_score'],
+            'percentage'       => $evaluation['percentage'],
+            'earned_xp'        => 0,
+            'total_xp'         => 0,
+            'feedback'         => $evaluation['feedback'],
+            'hint'             => $evaluation['hint'],
+            'clearance_status' => 'Lecturer Sandbox Preview (Zero Attempts / Zero XP)',
+        ]);
+    }
+
+    /**
      * Process and validate type-specific form data into safe activity_data and private correct_answer.
      */
     private function processActivityPayload(Request $request, string $type): array
@@ -339,8 +377,8 @@ class MissionController extends Controller
                         $correctOptionId = $optId;
                     }
                 }
-                if (!$correctOptionId) {
-                    $correctOptionId = $options[0]['id'];
+                if ($correctOptionId === null) {
+                    return ['error' => 'Please select which option is the correct answer for Identification.'];
                 }
                 $activityData = [
                     'prompt' => $request->input('question_text'),
@@ -421,8 +459,11 @@ class MissionController extends Controller
                 foreach (array_values($itemNames) as $j => $iName) {
                     $itemId = 'item_' . ($j + 1);
                     $items[] = ['id' => $itemId, 'label' => trim($iName)];
-                    $chosenCatIndex = $itemCats[$j] ?? 0;
-                    $mapping[$itemId] = $catMap[$chosenCatIndex] ?? $catMap[0];
+                    if (!isset($itemCats[$j]) || !isset($catMap[$itemCats[$j]])) {
+                        return ['error' => "Please assign a valid category for item '" . trim($iName) . "'."];
+                    }
+                    $chosenCatIndex = $itemCats[$j];
+                    $mapping[$itemId] = $catMap[$chosenCatIndex];
                 }
 
                 $activityData = [
@@ -462,7 +503,7 @@ class MissionController extends Controller
 
             case 'scenario':
                 $choices = array_filter((array) $request->input('scenario_choices', []));
-                $correctIndex = $request->input('correct_choice_index', 0);
+                $correctIndex = $request->input('correct_choice_index');
                 if (count($choices) < 2) {
                     return ['error' => 'Please provide at least 2 decision choices for the scenario.'];
                 }
@@ -475,8 +516,8 @@ class MissionController extends Controller
                         $correctChoiceId = $cId;
                     }
                 }
-                if (!$correctChoiceId) {
-                    $correctChoiceId = $choicesList[0]['id'];
+                if ($correctChoiceId === null) {
+                    return ['error' => 'Please select the correct decision choice for the scenario.'];
                 }
                 $activityData = [
                     'scenario_text' => $request->input('instruction'),

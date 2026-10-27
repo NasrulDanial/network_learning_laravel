@@ -31,38 +31,34 @@ class NetLearnSeeder extends Seeder
             ]
         );
 
-        $osiTopic = Topic::firstOrCreate(
-            ['title' => 'OSI Model'],
-            [
-                'description' => 'Introduction to the seven layers of the OSI model.',
-                'content' => "The OSI Model is a conceptual framework used to understand how data moves through a network.\n\nIt contains seven layers:\n\n1. Physical Layer\n2. Data Link Layer\n3. Network Layer\n4. Transport Layer\n5. Session Layer\n6. Presentation Layer\n7. Application Layer\n\nEach layer has a specific responsibility in the communication process.",
-                'created_by' => $lecturer->user_id,
-                'topic_order' => 1,
-            ]
-        );
+        $osiTopic = Topic::where('topic_order', 1)->first() ?? Topic::create([
+            'title' => 'OSI Reference Model & PDU Encapsulation',
+            'description' => 'Introduction to the seven layers of the OSI model.',
+            'content' => "The OSI Model is a conceptual framework used to understand how data moves through a network.\n\nIt contains seven layers:\n\n1. Physical Layer\n2. Data Link Layer\n3. Network Layer\n4. Transport Layer\n5. Session Layer\n6. Presentation Layer\n7. Application Layer\n\nEach layer has a specific responsibility in the communication process.",
+            'created_by' => $lecturer->user_id,
+            'topic_order' => 1,
+        ]);
 
-        $tcpTopic = Topic::firstOrCreate(
-            ['title' => 'TCP/IP Model'],
-            [
-                'description' => 'Introduction to the TCP/IP networking model.',
-                'content' => "The TCP/IP Model explains how devices communicate over the internet.\n\nIt usually contains four layers:\n\n1. Network Access Layer\n2. Internet Layer\n3. Transport Layer\n4. Application Layer\n\nTCP/IP is widely used in real-world networking and internet communication.",
-                'created_by' => $lecturer->user_id,
-                'topic_order' => 2,
-            ]
-        );
+        $tcpTopic = Topic::where('topic_order', 2)->first() ?? Topic::create([
+            'title' => 'Network Infrastructure & Broadcast Domains',
+            'description' => 'Introduction to the TCP/IP networking model and hardware broadcast domains.',
+            'content' => "The TCP/IP Model explains how devices communicate over the internet.\n\nIt usually contains four layers:\n\n1. Network Access Layer\n2. Internet Layer\n3. Transport Layer\n4. Application Layer\n\nTCP/IP is widely used in real-world networking and internet communication.",
+            'created_by' => $lecturer->user_id,
+            'topic_order' => 2,
+        ]);
 
         $osiQuiz = Quiz::firstOrCreate(
-            ['title' => 'OSI Model Quiz'],
+            ['topic_id' => $osiTopic->topic_id],
             [
-                'topic_id' => $osiTopic->topic_id,
+                'title' => 'OSI Model Quiz',
                 'passing_mark' => 60,
             ]
         );
 
         $tcpQuiz = Quiz::firstOrCreate(
-            ['title' => 'TCP/IP Model Quiz'],
+            ['topic_id' => $tcpTopic->topic_id],
             [
-                'topic_id' => $tcpTopic->topic_id,
+                'title' => 'TCP/IP Model Quiz',
                 'passing_mark' => 60,
             ]
         );

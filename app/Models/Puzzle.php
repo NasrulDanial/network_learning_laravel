@@ -109,7 +109,14 @@ class Puzzle extends Model
 
             case 'drag_and_drop':
                 $base['template_key'] = $data['template_key'] ?? 'device_to_osi_layer';
-                $base['draggables'] = $data['draggables'] ?? ($data['nodes'] ?? []);
+                $draggables = $data['draggables'] ?? ($data['nodes'] ?? []);
+                if (isset($data['draggables']) && is_array($data['draggables'])) {
+                    $shuffledDraggables = $data['draggables'];
+                    shuffle($shuffledDraggables);
+                    $base['draggables'] = $shuffledDraggables;
+                } else {
+                    $base['draggables'] = $draggables;
+                }
                 $base['drop_zones'] = $data['drop_zones'] ?? [];
                 $base['links'] = $data['links'] ?? [];
                 break;

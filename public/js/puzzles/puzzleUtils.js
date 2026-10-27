@@ -7,19 +7,11 @@ window.PuzzleUtils = {
     /* ------------------------------------------------------------------ */
     /* 1. Protocol Data Unit & Telemetry Transmission                      */
     /* ------------------------------------------------------------------ */
-    submitResponse(payload, onSuccess) {
-        if (window.isPreview) {
-            const previewData = {
-                status: 'completed',
-                is_correct: true,
-                score: window.puzzleData?.points || 100,
-                earned_xp: 0,
-                feedback: 'Lecturer Preview Mode: Payload formatted and validated successfully. In live student gameplay, this is evaluated server-side by PuzzleEvaluatorService.',
-                clearance_status: 'Lecturer Sandbox (Testing Mode)'
-            };
-            if (typeof onSuccess === 'function') onSuccess(previewData, true);
-            PuzzleUtils.showFeedback(previewData, true);
-            PuzzleUtils.showToast('🧪 [PREVIEW MODE] Response registered. Zero attempts and Zero XP logged.', 'success', 4000);
+    _inFlight: false,
+
+    submitResponse(payload, callbacks) {
+        if (this._inFlight) {
+            PuzzleUtils.showToast('⏳ Telemetry packet already in transmission. Please wait...', 'info', 2000);
             return;
         }
 
@@ -28,6 +20,8 @@ window.PuzzleUtils = {
             'info',
             2000
         );
+
+        this._inFlight = true;
 
         document.querySelectorAll('[data-puzzle-submit]').forEach(el => {
             el.style.pointerEvents = 'none';
@@ -48,41 +42,64 @@ window.PuzzleUtils = {
         .then(response => {
             if (response.status === 401) throw new Error('AUTH_SESSION_EXPIRED');
             if (response.status === 403) throw new Error('INSUFFICIENT_CLEARANCE');
+            if (response.status === 422) return response.json().then(j => { throw new Error(j.message || 'INVALID_PAYLOAD'); });
             if (!response.ok) throw new Error('PACKET_TRANSMISSION_FAILED');
             return response.json();
         })
         .then(data => {
+            this._inFlight = false;
             const isCorrect = (data.status === 'completed' || data.is_correct === true);
-            if (typeof onSuccess === 'function') onSuccess(data, isCorrect);
+
+            // Trigger safe DOM feedback
             PuzzleUtils.showFeedback(data, isCorrect);
+
             if (isCorrect) {
+                if (typeof callbacks === 'function') {
+                    callbacks(data, true);
+                } else if (callbacks && typeof callbacks.onSuccess === 'function') {
+                    callbacks.onSuccess(data);
+                }
                 PuzzleUtils.triggerSuccessOverlay(data.earned_xp ?? data.score, data.clearance_status ?? data.new_rank);
+            } else {
+                // Incorrect attempt: re-enable UI elements and invoke retry callback
+                document.querySelectorAll('[data-puzzle-submit]').forEach(el => {
+                    el.style.pointerEvents = '';
+                    el.style.opacity = '';
+                });
+
+                if (typeof callbacks === 'function') {
+                    callbacks(data, false);
+                } else if (callbacks && typeof callbacks.onRetry === 'function') {
+                    callbacks.onRetry(data);
+                }
             }
         })
         .catch(err => {
+            this._inFlight = false;
+
             document.querySelectorAll('[data-puzzle-submit]').forEach(el => {
                 el.style.pointerEvents = '';
                 el.style.opacity = '';
             });
 
+            if (callbacks && typeof callbacks.onError === 'function') {
+                callbacks.onError(err);
+            }
+
             if (err.message === 'AUTH_SESSION_EXPIRED') {
                 PuzzleUtils.showToast('⚠️ Terminal Disconnected: Token expired. Please re-login.', 'warning', 8000);
             } else if (err.message === 'INSUFFICIENT_CLEARANCE') {
                 PuzzleUtils.showToast('🔒 Access Denied: Insufficient clearance or unpublished activity.', 'error');
+            } else if (err.message && err.message.startsWith('Invalid simulation')) {
+                PuzzleUtils.showToast(`⚠️ Telemetry Error: ${err.message}`, 'error', 6000);
             } else {
                 PuzzleUtils.showToast('❌ Packet transmission failed. Please try again.', 'error');
             }
         });
     },
 
-    submitToBackend(isCorrect, onSuccess) {
-        // Backwards compatibility helper
-        const score = isCorrect ? (window.puzzleData?.points ?? 0) : 0;
-        return this.submitResponse({ score: score, is_correct: isCorrect }, onSuccess);
-    },
-
     /* ------------------------------------------------------------------ */
-    /* 2. Terminal Diagnostic Feedback Display                             */
+    /* 2. Terminal Diagnostic Feedback Display (Safe DOM Rendering)       */
     /* ------------------------------------------------------------------ */
     showFeedback(data, isCorrect) {
         const panel = document.getElementById('feedback-panel');
@@ -92,21 +109,56 @@ window.PuzzleUtils = {
         panel.dataset.state = isCorrect ? 'correct' : 'incorrect';
         panel.style.display = 'block';
 
+        // Clear existing children safely without innerHTML
+        text.replaceChildren();
+
+        const row = document.createElement('div');
+        row.style.cssText = 'display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; line-height: 1.5;';
+
+        const tag = document.createElement('span');
+        tag.style.fontFamily = 'monospace';
+        tag.style.fontWeight = '700';
+
+        const content = document.createElement('span');
+
         if (isCorrect) {
-            text.innerHTML = `
-                <div style="display: flex; align-items: flex-start; gap: 8px;">
-                    <span style="color: #34d399; font-family: monospace; font-weight: 700;">[ROUTE_STATUS: OPTIMAL]</span>
-                    <span>${data.feedback ?? 'All frame destinations verified.'} Awarded <strong style="color: #fde047;">+${data.earned_xp ?? 0} Network XP</strong>. Status: <strong style="color: #67e8f9;">${data.clearance_status ?? data.new_rank ?? 'Active Operative'}</strong>.</span>
-                </div>
-            `;
+            tag.style.color = '#34d399';
+            tag.textContent = '[ROUTE_STATUS: OPTIMAL]';
+
+            const feedbackText = data.feedback || 'All frame destinations verified.';
+            content.appendChild(document.createTextNode(feedbackText + ' Awarded '));
+
+            const xpStrong = document.createElement('strong');
+            xpStrong.style.color = '#fde047';
+            xpStrong.textContent = `+${data.earned_xp ?? 0} Network XP`;
+            content.appendChild(xpStrong);
+
+            content.appendChild(document.createTextNode('. Status: '));
+
+            const rankStrong = document.createElement('strong');
+            rankStrong.style.color = '#67e8f9';
+            rankStrong.textContent = data.clearance_status || data.new_rank || 'Active Operative';
+            content.appendChild(rankStrong);
+
+            content.appendChild(document.createTextNode('.'));
         } else {
-            text.innerHTML = `
-                <div style="display: flex; align-items: flex-start; gap: 8px;">
-                    <span style="color: #fb7185; font-family: monospace; font-weight: 700;">[ROUTING_MISMATCH: PACKET_DROPPED]</span>
-                    <span>${data.hint ? 'Diagnostic Trace: ' + data.hint : (data.feedback ?? 'Topology configuration incorrect. Inspect MAC/IP routing boundaries.')}</span>
-                </div>
-            `;
+            tag.style.color = '#fb7185';
+            tag.textContent = '[ROUTING_MISMATCH: PACKET_DROPPED]';
+
+            const feedbackText = data.feedback || 'Topology configuration incorrect. Inspect MAC/IP routing boundaries.';
+            content.appendChild(document.createTextNode(feedbackText));
+
+            if (data.hint) {
+                const hintDiv = document.createElement('div');
+                hintDiv.style.cssText = 'color: #cbd5e1; font-size: 0.85em; font-style: italic; margin-top: 4px;';
+                hintDiv.textContent = `Diagnostic Trace: ${data.hint}`;
+                content.appendChild(hintDiv);
+            }
         }
+
+        row.appendChild(tag);
+        row.appendChild(content);
+        text.appendChild(row);
 
         panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     },

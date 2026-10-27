@@ -393,9 +393,21 @@ public function submitQuiz(Request $request)
         ? 'Pass'
         : 'Fail';
 
-    $pointsEarned = $status === 'Pass'
-        ? 100
-        : 20;
+    // Idempotent XP reward policy to prevent repeat farming
+    $hasPassedBefore = Result::where('user_id', $userId)
+        ->where('quiz_id', $quiz->quiz_id)
+        ->where('status', 'Pass')
+        ->exists();
+
+    $hasAttemptedBefore = Result::where('user_id', $userId)
+        ->where('quiz_id', $quiz->quiz_id)
+        ->exists();
+
+    if ($status === 'Pass') {
+        $pointsEarned = $hasPassedBefore ? 0 : 100;
+    } else {
+        $pointsEarned = $hasAttemptedBefore ? 0 : 20;
+    }
 
     $result = Result::create([
         'user_id' => $userId,
@@ -418,6 +430,11 @@ public function submitQuiz(Request $request)
         'topic_id' => $quiz->topic_id,
     ]);
 
+    if ($pointsEarned > 0) {
+        $progress->total_xp = ((int) $progress->total_xp) + $pointsEarned;
+        $progress->current_level = (int) floor($progress->total_xp / 500) + 1;
+    }
+
     if ($status === 'Pass') {
         $progress->learning_status = 'Completed';
         $progress->quiz_status = 'Passed';
@@ -434,6 +451,9 @@ public function submitQuiz(Request $request)
     }
 
     $progress->save();
+
+    // Trigger honors evaluation
+    \App\Services\AchievementService::checkAndAward($userId);
 
 return redirect()->route('student.result', $result->result_id);
 }

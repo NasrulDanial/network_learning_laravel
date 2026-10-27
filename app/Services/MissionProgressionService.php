@@ -81,9 +81,9 @@ class MissionProgressionService
                     'total_xp'           => 0,
                     'current_level'      => 1,
                     'current_rank'       => 'Clearance Level 1: Network Cadet',
-                    'learning_status'    => 'in_progress',
-                    'quiz_status'        => 'not_taken',
-                    'progress_percentage'=> 0,
+                    'learning_status'    => 'In Progress',
+                    'quiz_status'        => 'Not Attempted',
+                    'progress_percentage'=> 25,
                 ]
             );
 
@@ -119,6 +119,24 @@ class MissionProgressionService
                 if ($missionResult['is_newly_completed']) {
                     $topicProgress->completed_missions += 1;
                     $topicProgress->total_xp += $missionXpReward;
+                }
+
+                // Update topic progression percentage proportionally based on completed missions
+                $totalMissionsInTopic = Mission::where('topic_id', $topicId)->where('status', 'published')->count();
+                if ($totalMissionsInTopic > 0) {
+                    $completedMissionsCount = \App\Models\UserMissionProgress::where('user_id', $user->user_id)
+                        ->whereHas('mission', function ($q) use ($topicId) {
+                            $q->where('topic_id', $topicId)->where('status', 'published');
+                        })
+                        ->where('is_completed', true)
+                        ->count();
+
+                    // Missions scale topic progression up to 75%; completing the final assessment quiz hits 100%
+                    $missionProgressPct = min(75, (int) round(($completedMissionsCount / $totalMissionsInTopic) * 75));
+                    if ($topicProgress->learning_status !== 'Completed') {
+                        $topicProgress->progress_percentage = max((int)$topicProgress->progress_percentage, max(25, $missionProgressPct));
+                        $topicProgress->learning_status = 'In Progress';
+                    }
                 }
             }
 

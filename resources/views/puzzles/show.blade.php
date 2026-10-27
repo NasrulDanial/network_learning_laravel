@@ -130,7 +130,7 @@
         window.isPreview    = {!! json_encode(!empty($isPreview)) !!};
         window.puzzleData   = {!! json_encode($puzzle->only(['puzzle_id', 'topic_id', 'puzzle_type', 'question_text', 'instruction', 'points'])) !!};
         window.activityData = {!! json_encode($puzzle->getSafeActivityData()) !!};
-        window.submitUrl    = "{{ route('puzzles.submit', $puzzle->puzzle_id) }}";
+        window.submitUrl    = @if(!empty($isPreview)) "{{ route('lecturer.missions.puzzles.preview.submit', $puzzle->puzzle_id) }}" @else "{{ route('puzzles.submit', $puzzle->puzzle_id) }}" @endif;
     </script>
 
     @if ($puzzle->puzzle_type === 'identification')

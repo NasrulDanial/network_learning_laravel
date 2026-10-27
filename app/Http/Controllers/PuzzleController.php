@@ -15,18 +15,74 @@ use Illuminate\Support\Facades\Auth;
 class PuzzleController extends Controller
 {
     /**
+     * Check whether the authenticated user has clearance to access this puzzle.
+     * Returns null if allowed, or an error message string if blocked.
+     */
+    protected function checkStudentAccess($user, Puzzle $puzzle): ?string
+    {
+        if (!$user || $user->role !== 'student') {
+            return 'Only authenticated students can access puzzle learning activities.';
+        }
+
+        if ($puzzle->status !== 'published') {
+            return 'This puzzle activity is currently in draft mode.';
+        }
+
+        if ($puzzle->mission && $puzzle->mission->status !== 'published') {
+            return 'The mission for this activity is not currently published.';
+        }
+
+        // Check if parent topic is unlocked
+        $topic = $puzzle->topic ?? ($puzzle->mission ? $puzzle->mission->topic : null);
+        if ($topic && (int)$topic->topic_order > 1) {
+            $prevTopic = \App\Models\Topic::where('topic_order', '<', $topic->topic_order)
+                ->orderByDesc('topic_order')
+                ->first();
+
+            if ($prevTopic) {
+                $prevProgress = Progress::where('user_id', $user->user_id)
+                    ->where('topic_id', $prevTopic->topic_id)
+                    ->first();
+
+                if (!$prevProgress || $prevProgress->learning_status !== 'Completed') {
+                    return 'Prerequisite curriculum topic must be completed before accessing this activity.';
+                }
+            }
+        }
+
+        // Check if parent mission is unlocked
+        if ($puzzle->mission) {
+            $mission = $puzzle->mission;
+            $firstMission = Mission::where('topic_id', $mission->topic_id)
+                ->where('status', 'published')
+                ->orderBy('mission_order', 'asc')
+                ->first();
+
+            if ($firstMission && (int)$firstMission->mission_id !== (int)$mission->mission_id) {
+                $missionProg = \App\Models\UserMissionProgress::where('user_id', $user->user_id)
+                    ->where('mission_id', $mission->mission_id)
+                    ->first();
+
+                if (!$missionProg || !$missionProg->is_unlocked) {
+                    return 'This mission is locked. Complete previous missions to unlock.';
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Render the puzzle player view for the slide-up sheet modal or standalone view.
      */
     public function play($id)
     {
-        $puzzle = Puzzle::with(['mission', 'topic'])->findOrFail($id);
+        $user = Auth::user();
+        $puzzle = Puzzle::with(['mission.topic', 'topic'])->findOrFail($id);
 
-        if ($puzzle->status === 'draft') {
-            abort(403, 'This puzzle activity is currently in draft mode.');
-        }
-
-        if ($puzzle->mission && $puzzle->mission->status === 'draft') {
-            abort(403, 'This mission is not currently published.');
+        $deniedReason = $this->checkStudentAccess($user, $puzzle);
+        if ($deniedReason !== null) {
+            abort(403, $deniedReason);
         }
 
         return view('puzzles.show', compact('puzzle'));
@@ -38,7 +94,16 @@ class PuzzleController extends Controller
      */
     public function show($id)
     {
-        $puzzle = Puzzle::findOrFail($id);
+        $user = Auth::user();
+        $puzzle = Puzzle::with(['mission.topic', 'topic'])->findOrFail($id);
+
+        $deniedReason = $this->checkStudentAccess($user, $puzzle);
+        if ($deniedReason !== null) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => $deniedReason
+            ], 403);
+        }
 
         return response()->json($puzzle->getSafeActivityData());
     }
@@ -53,38 +118,68 @@ class PuzzleController extends Controller
         MissionProgressionService $progression
     ) {
         $user = Auth::user();
-        $puzzle = Puzzle::with(['mission', 'topic'])->findOrFail($id);
+        $puzzle = Puzzle::with(['mission.topic', 'topic'])->findOrFail($id);
 
-        if ($puzzle->status === 'draft') {
+        $deniedReason = $this->checkStudentAccess($user, $puzzle);
+        if ($deniedReason !== null) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Activity is currently in draft mode.'
+                'message' => $deniedReason
             ], 403);
         }
 
-        // Authoritative evaluation:
-        // Evaluates submitted response payload (selected_option, pairs, ordered_ids, placements, choice_id)
-        $hasStructuredPayload = $request->hasAny([
-            'selected_option', 'pairs', 'ordered_ids', 'placements', 'choice_id', 'nodes'
-        ]);
+        // Enforce maximum attempts policy if configured
+        if ($puzzle->max_attempts > 0) {
+            $puzzleProg = \App\Models\UserPuzzleProgress::where('user_id', $user->user_id)
+                ->where('puzzle_id', $puzzle->puzzle_id)
+                ->first();
 
-        if ($hasStructuredPayload) {
-            $evaluation = $evaluator->evaluate($puzzle, $request->all());
-        } else {
-            // Fallback for legacy calls
-            $isCorrect = $request->boolean('is_correct');
-            $score = $isCorrect ? $puzzle->points : 0;
-            $evaluation = [
-                'is_correct' => $isCorrect,
-                'score'      => $score,
-                'max_score'  => $puzzle->points,
-                'percentage' => $isCorrect ? 100 : 0,
-                'feedback'   => $isCorrect
-                    ? ($puzzle->correct_feedback ?: 'Simulation verified across all nodes!')
-                    : ($puzzle->incorrect_feedback ?: ($puzzle->explanation ?: 'Protocol configuration error detected.')),
-                'hint'       => $isCorrect ? null : ($puzzle->hint ?? 'Review PDU flow and collision domain boundaries.'),
-            ];
+            if ($puzzleProg && $puzzleProg->attempts_count >= $puzzle->max_attempts) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => "Maximum attempts ({$puzzle->max_attempts}) reached for this activity."
+                ], 403);
+            }
         }
+
+        // Validate type-specific structured answer payload
+        $type = $puzzle->puzzle_type;
+        $isValidPayload = false;
+
+        switch ($type) {
+            case 'identification':
+                $isValidPayload = $request->filled('selected_option') || $request->filled('choice_id');
+                break;
+            case 'matching':
+                $isValidPayload = $request->has('pairs') && is_array($request->input('pairs')) && count($request->input('pairs')) > 0;
+                break;
+            case 'sequencing':
+                $isValidPayload = $request->has('ordered_ids') && is_array($request->input('ordered_ids')) && count($request->input('ordered_ids')) > 0;
+                break;
+            case 'classification':
+                $isValidPayload = $request->has('placements') && is_array($request->input('placements')) && count($request->input('placements')) > 0;
+                break;
+            case 'drag_and_drop':
+                $isValidPayload = ($request->has('placements') && is_array($request->input('placements')) && count($request->input('placements')) > 0)
+                               || ($request->has('nodes') && is_array($request->input('nodes')));
+                break;
+            case 'scenario':
+                $isValidPayload = $request->filled('choice_id') || $request->filled('selected_option');
+                break;
+            default:
+                $isValidPayload = $request->hasAny(['selected_option', 'pairs', 'ordered_ids', 'placements', 'choice_id', 'nodes']);
+                break;
+        }
+
+        if (!$isValidPayload) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => "Invalid simulation telemetry payload for '{$type}'. Missing required answer parameters."
+            ], 422);
+        }
+
+        // Authoritative evaluation: evaluates student answers against database key
+        $evaluation = $evaluator->evaluate($puzzle, $request->all());
 
         // Record attempt, update personal best score, award idempotent XP, evaluate mission unlock
         $result = $progression->recordAttempt($user, $puzzle, $evaluation, $request->all());

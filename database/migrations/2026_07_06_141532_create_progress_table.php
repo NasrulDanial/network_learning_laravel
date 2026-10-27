@@ -42,9 +42,9 @@ return new class extends Migration
                 ->cascadeOnDelete()
                 ->cascadeOnUpdate();
 
-            $table->integer('total_xp')->default(0)->after('completion_percentage'); 
-    $table->integer('current_level')->default(1)->after('total_xp'); 
-    $table->string('current_rank')->default('Network Novice')->after('current_level');
+            $table->integer('total_xp')->default(0); 
+            $table->integer('current_level')->default(1); 
+            $table->string('current_rank')->default('Network Novice');
         });
     }
 
