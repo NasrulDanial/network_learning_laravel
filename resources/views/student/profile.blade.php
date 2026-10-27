@@ -1,141 +1,118 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="space-y-6">
-    <!-- Success & Error Alerts -->
+    {{-- Success & Error Flash Messages --}}
     @if(session('success'))
-        <div class="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm flex items-center gap-3">
-            <i class="fas fa-check-circle text-lg"></i>
-            <span>{{ session('success') }}</span>
+        <div class="message success" style="margin-bottom: 1.5rem;">
+            <p style="margin: 0;"><i class="fa-solid fa-check-circle"></i> {{ session('success') }}</p>
         </div>
     @endif
 
     @if($errors->any())
-        <div class="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm">
-            <div class="flex items-center gap-2 font-bold mb-1">
-                <i class="fas fa-exclamation-triangle"></i>
-                <span>Please correct the errors below:</span>
-            </div>
-            <ul class="list-disc list-inside space-y-1 text-xs">
-                @foreach($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
+        <div class="message error" style="margin-bottom: 1.5rem;">
+            @foreach($errors->all() as $error)
+                <p style="margin-bottom: 0;">{{ $error }}</p>
+            @endforeach
         </div>
     @endif
 
-    <!-- Profile Header Banner -->
-    <div class="glass-card p-6 lg:p-8 relative overflow-hidden">
-        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div class="flex items-center gap-5">
-                <div class="w-18 h-18 lg:w-20 lg:h-20 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-blue-600/30 border border-cyan-500/30 flex items-center justify-center text-3xl font-bold text-cyan-400 font-mono shadow-lg shadow-cyan-500/10">
+    {{-- Profile Header Banner --}}
+    <section class="page-banner" style="margin-bottom: 2rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px;">
+            <div style="display: flex; align-items: center; gap: 18px;">
+                <div style="width: 64px; height: 64px; border-radius: var(--radius-lg); background: rgba(34, 211, 238, 0.12); border: 1px solid rgba(34, 211, 238, 0.3); display: flex; align-items: center; justify-content: center; font-size: 1.6rem; font-weight: 800; color: var(--cyan);">
                     {{ strtoupper(substr($user->name, 0, 2)) }}
                 </div>
                 <div>
-                    <div class="flex items-center gap-2 mb-1.5 flex-wrap">
-                        <h1 class="text-2xl font-bold text-white tracking-tight">{{ $user->name }}</h1>
-                        <span class="badge-cyber badge-cyber-primary text-xs">
-                            <i class="fas fa-user-graduate mr-1"></i> Student Cadet
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px;">
+                        <h1 style="margin: 0; font-size: 1.5rem;">{{ $user->name }}</h1>
+                        <span class="status-badge status-progress">
+                            <i class="fa-solid fa-user-graduate"></i> Student
                         </span>
-                        <span class="badge-cyber badge-cyber-warning text-xs font-mono">
-                            <i class="fas fa-shield-alt mr-1"></i> Tier {{ $rankInfo['tier'] }}: {{ $rankInfo['title'] }}
+                        <span class="status-badge status-completed">
+                            <i class="fa-solid fa-shield-alt"></i>
+                            Tier {{ $rankInfo['tier'] }}: {{ $rankInfo['title'] }}
                         </span>
                     </div>
-                    <p class="text-xs text-slate-400 font-mono flex items-center gap-3">
-                        <span><i class="fas fa-envelope mr-1 text-slate-500"></i> {{ $user->email }}</span>
+                    <p style="margin: 0; font-size: 0.85rem; color: var(--text-secondary);">
+                        <i class="fa-solid fa-envelope" style="margin-right: 4px;"></i> {{ $user->email }}
                         @if($user->student_id)
-                            <span><i class="fas fa-id-card mr-1 text-slate-500"></i> {{ $user->student_id }}</span>
+                            &bull;
+                            <i class="fa-solid fa-id-card" style="margin-right: 4px;"></i> {{ $user->student_id }}
                         @endif
                     </p>
                 </div>
             </div>
 
-            <!-- XP & Rank Progress Bar -->
-            <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-700/60 min-w-[260px]">
-                <div class="flex items-center justify-between text-xs mb-2">
-                    <span class="text-slate-400 font-mono">Clearance Progress</span>
-                    <span class="text-cyan-400 font-mono font-bold">{{ $rankInfo['tierProgressPct'] }}%</span>
+            {{-- XP Progression --}}
+            <div class="stat-card" style="min-width: 250px; margin-bottom: 0;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">Clearance Progress</span>
+                    <strong style="font-size: 0.85rem; color: var(--cyan);">{{ $rankInfo['tierProgressPct'] }}%</strong>
                 </div>
-                <div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden mb-2">
-                    <div class="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-500" 
-                         style="width: {{ $rankInfo['tierProgressPct'] }}%"></div>
+                <div class="progress-track" style="margin: 4px 0;">
+                    <div class="progress-fill" style="width: {{ $rankInfo['tierProgressPct'] }}%;"></div>
                 </div>
-                <div class="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-secondary); margin-top: 4px;">
                     <span>{{ number_format($totalXp) }} XP</span>
                     @if($rankInfo['nextTierXp'])
                         <span>Next: {{ number_format($rankInfo['nextTierXp']) }} XP</span>
                     @else
-                        <span class="text-amber-400">Max Rank</span>
+                        <span style="color: #fbbf24;">Max Rank</span>
                     @endif
                 </div>
             </div>
         </div>
-    </div>
+    </section>
 
-    <!-- Main Content Split Layout -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Academic Profile Form (2 cols) -->
-        <div class="lg:col-span-2 space-y-6">
-            <div class="glass-card p-6">
-                <div class="flex items-center justify-between mb-6 pb-4 border-b border-slate-800">
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; align-items: start;">
+        {{-- Left Column: Academic Profile Form --}}
+        <div>
+            <div class="management-card">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
                     <div>
-                        <h2 class="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-                            <i class="fas fa-user-edit text-cyan-400"></i> Academic & Personal Records
+                        <h2 style="margin-bottom: 4px;">
+                            <i class="fa-solid fa-user-edit" style="color: var(--cyan); margin-right: 8px;"></i>
+                            Academic & Personal Records
                         </h2>
-                        <p class="text-xs text-slate-400 mt-1">Keep your matriculation and academic details current.</p>
+                        <p style="font-size: 0.82rem; margin: 0;">Keep your matriculation and academic details current.</p>
                     </div>
-                    <span class="text-[11px] font-mono text-slate-500 uppercase">Self-Managed</span>
                 </div>
 
-                <form action="{{ route('student.profile.update') }}" method="POST" class="space-y-5">
+                <form action="{{ route('student.profile.update') }}" method="POST">
                     @csrf
                     @method('PUT')
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <!-- Full Name -->
-                        <div class="sm:col-span-2">
-                            <label for="name" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-                                Full Legal / Matric Name <span class="text-rose-400">*</span>
-                            </label>
-                            <input type="text" id="name" name="name" value="{{ old('name', $user->name) }}" required
-                                   class="w-full px-4 py-2.5 rounded-xl bg-slate-900/60 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        {{-- Full Name --}}
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label for="name">Full Name <span style="color: var(--danger);">*</span></label>
+                            <input type="text" id="name" name="name" value="{{ old('name', $user->name) }}" required>
                         </div>
 
-                        <!-- Email (Read-Only) -->
-                        <div>
-                            <label for="email" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-                                Institutional Email
-                            </label>
-                            <input type="email" id="email" value="{{ $user->email }}" disabled
-                                   class="w-full px-4 py-2.5 rounded-xl bg-slate-800/40 border border-slate-800 text-slate-400 text-sm cursor-not-allowed">
-                            <p class="text-[11px] text-slate-500 mt-1">Managed via authentication provider.</p>
+                        {{-- Email (Read-Only) --}}
+                        <div class="form-group">
+                            <label for="email">Institutional Email</label>
+                            <input type="email" id="email" value="{{ $user->email }}" disabled style="opacity: 0.6; cursor: not-allowed;">
+                            <span class="field-help">Managed via authentication provider.</span>
                         </div>
 
-                        <!-- Student Matriculation ID -->
-                        <div>
-                            <label for="student_id" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-                                Student ID / Matric No.
-                            </label>
-                            <input type="text" id="student_id" name="student_id" value="{{ old('student_id', $user->student_id) }}" placeholder="e.g. B032110045"
-                                   class="w-full px-4 py-2.5 rounded-xl bg-slate-900/60 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all">
+                        {{-- Student ID --}}
+                        <div class="form-group">
+                            <label for="student_id">Student ID / Matric No.</label>
+                            <input type="text" id="student_id" name="student_id" value="{{ old('student_id', $user->student_id) }}" placeholder="e.g. B032110045">
                         </div>
 
-                        <!-- Programme of Study -->
-                        <div>
-                            <label for="programme" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-                                Programme of Study
-                            </label>
-                            <input type="text" id="programme" name="programme" value="{{ old('programme', $user->programme) }}" placeholder="e.g. BACS (Computer Networking)"
-                                   class="w-full px-4 py-2.5 rounded-xl bg-slate-900/60 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all">
+                        {{-- Programme --}}
+                        <div class="form-group">
+                            <label for="programme">Programme of Study</label>
+                            <input type="text" id="programme" name="programme" value="{{ old('programme', $user->programme) }}" placeholder="e.g. BACS (Computer Networking)">
                         </div>
 
-                        <!-- Semester -->
-                        <div>
-                            <label for="semester" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-                                Current Semester
-                            </label>
-                            <select id="semester" name="semester"
-                                    class="w-full px-4 py-2.5 rounded-xl bg-slate-900/60 border border-slate-700/80 text-white text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all">
+                        {{-- Semester --}}
+                        <div class="form-group">
+                            <label for="semester">Current Semester</label>
+                            <select id="semester" name="semester">
                                 <option value="">Select Semester...</option>
                                 @for($i = 1; $i <= 10; $i++)
                                     <option value="{{ $i }}" {{ old('semester', $user->semester) == $i ? 'selected' : '' }}>
@@ -145,117 +122,113 @@
                             </select>
                         </div>
 
-                        <!-- Faculty -->
-                        <div>
-                            <label for="faculty" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-                                Faculty / School
-                            </label>
-                            <input type="text" id="faculty" name="faculty" value="{{ old('faculty', $user->faculty) }}" placeholder="e.g. Faculty of Information and Communication Technology"
-                                   class="w-full px-4 py-2.5 rounded-xl bg-slate-900/60 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all">
+                        {{-- Faculty --}}
+                        <div class="form-group">
+                            <label for="faculty">Faculty / School</label>
+                            <input type="text" id="faculty" name="faculty" value="{{ old('faculty', $user->faculty) }}" placeholder="e.g. Faculty of ICT">
                         </div>
 
-                        <!-- Contact Phone -->
-                        <div>
-                            <label for="phone" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-                                Contact Phone
-                            </label>
-                            <input type="text" id="phone" name="phone" value="{{ old('phone', $user->phone) }}" placeholder="e.g. +60 12-345 6789"
-                                   class="w-full px-4 py-2.5 rounded-xl bg-slate-900/60 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all">
+                        {{-- Phone --}}
+                        <div class="form-group">
+                            <label for="phone">Contact Phone</label>
+                            <input type="text" id="phone" name="phone" value="{{ old('phone', $user->phone) }}" placeholder="e.g. +60 12-345 6789">
                         </div>
                     </div>
 
-                    <div class="pt-4 border-t border-slate-800 flex justify-end">
-                        <button type="submit" class="btn-cyber btn-cyber-primary text-xs">
-                            <i class="fas fa-save mr-1.5"></i> Save Profile Details
+                    <div style="padding-top: 16px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; margin-top: 8px;">
+                        <button type="submit" class="button" style="padding: 10px 20px; font-size: 0.88rem;">
+                            <i class="fa-solid fa-save"></i> Save Profile Details
                         </button>
                     </div>
                 </form>
             </div>
         </div>
 
-        <!-- Right Side: Security & Badges Preview (1 col) -->
-        <div class="space-y-6">
-            <!-- Password Security Form -->
-            <div class="glass-card p-6">
-                <div class="flex items-center gap-2 mb-4 pb-3 border-b border-slate-800">
-                    <i class="fas fa-key text-amber-400"></i>
-                    <h2 class="text-base font-bold text-white tracking-tight">Security Credentials</h2>
-                </div>
+        {{-- Right Column: Password & Honors --}}
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+            {{-- Password Form --}}
+            <div class="management-card" style="margin-bottom: 0;">
+                <h3 style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border);">
+                    <i class="fa-solid fa-key" style="color: #fbbf24;"></i> Security Credentials
+                </h3>
 
-                <form action="{{ route('student.profile.password') }}" method="POST" class="space-y-4">
+                <form action="{{ route('student.profile.password') }}" method="POST">
                     @csrf
                     @method('PUT')
 
-                    <div>
-                        <label for="current_password" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                            Current Password <span class="text-rose-400">*</span>
-                        </label>
-                        <input type="password" id="current_password" name="current_password" required
-                               class="w-full px-3.5 py-2 rounded-xl bg-slate-900/60 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all">
+                    <div class="form-group">
+                        <label for="current_password">Current Password <span style="color: var(--danger);">*</span></label>
+                        <input type="password" id="current_password" name="current_password" required>
                     </div>
 
-                    <div>
-                        <label for="password" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                            New Password <span class="text-rose-400">*</span>
-                        </label>
-                        <input type="password" id="password" name="password" required
-                               class="w-full px-3.5 py-2 rounded-xl bg-slate-900/60 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all">
-                        <p class="text-[11px] text-slate-500 mt-1">Minimum 8 characters with mixed casing & numbers.</p>
+                    <div class="form-group">
+                        <label for="password">New Password <span style="color: var(--danger);">*</span></label>
+                        <input type="password" id="password" name="password" required>
+                        <span class="field-help">Minimum 8 characters.</span>
                     </div>
 
-                    <div>
-                        <label for="password_confirmation" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                            Confirm New Password <span class="text-rose-400">*</span>
-                        </label>
-                        <input type="password" id="password_confirmation" name="password_confirmation" required
-                               class="w-full px-3.5 py-2 rounded-xl bg-slate-900/60 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all">
+                    <div class="form-group">
+                        <label for="password_confirmation">Confirm New Password <span style="color: var(--danger);">*</span></label>
+                        <input type="password" id="password_confirmation" name="password_confirmation" required>
                     </div>
 
-                    <div class="pt-2">
-                        <button type="submit" class="w-full btn-cyber btn-cyber-secondary text-xs">
-                            <i class="fas fa-lock mr-1.5"></i> Update Password
-                        </button>
-                    </div>
+                    <button type="submit" class="button secondary" style="width: 100%; margin-top: 4px;">
+                        <i class="fa-solid fa-lock"></i> Update Password
+                    </button>
                 </form>
             </div>
 
-            <!-- Earned Honors Showcase Preview -->
-            <div class="glass-card p-6">
-                <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
-                    <div class="flex items-center gap-2">
-                        <i class="fas fa-award text-yellow-400"></i>
-                        <h2 class="text-base font-bold text-white tracking-tight">Earned Honors</h2>
-                    </div>
-                    <span class="text-xs font-mono text-cyan-400 font-bold">
+            {{-- Earned Honors Preview --}}
+            <div class="management-card" style="margin-bottom: 0;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border);">
+                    <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-award" style="color: #fbbf24;"></i> Earned Honors
+                    </h3>
+                    <span style="font-size: 0.82rem; font-weight: 700; color: var(--cyan);">
                         {{ $earnedAchievements->count() }} Unlocked
                     </span>
                 </div>
 
-                <div class="space-y-3">
+                <div style="display: flex; flex-direction: column; gap: 10px;">
                     @forelse($earnedAchievements->take(3) as $ua)
-                        <div class="p-3 rounded-xl bg-slate-900/40 border border-slate-800/80 flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 flex items-center justify-center text-lg shrink-0">
-                                <i class="fas {{ $ua->achievement->badge_icon ?? 'fa-award' }}"></i>
+                        <div style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--radius-md); background: var(--bg-secondary); border: 1px solid var(--border);">
+                            <div style="width: 40px; height: 40px; border-radius: var(--radius-sm); background: rgba(251, 191, 36, 0.12); border: 1px solid rgba(251, 191, 36, 0.3); color: #fbbf24; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0;">
+                                <i class="fa-solid {{ $ua->achievement->badge_icon ?? 'fa-award' }}"></i>
                             </div>
-                            <div class="min-w-0 flex-1">
-                                <h4 class="text-xs font-bold text-white truncate">{{ $ua->achievement->badge_name }}</h4>
-                                <p class="text-[11px] text-slate-400 font-mono truncate">
+                            <div style="min-width: 0; flex: 1;">
+                                <strong style="display: block; font-size: 0.88rem; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ $ua->achievement->badge_name }}</strong>
+                                <span style="font-size: 0.75rem; color: var(--text-secondary);">
                                     {{ \Carbon\Carbon::parse($ua->date_earned)->format('M d, Y') }}
-                                </p>
+                                </span>
                             </div>
                         </div>
                     @empty
-                        <p class="text-xs text-slate-500 py-3 text-center">No badges unlocked yet. Complete missions to unlock achievements.</p>
+                        <p style="text-align: center; color: var(--text-secondary); font-size: 0.85rem; padding: 16px 0; margin: 0;">
+                            No badges unlocked yet.
+                        </p>
                     @endforelse
                 </div>
 
-                <div class="pt-4 mt-3 border-t border-slate-800/80">
-                    <a href="{{ route('student.achievements') }}" class="w-full btn-cyber btn-cyber-secondary text-xs flex items-center justify-center gap-2">
-                        <i class="fas fa-medal"></i> View All Achievements
+                <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border);">
+                    <a href="{{ route('student.achievements') }}" class="button secondary" style="width: 100%; font-size: 0.85rem;">
+                        <i class="fa-solid fa-medal"></i> View All Achievements
                     </a>
                 </div>
             </div>
         </div>
     </div>
-</div>
+
+    <style>
+        @media (max-width: 860px) {
+            div[style*="grid-template-columns: 2fr 1fr"] {
+                grid-template-columns: 1fr !important;
+            }
+            div[style*="grid-template-columns: 1fr 1fr"] {
+                grid-template-columns: 1fr !important;
+            }
+            .form-group[style*="grid-column: span 2"] {
+                grid-column: span 1 !important;
+            }
+        }
+    </style>
 @endsection

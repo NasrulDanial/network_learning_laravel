@@ -1,351 +1,284 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="space-y-8">
-    <!-- Page Banner / Header -->
-    <div class="glass-card p-6 lg:p-8 relative overflow-hidden">
-        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+    <section class="page-banner">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
             <div>
-                <div class="flex items-center gap-2 mb-2">
-                    <span class="badge-cyber badge-cyber-primary">
-                        <i class="fas fa-chart-line mr-1.5"></i> Progress Telemetry
-                    </span>
-                    <span class="text-xs text-slate-400 font-mono">STUDENT DOSSIER</span>
-                </div>
-                <h1 class="text-2xl lg:text-3xl font-bold tracking-tight text-white mb-2">
-                    Learning Progress & Analytics
-                </h1>
-                <p class="text-slate-400 max-w-2xl text-sm leading-relaxed">
-                    Comprehensive performance telemetry tracking your topic mastery, mission clearance, assessment precision, and clearance rank growth.
+                <p class="eyebrow">Progress Telemetry</p>
+                <h1>Learning Progress & Analytics</h1>
+                <p style="margin-bottom: 0;">
+                    Comprehensive performance telemetry tracking your topic mastery,
+                    mission clearance, assessment precision, and clearance rank growth.
                 </p>
             </div>
-
-            <div class="flex items-center gap-3">
-                <a href="{{ route('student.learning') }}" class="btn-cyber btn-cyber-primary text-xs">
-                    <i class="fas fa-rocket mr-1.5"></i> Continue Journey
+            <div style="display: flex; gap: 10px;">
+                <a href="{{ route('student.learning') }}" class="button" style="padding: 9px 16px; font-size: 0.85rem;">
+                    <i class="fa-solid fa-rocket"></i> Continue Journey
                 </a>
-                <a href="{{ route('student.achievements') }}" class="btn-cyber btn-cyber-secondary text-xs">
-                    <i class="fas fa-medal mr-1.5"></i> Badges
+                <a href="{{ route('student.achievements') }}" class="button secondary" style="padding: 9px 16px; font-size: 0.85rem;">
+                    <i class="fa-solid fa-medal"></i> Badges
                 </a>
             </div>
+        </div>
+    </section>
+
+    {{-- Bento Metric Cards --}}
+    <div class="summary-grid" style="margin-bottom: 2rem;">
+        <div class="stat-card">
+            <span class="stat-label">
+                <i class="fa-solid fa-bolt" aria-hidden="true" style="color: #fbbf24;"></i>
+                Total XP
+            </span>
+            <strong class="stat-value">{{ number_format($totalPoints) }}</strong>
+        </div>
+
+        <div class="stat-card">
+            <span class="stat-label">
+                <i class="fa-solid fa-graduation-cap" aria-hidden="true"></i>
+                Topics Completed
+            </span>
+            <strong class="stat-value">{{ $completedTopics }}</strong>
+        </div>
+
+        <div class="stat-card">
+            <span class="stat-label">
+                <i class="fa-solid fa-puzzle-piece" aria-hidden="true" style="color: var(--purple);"></i>
+                Missions Cleared
+            </span>
+            <strong class="stat-value">{{ $completedMissions }}</strong>
+        </div>
+
+        <div class="stat-card">
+            <span class="stat-label">
+                <i class="fa-solid fa-bullseye" aria-hidden="true" style="color: var(--success);"></i>
+                Average Score
+            </span>
+            <strong class="stat-value">{{ number_format($averageScore, 1) }}%</strong>
+        </div>
+
+        <div class="stat-card">
+            <span class="stat-label">
+                <i class="fa-solid fa-trophy" aria-hidden="true" style="color: var(--cyan);"></i>
+                Pass Rate
+            </span>
+            <strong class="stat-value">{{ $passRate }}%</strong>
+            <span style="font-size: 0.78rem; color: var(--text-secondary); display: block; margin-top: 4px;">
+                {{ $passedAttempts }} passed / {{ $totalAttempts }} total
+            </span>
         </div>
     </div>
 
-    <!-- Bento Metric Cards (5 Metrics) -->
-    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <!-- Total XP -->
-        <div class="glass-card p-4 flex flex-col justify-between">
-            <div class="flex items-center justify-between text-xs text-slate-400 font-mono mb-2">
-                <span>TOTAL XP</span>
-                <i class="fas fa-bolt text-amber-400"></i>
-            </div>
-            <div>
-                <div class="text-2xl font-bold text-amber-400 font-mono tracking-tight">
-                    {{ number_format($totalPoints) }}
-                </div>
-                <p class="text-[11px] text-slate-500 mt-1">Quiz + Mission XP</p>
-            </div>
-        </div>
-
-        <!-- Topics Completed -->
-        <div class="glass-card p-4 flex flex-col justify-between">
-            <div class="flex items-center justify-between text-xs text-slate-400 font-mono mb-2">
-                <span>TOPICS COMPLETED</span>
-                <i class="fas fa-graduation-cap text-cyan-400"></i>
-            </div>
-            <div>
-                <div class="text-2xl font-bold text-white font-mono tracking-tight">
-                    {{ $completedTopics }}
-                </div>
-                <p class="text-[11px] text-slate-500 mt-1">Full curriculum stages</p>
-            </div>
-        </div>
-
-        <!-- Missions Cleared -->
-        <div class="glass-card p-4 flex flex-col justify-between">
-            <div class="flex items-center justify-between text-xs text-slate-400 font-mono mb-2">
-                <span>MISSIONS CLEARED</span>
-                <i class="fas fa-puzzle-piece text-purple-400"></i>
-            </div>
-            <div>
-                <div class="text-2xl font-bold text-purple-400 font-mono tracking-tight">
-                    {{ $completedMissions }}
-                </div>
-                <p class="text-[11px] text-slate-500 mt-1">Problem-based labs</p>
-            </div>
-        </div>
-
-        <!-- Average Score -->
-        <div class="glass-card p-4 flex flex-col justify-between">
-            <div class="flex items-center justify-between text-xs text-slate-400 font-mono mb-2">
-                <span>AVG SCORE</span>
-                <i class="fas fa-bullseye text-emerald-400"></i>
-            </div>
-            <div>
-                <div class="text-2xl font-bold text-emerald-400 font-mono tracking-tight">
-                    {{ number_format($averageScore, 1) }}%
-                </div>
-                <p class="text-[11px] text-slate-500 mt-1">Across {{ $totalAttempts }} attempt(s)</p>
-            </div>
-        </div>
-
-        <!-- Pass Rate -->
-        <div class="glass-card p-4 flex flex-col justify-between col-span-2 md:col-span-1">
-            <div class="flex items-center justify-between text-xs text-slate-400 font-mono mb-2">
-                <span>PASS RATE</span>
-                <i class="fas fa-trophy text-blue-400"></i>
-            </div>
-            <div>
-                <div class="text-2xl font-bold text-cyan-400 font-mono tracking-tight">
-                    {{ $passRate }}%
-                </div>
-                <p class="text-[11px] text-slate-500 mt-1">{{ $passedAttempts }} passed / {{ $totalAttempts }} total</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Career Rank Clearance Banner -->
-    <div class="glass-card p-6">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div class="flex items-center gap-4">
-                <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-blue-600/30 border border-cyan-500/40 text-cyan-400 flex items-center justify-center text-3xl font-mono shadow-lg shadow-cyan-500/10">
-                    <i class="fas fa-shield-alt"></i>
+    {{-- Career Rank Progression --}}
+    <div class="management-card" style="margin-bottom: 2rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px;">
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <div style="width: 56px; height: 56px; border-radius: var(--radius-lg); background: rgba(34, 211, 238, 0.12); border: 1px solid rgba(34, 211, 238, 0.3); color: var(--cyan); display: flex; align-items: center; justify-content: center; font-size: 1.6rem;">
+                    <i class="fa-solid fa-shield-alt"></i>
                 </div>
                 <div>
-                    <div class="flex items-center gap-2 mb-1">
-                        <span class="badge-cyber badge-cyber-primary text-xs font-mono">
-                            TIER {{ $rankInfo['tier'] }}
-                        </span>
-                        <h3 class="text-xl font-bold text-white tracking-tight">{{ $rankInfo['title'] }}</h3>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                        <span class="status-badge status-progress" style="font-size: 0.72rem;">TIER {{ $rankInfo['tier'] }}</span>
+                        <h2 style="margin: 0; font-size: 1.25rem;">{{ $rankInfo['title'] }}</h2>
                     </div>
-                    <p class="text-xs text-slate-400">
-                        {{ $rankInfo['tagline'] }}
-                    </p>
+                    <p style="margin: 0; font-size: 0.85rem;">{{ $rankInfo['tagline'] }}</p>
                 </div>
             </div>
 
-            <!-- Progress Meter -->
-            <div class="md:w-1/3">
-                <div class="flex items-center justify-between text-xs mb-2">
-                    <span class="text-slate-400 font-mono">Tier Progression</span>
-                    <span class="font-mono font-bold text-cyan-400">{{ $rankInfo['tierProgressPct'] }}%</span>
+            <div style="min-width: 280px; flex: 0 0 auto;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 6px;">
+                    <span style="color: var(--text-secondary);">Tier Progression</span>
+                    <strong style="color: var(--cyan);">{{ $rankInfo['tierProgressPct'] }}%</strong>
                 </div>
-                <div class="w-full h-2.5 rounded-full bg-slate-800 overflow-hidden mb-2">
-                    <div class="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-500" 
-                         style="width: {{ $rankInfo['tierProgressPct'] }}%"></div>
+                <div class="progress-track">
+                    <div class="progress-fill" style="width: {{ $rankInfo['tierProgressPct'] }}%;"></div>
                 </div>
-                <div class="flex items-center justify-between text-[11px] text-slate-400 font-mono">
-                    <span>{{ number_format($rankInfo['currentXp']) }} XP Current</span>
+                <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-secondary); margin-top: 4px;">
+                    <span>{{ number_format($rankInfo['currentXp']) }} XP</span>
                     @if($rankInfo['nextTierXp'])
                         <span>Target: {{ number_format($rankInfo['nextTierXp']) }} XP</span>
                     @else
-                        <span class="text-amber-400">Apex Clearance Reached</span>
+                        <span style="color: #fbbf24;">Apex Clearance Reached</span>
                     @endif
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Recommended Reviews Section (If any bottlenecks or low scores) -->
+    {{-- Recommended Concept Reinforcement --}}
     @if(isset($recommendedReviews) && $recommendedReviews->count() > 0)
-        <div class="glass-card p-6 border-amber-500/30 bg-amber-500/5">
-            <div class="flex items-center justify-between mb-4 pb-3 border-b border-amber-500/20">
-                <div class="flex items-center gap-2">
-                    <i class="fas fa-exclamation-triangle text-amber-400"></i>
-                    <h2 class="text-base font-bold text-white tracking-tight">Recommended Concept Reinforcements</h2>
+        <section style="margin-bottom: 2rem;">
+            <div class="management-card" style="border-color: rgba(245, 158, 11, 0.3); background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, transparent 100%), var(--bg-card);">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border);">
+                    <h2 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-exclamation-triangle" style="color: var(--warning);"></i>
+                        Recommended Review
+                    </h2>
+                    <span class="status-badge status-progress">
+                        {{ $recommendedReviews->count() }} {{ Str::plural('area', $recommendedReviews->count()) }}
+                    </span>
                 </div>
-                <span class="badge-cyber badge-cyber-warning text-xs">
-                    {{ $recommendedReviews->count() }} Areas Needing Attention
-                </span>
-            </div>
 
-            <p class="text-xs text-slate-300 mb-4">
-                The learning telemetry detected quiz scores below 70% or unpassed evaluations. Reviewing these topics will boost your mastery and clearance tier:
-            </p>
+                <p style="font-size: 0.88rem; margin-bottom: 16px;">
+                    Scores below 70% or unpassed evaluations detected. Reviewing these topics will boost your mastery:
+                </p>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                @foreach($recommendedReviews as $rec)
-                    <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-700/60 flex flex-col justify-between">
-                        <div>
-                            <span class="text-[11px] font-mono text-cyan-400 block mb-1">
-                                {{ $rec->topic_title }}
-                            </span>
-                            <h4 class="text-sm font-bold text-white mb-2">{{ $rec->quiz_title }}</h4>
-                            <div class="flex items-center gap-2 mb-3">
-                                <span class="badge-cyber badge-cyber-danger text-xs font-mono">
+                <div class="dashboard-grid">
+                    @foreach($recommendedReviews as $rec)
+                        <article class="card" style="border-color: rgba(245, 158, 11, 0.2);">
+                            <p class="eyebrow" style="margin-bottom: 4px;">{{ $rec->topic_title }}</p>
+                            <h2 style="font-size: 1.05rem;">{{ $rec->quiz_title }}</h2>
+
+                            <div style="display: flex; align-items: center; gap: 8px; margin: 12px 0;">
+                                <span class="status-badge status-locked">
                                     Score: {{ round($rec->percentage) }}%
                                 </span>
-                                <span class="text-[11px] text-slate-500 font-mono">
+                                <span style="font-size: 0.78rem; color: var(--text-secondary);">
                                     {{ \Carbon\Carbon::parse($rec->date_taken)->diffForHumans() }}
                                 </span>
                             </div>
-                        </div>
 
-                        <a href="{{ route('student.quiz.take', $rec->quiz_id) }}" class="btn-cyber btn-cyber-primary text-xs w-full text-center">
-                            <i class="fas fa-redo mr-1.5"></i> Retake Challenge
-                        </a>
-                    </div>
-                @endforeach
-            </div>
-        </div>
-    @endif
-
-    <!-- Learning Stage Curriculum Table -->
-    <div class="glass-card p-6">
-        <div class="flex items-center justify-between mb-6 pb-4 border-b border-slate-800">
-            <div>
-                <h2 class="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-                    <i class="fas fa-stream text-cyan-400"></i> Curriculum Stage Breakdown
-                </h2>
-                <p class="text-xs text-slate-400 mt-1">Stage-by-stage mastery of problem-based learning missions and quizzes.</p>
-            </div>
-            <span class="text-xs font-mono text-slate-400">
-                Overall: <strong class="text-cyan-400 font-bold">{{ round($overallProgress) }}%</strong>
-            </span>
-        </div>
-
-        <div class="table-responsive">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="border-b border-slate-800 text-[11px] font-mono text-slate-400 uppercase tracking-wider">
-                        <th class="py-3 px-4">Stage</th>
-                        <th class="py-3 px-4">Curriculum Topic</th>
-                        <th class="py-3 px-4">Missions</th>
-                        <th class="py-3 px-4">Evaluation Status</th>
-                        <th class="py-3 px-4">Stage Progress</th>
-                        <th class="py-3 px-4 text-right">Action</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-800/60 text-sm">
-                    @forelse($topicProgress as $tp)
-                        <tr class="hover:bg-slate-800/20 transition-colors">
-                            <td class="py-3.5 px-4 font-mono font-bold text-cyan-400 text-xs">
-                                Stage {{ $tp->topic_order }}
-                            </td>
-                            <td class="py-3.5 px-4">
-                                <span class="font-bold text-white block">{{ $tp->title }}</span>
-                                <span class="text-xs text-slate-400 line-clamp-1">{{ $tp->description }}</span>
-                            </td>
-                            <td class="py-3.5 px-4">
-                                @if($tp->missions_count > 0)
-                                    <span class="badge-cyber badge-cyber-primary text-xs font-mono">
-                                        <i class="fas fa-puzzle-piece mr-1"></i>
-                                        {{ $tp->completed_missions ?? 0 }} / {{ $tp->missions_count }}
-                                    </span>
-                                @else
-                                    <span class="text-xs text-slate-500 font-mono">None</span>
-                                @endif
-                            </td>
-                            <td class="py-3.5 px-4">
-                                @if($tp->quiz_status === 'Passed')
-                                    <span class="badge-cyber badge-cyber-success text-xs font-mono">Passed</span>
-                                @elseif($tp->quiz_status === 'Failed')
-                                    <span class="badge-cyber badge-cyber-danger text-xs font-mono">Failed</span>
-                                @else
-                                    <span class="badge-cyber badge-cyber-muted text-xs font-mono">Not Attempted</span>
-                                @endif
-                            </td>
-                            <td class="py-3.5 px-4 min-w-[140px]">
-                                <div class="flex items-center justify-between text-xs font-mono mb-1">
-                                    <span class="text-slate-400">{{ (int) $tp->progress_percentage }}%</span>
-                                </div>
-                                <div class="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                                    <div class="h-full rounded-full {{ $tp->progress_percentage == 100 ? 'bg-emerald-500' : 'bg-cyan-500' }}"
-                                         style="width: {{ $tp->progress_percentage }}%"></div>
-                                </div>
-                            </td>
-                            <td class="py-3.5 px-4 text-right">
-                                <a href="{{ route('student.topic', $tp->topic_id) }}" class="btn-cyber btn-cyber-secondary text-xs">
-                                    <i class="fas fa-folder-open mr-1"></i> Open
-                                </a>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="6" class="py-8 text-center text-slate-500 text-xs">
-                                No curriculum topics available.
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Recent Assessment History -->
-    <div class="glass-card p-6">
-        <div class="flex items-center justify-between mb-6 pb-4 border-b border-slate-800">
-            <div>
-                <h2 class="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-                    <i class="fas fa-history text-amber-400"></i> Recent Assessment History
-                </h2>
-                <p class="text-xs text-slate-400 mt-1">Review outcomes, questions answered, and XP gained from recent quiz attempts.</p>
-            </div>
-            <a href="{{ route('student.quiz') }}" class="btn-cyber btn-cyber-secondary text-xs">
-                <i class="fas fa-list-check mr-1.5"></i> Practice Arena
-            </a>
-        </div>
-
-        @if($recentResults->count() > 0)
-            <div class="table-responsive">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="border-b border-slate-800 text-[11px] font-mono text-slate-400 uppercase tracking-wider">
-                            <th class="py-3 px-4">Evaluation</th>
-                            <th class="py-3 px-4">Stage</th>
-                            <th class="py-3 px-4">Score</th>
-                            <th class="py-3 px-4">Status</th>
-                            <th class="py-3 px-4">XP Earned</th>
-                            <th class="py-3 px-4">Date Taken</th>
-                            <th class="py-3 px-4 text-right">Review</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-800/60 text-sm">
-                        @foreach($recentResults as $res)
-                            <tr class="hover:bg-slate-800/20 transition-colors">
-                                <td class="py-3.5 px-4 font-bold text-white">
-                                    {{ $res->quiz_title }}
-                                </td>
-                                <td class="py-3.5 px-4 text-xs text-cyan-400 font-mono">
-                                    {{ $res->topic_title }}
-                                </td>
-                                <td class="py-3.5 px-4 font-mono font-bold text-white">
-                                    {{ $res->score }} / {{ $res->total_questions }} ({{ round($res->percentage) }}%)
-                                </td>
-                                <td class="py-3.5 px-4">
-                                    @if($res->status === 'Pass')
-                                        <span class="badge-cyber badge-cyber-success text-xs font-mono">Pass</span>
-                                    @else
-                                        <span class="badge-cyber badge-cyber-danger text-xs font-mono">Fail</span>
-                                    @endif
-                                </td>
-                                <td class="py-3.5 px-4 font-mono text-amber-400 font-bold">
-                                    +{{ $res->points_earned }} XP
-                                </td>
-                                <td class="py-3.5 px-4 text-xs text-slate-400 font-mono">
-                                    {{ \Carbon\Carbon::parse($res->date_taken)->format('M d, Y H:i') }}
-                                </td>
-                                <td class="py-3.5 px-4 text-right">
-                                    <a href="{{ route('student.result', $res->result_id) }}" class="btn-cyber btn-cyber-secondary text-xs">
-                                        <i class="fas fa-eye mr-1"></i> Breakdown
-                                    </a>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-        @else
-            <div class="py-12 text-center">
-                <i class="fas fa-clipboard-check text-3xl text-slate-600 mb-3"></i>
-                <p class="text-sm text-slate-400">No quiz attempts recorded yet.</p>
-                <div class="mt-4">
-                    <a href="{{ route('student.quiz') }}" class="btn-cyber btn-cyber-primary text-xs">
-                        <i class="fas fa-play mr-1.5"></i> Attempt a Quiz
-                    </a>
+                            <a href="{{ route('student.quiz.take', $rec->quiz_id) }}" class="button" style="margin-top: auto; padding: 8px 16px; font-size: 0.85rem; width: 100%;">
+                                <i class="fa-solid fa-redo"></i> Retake Challenge
+                            </a>
+                        </article>
+                    @endforeach
                 </div>
             </div>
+        </section>
+    @endif
+
+    {{-- Topic Progress Table --}}
+    <section style="margin-bottom: 2rem;">
+        <p class="eyebrow">Curriculum Stage Breakdown</p>
+        <h2 style="margin-bottom: 1.5rem;">Learning Stage Status</h2>
+
+        @if ($topicProgress->count() > 0)
+            <div class="management-card">
+                <div class="table-wrapper" style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Stage</th>
+                                <th>Topic</th>
+                                <th>Missions</th>
+                                <th>Quiz Status</th>
+                                <th>Progress</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($topicProgress as $topic)
+                                @php
+                                    $learningStatus = $topic->learning_status ?? 'Not Started';
+                                    $quizStatus = $topic->quiz_status ?? 'Not Attempted';
+                                    $progressPercentage = $topic->progress_percentage ?? 0;
+                                    $missionsCount = $topic->missions_count ?? 0;
+                                    $completedMissionsLocal = $topic->completed_missions ?? 0;
+
+                                    $quizBadgeClass = match($quizStatus) {
+                                        'Passed' => 'status-badge status-pass',
+                                        'Failed' => 'status-badge status-fail',
+                                        default => 'status-badge status-progress',
+                                    };
+                                @endphp
+                                <tr>
+                                    <td><strong style="color: var(--cyan);">Stage {{ (int) $topic->topic_order }}</strong></td>
+                                    <td>
+                                        <strong>{{ $topic->title }}</strong>
+                                        <br><span style="color: var(--text-secondary); font-size: 0.82rem;">{{ Str::limit($topic->description, 60) }}</span>
+                                    </td>
+                                    <td>
+                                        @if ($missionsCount > 0)
+                                            <span class="count-badge" style="padding: 4px 10px;">
+                                                <i class="fa-solid fa-puzzle-piece"></i>
+                                                {{ $completedMissionsLocal }}/{{ $missionsCount }}
+                                            </span>
+                                        @else
+                                            <span style="color: var(--text-secondary); font-size: 0.82rem;">None</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <span class="{{ $quizBadgeClass }}">{{ $quizStatus }}</span>
+                                    </td>
+                                    <td style="min-width: 140px;">
+                                        <strong>{{ (int) $progressPercentage }}%</strong>
+                                        <div class="progress-track" style="margin-top: 6px;">
+                                            <div class="progress-fill" style="width: {{ min(100, max(0, (float) $progressPercentage)) }}%;
+                                                {{ $progressPercentage == 100 ? 'background: linear-gradient(90deg, var(--success), #34d399);' : '' }}"></div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <a href="{{ route('student.topic', $topic->topic_id) }}" class="action-link edit">
+                                            <i class="fa-solid fa-folder-open"></i> Open
+                                        </a>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        @else
+            <section class="empty-state">
+                <div class="empty-state-icon" aria-hidden="true"><i class="fa-solid fa-route"></i></div>
+                <h2>No topic progress yet</h2>
+                <p>Start the learning journey to begin tracking your progress.</p>
+                <a class="button" href="{{ route('student.learning') }}">Start Learning</a>
+            </section>
         @endif
-    </div>
-</div>
+    </section>
+
+    {{-- Recent Assessment History --}}
+    <section>
+        <p class="eyebrow">Recent Quiz Results</p>
+        <h2 style="margin-bottom: 1.5rem;">Latest Attempts</h2>
+
+        @if ($recentResults->count() > 0)
+            <div class="dashboard-grid">
+                @foreach ($recentResults as $result)
+                    @php $isPass = $result->status === 'Pass'; @endphp
+                    <article class="card">
+                        <span class="card-icon" aria-hidden="true">
+                            <i class="fa-solid {{ $isPass ? 'fa-trophy' : 'fa-rotate-right' }}"></i>
+                        </span>
+
+                        <div class="stage-meta">
+                            <span class="eyebrow">{{ $result->topic_title }}</span>
+                            <span class="status-badge {{ $isPass ? 'status-pass' : 'status-fail' }}">
+                                {{ $result->status }}
+                            </span>
+                        </div>
+
+                        <h2 style="margin-top: 0.5rem;">{{ $result->quiz_title }}</h2>
+
+                        <div class="result-score" style="font-size: 2.5rem; margin: 1rem 0;">
+                            {{ number_format((float) $result->percentage, 0) }}%
+                        </div>
+
+                        <div class="challenge-info-grid">
+                            <div class="challenge-info">
+                                <span>Score</span>
+                                <strong>{{ (int) $result->score }}/{{ (int) $result->total_questions }}</strong>
+                            </div>
+                            <div class="challenge-info">
+                                <span>XP</span>
+                                <strong>+{{ (int) $result->points_earned }}</strong>
+                            </div>
+                        </div>
+
+                        <a class="button secondary" href="{{ route('student.result', $result->result_id) }}" style="margin-top: 1rem;">
+                            View Result
+                        </a>
+                    </article>
+                @endforeach
+            </div>
+        @else
+            <section class="empty-state">
+                <div class="empty-state-icon" aria-hidden="true"><i class="fa-solid fa-puzzle-piece"></i></div>
+                <h2>No quiz attempts yet</h2>
+                <p>Complete a quiz challenge to see your results here.</p>
+                <a class="button" href="{{ route('student.quiz') }}">Go to Practice Arena</a>
+            </section>
+        @endif
+    </section>
 @endsection

@@ -67,8 +67,8 @@ class ComprehensiveSystemAuditTest extends TestCase
         $response = $this->actingAs($this->student)->get('/student/progress');
         $response->assertStatus(200);
         $response->assertSee('Learning Progress', false);
-        $response->assertSee('TOTAL XP', false);
-        $response->assertSee('MISSIONS CLEARED', false);
+        $response->assertSee('Total XP', false);
+        $response->assertSee('Missions Cleared', false);
     }
 
     public function test_student_can_access_quiz_hub()
