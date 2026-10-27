@@ -182,8 +182,6 @@ class MissionController extends Controller
      */
     public function storePuzzle(Request $request, Mission $mission)
     {
-        $puzzleType = $request->input('puzzle_type');
-
         // Common base validation
         $validated = $request->validate([
             'puzzle_type'         => 'required|in:identification,matching,sequencing,classification,drag_and_drop,scenario',
@@ -199,6 +197,8 @@ class MissionController extends Controller
             'incorrect_feedback'  => 'nullable|string|max:255',
             'status'              => 'required|in:draft,published',
         ]);
+
+        $puzzleType = $validated['puzzle_type'];
 
         // Process type-specific structured data and answer key
         $processed = $this->processActivityPayload($request, $puzzleType);
@@ -216,10 +216,10 @@ class MissionController extends Controller
             'activity_order'      => $validated['activity_order'],
             'difficulty'          => $validated['difficulty'],
             'max_attempts'        => $validated['max_attempts'] ?? 0,
-            'hint'                => $validated['hint'],
+            'hint'                => $validated['hint'] ?? null,
             'explanation'         => $validated['explanation'] ?? null,
-            'correct_feedback'    => $validated['correct_feedback'],
-            'incorrect_feedback'  => $validated['incorrect_feedback'],
+            'correct_feedback'    => $validated['correct_feedback'] ?? null,
+            'incorrect_feedback'  => $validated['incorrect_feedback'] ?? null,
             'activity_data'       => $processed['activity_data'],
             'correct_answer'      => $processed['correct_answer'],
             'status'              => $validated['status'],
@@ -278,10 +278,10 @@ class MissionController extends Controller
             'activity_order'      => $validated['activity_order'],
             'difficulty'          => $validated['difficulty'],
             'max_attempts'        => $validated['max_attempts'] ?? 0,
-            'hint'                => $validated['hint'],
+            'hint'                => $validated['hint'] ?? null,
             'explanation'         => $validated['explanation'] ?? null,
-            'correct_feedback'    => $validated['correct_feedback'],
-            'incorrect_feedback'  => $validated['incorrect_feedback'],
+            'correct_feedback'    => $validated['correct_feedback'] ?? null,
+            'incorrect_feedback'  => $validated['incorrect_feedback'] ?? null,
             'activity_data'       => $processed['activity_data'],
             'correct_answer'      => $processed['correct_answer'],
             'status'              => $validated['status'],
@@ -363,17 +363,18 @@ class MissionController extends Controller
 
         switch ($type) {
             case 'identification':
-                $labels = array_filter((array) $request->input('options', []));
+                $labels = $this->filledInputs($request, 'options');
                 $correctIndex = $request->input('correct_option_index');
                 if (count($labels) < 2) {
                     return ['error' => 'Please provide at least 2 answer options for Identification.'];
                 }
                 $options = [];
                 $correctOptionId = null;
-                foreach (array_values($labels) as $idx => $lbl) {
-                    $optId = 'opt_' . ($idx + 1);
-                    $options[] = ['id' => $optId, 'label' => trim($lbl)];
-                    if ((string)$idx === (string)$correctIndex) {
+                $position = 0;
+                foreach ($labels as $formIndex => $lbl) {
+                    $optId = 'opt_' . (++$position);
+                    $options[] = ['id' => $optId, 'label' => $lbl];
+                    if ((string)$formIndex === (string)$correctIndex) {
                         $correctOptionId = $optId;
                     }
                 }
@@ -391,19 +392,21 @@ class MissionController extends Controller
                 break;
 
             case 'matching':
-                $lefts = array_filter((array) $request->input('left_items', []));
-                $rights = array_filter((array) $request->input('right_items', []));
-                if (count($lefts) < 2 || count($lefts) !== count($rights)) {
-                    return ['error' => 'Please provide at least 2 matching pairs (Left and Right items).'];
+                $lefts = $this->filledInputs($request, 'left_items');
+                $rights = $this->filledInputs($request, 'right_items');
+                if (count($lefts) < 2 || array_keys($lefts) !== array_keys($rights)) {
+                    return ['error' => 'Please provide at least 2 complete matching pairs (both Left and Right items).'];
                 }
                 $leftItems = [];
                 $rightItems = [];
                 $pairs = [];
-                foreach (array_values($lefts) as $i => $leftLabel) {
-                    $lId = 'L_' . ($i + 1);
-                    $rId = 'R_' . ($i + 1);
-                    $leftItems[] = ['id' => $lId, 'label' => trim($leftLabel)];
-                    $rightItems[] = ['id' => $rId, 'label' => trim($rights[$i] ?? '')];
+                $position = 0;
+                foreach ($lefts as $formIndex => $leftLabel) {
+                    $position++;
+                    $lId = 'L_' . $position;
+                    $rId = 'R_' . $position;
+                    $leftItems[] = ['id' => $lId, 'label' => $leftLabel];
+                    $rightItems[] = ['id' => $rId, 'label' => $rights[$formIndex]];
                     $pairs[$lId] = $rId;
                 }
                 $activityData = [
@@ -416,7 +419,7 @@ class MissionController extends Controller
                 break;
 
             case 'sequencing':
-                $itemsInput = array_filter((array) $request->input('sequence_items', []));
+                $itemsInput = $this->filledInputs($request, 'sequence_items');
                 if (count($itemsInput) < 3) {
                     return ['error' => 'Please provide at least 3 sequence steps in their correct order.'];
                 }
@@ -424,7 +427,7 @@ class MissionController extends Controller
                 $order = [];
                 foreach (array_values($itemsInput) as $i => $itemLabel) {
                     $id = 'seq_' . ($i + 1);
-                    $items[] = ['id' => $id, 'label' => trim($itemLabel)];
+                    $items[] = ['id' => $id, 'label' => $itemLabel];
                     $order[] = $id;
                 }
                 $activityData = [
@@ -437,32 +440,34 @@ class MissionController extends Controller
                 break;
 
             case 'classification':
-                $catNames = array_filter((array) $request->input('categories', []));
+                $catNames = $this->filledInputs($request, 'categories');
                 if (count($catNames) < 2) {
                     return ['error' => 'Please provide at least 2 classification categories.'];
                 }
                 $categories = [];
                 $catMap = [];
-                foreach (array_values($catNames) as $i => $cName) {
-                    $catId = 'cat_' . ($i + 1);
-                    $categories[] = ['id' => $catId, 'label' => trim($cName)];
-                    $catMap[$i] = $catId;
+                $position = 0;
+                foreach ($catNames as $formIndex => $cName) {
+                    $catId = 'cat_' . (++$position);
+                    $categories[] = ['id' => $catId, 'label' => $cName];
+                    $catMap[$formIndex] = $catId;
                 }
 
-                $itemNames = array_filter((array) $request->input('class_items', []));
+                $itemNames = $this->filledInputs($request, 'class_items');
                 $itemCats = (array) $request->input('item_categories', []);
                 if (count($itemNames) < 2) {
                     return ['error' => 'Please provide at least 2 items to classify.'];
                 }
                 $items = [];
                 $mapping = [];
-                foreach (array_values($itemNames) as $j => $iName) {
-                    $itemId = 'item_' . ($j + 1);
-                    $items[] = ['id' => $itemId, 'label' => trim($iName)];
-                    if (!isset($itemCats[$j]) || !isset($catMap[$itemCats[$j]])) {
-                        return ['error' => "Please assign a valid category for item '" . trim($iName) . "'."];
+                $position = 0;
+                foreach ($itemNames as $formIndex => $iName) {
+                    $itemId = 'item_' . (++$position);
+                    $items[] = ['id' => $itemId, 'label' => $iName];
+                    $chosenCatIndex = $itemCats[$formIndex] ?? null;
+                    if ($chosenCatIndex === null || !isset($catMap[$chosenCatIndex])) {
+                        return ['error' => "Please assign a valid category for item '{$iName}'."];
                     }
-                    $chosenCatIndex = $itemCats[$j];
                     $mapping[$itemId] = $catMap[$chosenCatIndex];
                 }
 
@@ -476,19 +481,21 @@ class MissionController extends Controller
                 break;
 
             case 'drag_and_drop':
-                $dragLabels = array_filter((array) $request->input('draggables', []));
-                $zoneLabels = array_filter((array) $request->input('drop_zones', []));
-                if (count($dragLabels) < 2 || count($dragLabels) !== count($zoneLabels)) {
-                    return ['error' => 'Please provide at least 2 draggable items and their matching drop zones.'];
+                $dragLabels = $this->filledInputs($request, 'draggables');
+                $zoneLabels = $this->filledInputs($request, 'drop_zones');
+                if (count($dragLabels) < 2 || array_keys($dragLabels) !== array_keys($zoneLabels)) {
+                    return ['error' => 'Please provide at least 2 draggable items, each with its matching drop zone.'];
                 }
                 $draggables = [];
                 $dropZones = [];
                 $placements = [];
-                foreach (array_values($dragLabels) as $k => $dLabel) {
-                    $dId = 'drag_' . ($k + 1);
-                    $zId = 'zone_' . ($k + 1);
-                    $draggables[] = ['id' => $dId, 'label' => trim($dLabel)];
-                    $dropZones[] = ['id' => $zId, 'label' => trim($zoneLabels[$k] ?? '')];
+                $position = 0;
+                foreach ($dragLabels as $formIndex => $dLabel) {
+                    $position++;
+                    $dId = 'drag_' . $position;
+                    $zId = 'zone_' . $position;
+                    $draggables[] = ['id' => $dId, 'label' => $dLabel];
+                    $dropZones[] = ['id' => $zId, 'label' => $zoneLabels[$formIndex]];
                     $placements[$dId] = $zId;
                 }
                 $activityData = [
@@ -502,17 +509,18 @@ class MissionController extends Controller
                 break;
 
             case 'scenario':
-                $choices = array_filter((array) $request->input('scenario_choices', []));
+                $choices = $this->filledInputs($request, 'scenario_choices');
                 $correctIndex = $request->input('correct_choice_index');
                 if (count($choices) < 2) {
                     return ['error' => 'Please provide at least 2 decision choices for the scenario.'];
                 }
                 $choicesList = [];
                 $correctChoiceId = null;
-                foreach (array_values($choices) as $m => $cLabel) {
-                    $cId = 'choice_' . ($m + 1);
-                    $choicesList[] = ['id' => $cId, 'label' => trim($cLabel)];
-                    if ((string)$m === (string)$correctIndex) {
+                $position = 0;
+                foreach ($choices as $formIndex => $cLabel) {
+                    $cId = 'choice_' . (++$position);
+                    $choicesList[] = ['id' => $cId, 'label' => $cLabel];
+                    if ((string)$formIndex === (string)$correctIndex) {
                         $correctChoiceId = $cId;
                     }
                 }
@@ -534,5 +542,22 @@ class MissionController extends Controller
             'activity_data'  => $activityData,
             'correct_answer' => $correctAnswer,
         ];
+    }
+
+    /**
+     * Trimmed, non-blank entries of an array input, keyed by their original form index
+     * so that parallel inputs (radio indices, paired columns, category selects) stay aligned.
+     */
+    private function filledInputs(Request $request, string $key): array
+    {
+        $values = [];
+        foreach ((array) $request->input($key, []) as $index => $value) {
+            $value = is_string($value) ? trim($value) : '';
+            if ($value !== '') {
+                $values[$index] = $value;
+            }
+        }
+
+        return $values;
     }
 }

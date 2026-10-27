@@ -41,8 +41,10 @@ class StudentController extends Controller
 
         $overallProgress = (float) (Progress::where('user_id', $userId)->avg('progress_percentage') ?? 0);
 
-        // Find Next Up "Continue Learning" target
+        // Find Next Up "Continue Learning" target: the first visible topic not yet completed.
+        // Every earlier visible topic is completed, so this topic is always unlocked.
         $nextTopic = Topic::query()
+            ->visibleToStudents()
             ->leftJoin('progress', function ($join) use ($userId) {
                 $join->on('topics.topic_id', '=', 'progress.topic_id')
                     ->where('progress.user_id', '=', $userId);
@@ -52,17 +54,20 @@ class StudentController extends Controller
                     ->orWhere('progress.learning_status', '!=', 'Completed');
             })
             ->orderBy('topics.topic_order', 'asc')
+            ->select('topics.*')
             ->first();
 
-        if (!$nextTopic) {
-            $nextTopic = Topic::orderBy('topic_order', 'asc')->first();
-        }
-
         $continueTarget = null;
+        $recentPuzzles = collect();
+
         if ($nextTopic) {
-            // Find first incomplete mission in this topic
+            $completedMissionIds = UserMissionProgress::where('user_id', $userId)
+                ->where('is_completed', true)
+                ->pluck('mission_id');
+
             $nextMission = Mission::where('topic_id', $nextTopic->topic_id)
                 ->where('status', 'published')
+                ->whereNotIn('mission_id', $completedMissionIds)
                 ->orderBy('mission_order', 'asc')
                 ->first();
 
@@ -73,14 +78,23 @@ class StudentController extends Controller
                 'mission_title' => $nextMission ? $nextMission->title : 'Core Assessment Lab',
                 'url' => route('student.topic', $nextTopic->topic_id),
             ];
-        }
 
-        $recentPuzzles = Puzzle::where('status', 'published')
-            ->with(['mission', 'topic'])
-            ->orderBy('activity_order', 'asc')
-            ->orderBy('puzzle_id', 'asc')
-            ->take(2)
-            ->get();
+            // Suggest only puzzles the student can actually open and has not finished yet
+            if ($nextMission && $nextMission->isUnlockedFor($userId)) {
+                $completedPuzzleIds = UserPuzzleProgress::where('user_id', $userId)
+                    ->where('is_completed', true)
+                    ->pluck('puzzle_id');
+
+                $recentPuzzles = Puzzle::where('mission_id', $nextMission->mission_id)
+                    ->where('status', 'published')
+                    ->whereNotIn('puzzle_id', $completedPuzzleIds)
+                    ->with(['mission', 'topic'])
+                    ->orderBy('activity_order', 'asc')
+                    ->orderBy('puzzle_id', 'asc')
+                    ->take(2)
+                    ->get();
+            }
+        }
 
         $latestAchievement = UserAchievement::with('achievement')
             ->where('user_id', $userId)
@@ -108,10 +122,7 @@ class StudentController extends Controller
         $userId = auth()->user()->user_id;
 
         $topics = Topic::query()
-            ->where(function ($q) {
-                $q->where('topics.status', 'published')
-                  ->orWhereNull('topics.status');
-            })
+            ->visibleToStudents()
             ->leftJoin('progress', function ($join) use ($userId) {
                 $join->on('topics.topic_id', '=', 'progress.topic_id')
                     ->where('progress.user_id', '=', $userId);
@@ -149,33 +160,7 @@ class StudentController extends Controller
 {
     $userId = auth()->user()->user_id;
 
-    /*
-     * Check whether this topic is unlocked.
-     * The first topic is always available.
-     * Later topics require the previous topic to be completed.
-     */
-    $isUnlocked = (int) $topic->topic_order === 1;
-
-    if (! $isUnlocked) {
-        $previousTopic = Topic::query()
-            ->leftJoin('progress', function ($join) use ($userId) {
-                $join->on('topics.topic_id', '=', 'progress.topic_id')
-                    ->where('progress.user_id', '=', $userId);
-            })
-            ->where('topics.topic_order', '<', $topic->topic_order)
-            ->orderByDesc('topics.topic_order')
-            ->select(
-                'topics.topic_id',
-                'progress.learning_status'
-            )
-            ->first();
-
-        $isUnlocked =
-            $previousTopic &&
-            $previousTopic->learning_status === 'Completed';
-    }
-
-    if (! $isUnlocked) {
+    if (! $topic->isUnlockedFor($userId)) {
         return redirect()->route('student.learning');
     }
 
@@ -226,10 +211,12 @@ class StudentController extends Controller
         ->get()
         ->keyBy('mission_id');
 
-    // First mission is always unlocked; others unlocked via UserMissionProgress
-    foreach ($missions as $idx => $m) {
+    // First mission is always unlocked; later ones once the previous mission is completed
+    $previousCompleted = true;
+    foreach ($missions as $m) {
         $prog = $missionProgressMap->get($m->mission_id);
-        $m->student_is_unlocked = ($idx === 0) || ($prog && $prog->is_unlocked);
+        $m->student_is_unlocked = $previousCompleted || ($prog && $prog->is_unlocked);
+        $previousCompleted = $prog && $prog->is_completed;
         $m->student_is_completed = $prog && $prog->is_completed;
         $m->student_score_pct = $prog ? $prog->best_score_percentage : 0;
 
@@ -269,6 +256,10 @@ public function quizHub()
 
     $quizzes = Quiz::query()
         ->join('topics', 'quizzes.topic_id', '=', 'topics.topic_id')
+        ->where(function ($q) {
+            $q->where('topics.status', 'published')
+                ->orWhereNull('topics.status');
+        })
         ->leftJoin('progress', function ($join) use ($userId) {
             $join->on('topics.topic_id', '=', 'progress.topic_id')
                 ->where('progress.user_id', '=', $userId);
@@ -303,6 +294,12 @@ public function quizHub()
         ->orderBy('quizzes.quiz_id', 'asc')
         ->get();
 
+    // Lock state follows the topic sequence, not the quiz list (topics may have 0 or several quizzes)
+    $unlockedTopicIds = $this->unlockedTopicIds($userId);
+    foreach ($quizzes as $quizItem) {
+        $quizItem->is_unlocked = in_array((int) $quizItem->topic_id, $unlockedTopicIds, true);
+    }
+
     return view('student.quiz_hub', [
         'pageTitle' => 'Quiz Challenges',
         'activePage' => 'quiz',
@@ -320,31 +317,7 @@ public function quiz(Quiz $quiz)
         return redirect()->route('student.quiz');
     }
 
-    /*
-     * Check whether the quiz topic is unlocked.
-     */
-    $isUnlocked = (int) $quiz->topic->topic_order === 1;
-
-    if (! $isUnlocked) {
-        $previousTopic = Topic::query()
-            ->leftJoin('progress', function ($join) use ($userId) {
-                $join->on('topics.topic_id', '=', 'progress.topic_id')
-                    ->where('progress.user_id', '=', $userId);
-            })
-            ->where('topics.topic_order', '<', $quiz->topic->topic_order)
-            ->orderByDesc('topics.topic_order')
-            ->select(
-                'topics.topic_id',
-                'progress.learning_status'
-            )
-            ->first();
-
-        $isUnlocked =
-            $previousTopic &&
-            $previousTopic->learning_status === 'Completed';
-    }
-
-    if (! $isUnlocked) {
+    if (! $quiz->topic->isUnlockedFor($userId)) {
         return redirect()->route('student.quiz');
     }
 
@@ -382,31 +355,7 @@ public function submitQuiz(Request $request)
         return redirect()->route('student.quiz');
     }
 
-    /*
-     * Prevent submission for locked topics.
-     */
-    $isUnlocked = (int) $quiz->topic->topic_order === 1;
-
-    if (! $isUnlocked) {
-        $previousTopic = Topic::query()
-            ->leftJoin('progress', function ($join) use ($userId) {
-                $join->on('topics.topic_id', '=', 'progress.topic_id')
-                    ->where('progress.user_id', '=', $userId);
-            })
-            ->where('topics.topic_order', '<', $quiz->topic->topic_order)
-            ->orderByDesc('topics.topic_order')
-            ->select(
-                'topics.topic_id',
-                'progress.learning_status'
-            )
-            ->first();
-
-        $isUnlocked =
-            $previousTopic &&
-            $previousTopic->learning_status === 'Completed';
-    }
-
-    if (! $isUnlocked) {
+    if (! $quiz->topic->isUnlockedFor($userId)) {
         return redirect()->route('student.learning');
     }
 
@@ -491,11 +440,6 @@ public function submitQuiz(Request $request)
         'topic_id' => $quiz->topic_id,
     ]);
 
-    if ($pointsEarned > 0) {
-        $progress->total_xp = ((int) $progress->total_xp) + $pointsEarned;
-        $progress->current_level = (int) floor($progress->total_xp / 500) + 1;
-    }
-
     if ($status === 'Pass') {
         $progress->learning_status = 'Completed';
         $progress->quiz_status = 'Passed';
@@ -548,7 +492,7 @@ public function result(Result $result)
 
         // Aggregate Results in one query
         $resultStats = Result::where('user_id', $userId)
-            ->selectRaw('COALESCE(SUM(points_earned), 0) as total_points, COUNT(*) as total_attempts, COALESCE(SUM(status = "Pass"), 0) as passed_attempts, AVG(percentage) as avg_score')
+            ->selectRaw("COALESCE(SUM(points_earned), 0) as total_points, COUNT(*) as total_attempts, COALESCE(SUM(CASE WHEN status = 'Pass' THEN 1 ELSE 0 END), 0) as passed_attempts, AVG(percentage) as avg_score")
             ->first();
 
         $quizPoints     = (int) ($resultStats->total_points    ?? 0);
@@ -572,6 +516,7 @@ public function result(Result $result)
         $overallProgress = (float) (Progress::where('user_id', $userId)->avg('progress_percentage') ?? 0);
 
         $topicProgress = Topic::query()
+            ->visibleToStudents()
             ->leftJoin('progress', function ($join) use ($userId) {
                 $join->on('topics.topic_id', '=', 'progress.topic_id')
                     ->where('progress.user_id', '=', $userId);
@@ -657,6 +602,30 @@ public function result(Result $result)
             'achievements' => $achievements,
             'rankInfo' => $rankInfo,
         ]);
+    }
+
+    /**
+     * IDs of visible topics the student may open, following the same rule as Topic::isUnlockedFor().
+     */
+    private function unlockedTopicIds(int $userId): array
+    {
+        $completedTopicIds = Progress::where('user_id', $userId)
+            ->where('learning_status', 'Completed')
+            ->pluck('topic_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $unlocked = [];
+        $previousCompleted = true;
+
+        foreach (Topic::visibleToStudents()->orderBy('topic_order', 'asc')->pluck('topic_id') as $topicId) {
+            if ($previousCompleted) {
+                $unlocked[] = (int) $topicId;
+            }
+            $previousCompleted = in_array((int) $topicId, $completedTopicIds, true);
+        }
+
+        return $unlocked;
     }
 
     /**

@@ -94,7 +94,7 @@
                             id="password"
                             type="password"
                             name="password"
-                            placeholder="Minimum 6 characters"
+                            placeholder="Minimum 8 characters"
                             required
                         >
                     </div>

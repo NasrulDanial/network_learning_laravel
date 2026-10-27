@@ -53,4 +53,32 @@ class Mission extends Model
     {
         return $this->status === 'published';
     }
+
+    /**
+     * The first published mission of a topic is always open; later ones open once the
+     * previous published mission is completed (or were explicitly unlocked earlier).
+     * Checking the previous mission keeps newly inserted missions reachable.
+     */
+    public function isUnlockedFor(int $userId): bool
+    {
+        $previousMission = static::where('topic_id', $this->topic_id)
+            ->where('status', 'published')
+            ->where('mission_order', '<', $this->mission_order)
+            ->orderByDesc('mission_order')
+            ->first();
+
+        if (! $previousMission) {
+            return true;
+        }
+
+        return UserMissionProgress::where('user_id', $userId)
+            ->where(function ($q) use ($previousMission) {
+                $q->where(function ($own) {
+                    $own->where('mission_id', $this->mission_id)->where('is_unlocked', true);
+                })->orWhere(function ($prev) use ($previousMission) {
+                    $prev->where('mission_id', $previousMission->mission_id)->where('is_completed', true);
+                });
+            })
+            ->exists();
+    }
 }

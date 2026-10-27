@@ -47,14 +47,9 @@
     <section>
         <div class="dashboard-grid">
             @if ($quizzes->count() > 0)
-                @php
-                    $previousCompleted = true;
-                @endphp
-
                 @foreach ($quizzes as $quizItem)
                     @php
-                        $isFirst = (int) $quizItem->topic_order === 1;
-                        $isUnlocked = $isFirst || $previousCompleted;
+                        $isUnlocked = (bool) $quizItem->is_unlocked;
                         $learningStatus = $quizItem->learning_status ?? 'Not Started';
                         $quizStatus = $quizItem->quiz_status ?? 'Not Attempted';
                         $isPassed = $quizStatus === 'Passed';
@@ -146,10 +141,6 @@
                             </p>
                         @endif
                     </article>
-
-                    @php
-                        $previousCompleted = $learningStatus === 'Completed';
-                    @endphp
                 @endforeach
             @else
                 <section class="empty-state" style="grid-column: 1 / -1;">

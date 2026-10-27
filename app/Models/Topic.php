@@ -57,4 +57,46 @@ class Topic extends Model
     {
         return $this->hasMany(Progress::class, 'topic_id', 'topic_id');
     }
+
+    /**
+     * Topics students may see (legacy rows without a status count as published).
+     */
+    public function scopeVisibleToStudents($query)
+    {
+        return $query->where(function ($q) {
+            $q->where('topics.status', 'published')
+                ->orWhereNull('topics.status');
+        });
+    }
+
+    public function isVisibleToStudents(): bool
+    {
+        return $this->status === null || $this->status === 'published';
+    }
+
+    /**
+     * A visible topic is unlocked when it is the first visible topic, or when the
+     * preceding visible topic has been completed by the student. Draft topics are
+     * skipped so hiding a topic never strands students behind it.
+     */
+    public function isUnlockedFor(int $userId): bool
+    {
+        if (! $this->isVisibleToStudents()) {
+            return false;
+        }
+
+        $previousTopic = static::visibleToStudents()
+            ->where('topic_order', '<', $this->topic_order)
+            ->orderByDesc('topic_order')
+            ->first();
+
+        if (! $previousTopic) {
+            return true;
+        }
+
+        return Progress::where('user_id', $userId)
+            ->where('topic_id', $previousTopic->topic_id)
+            ->where('learning_status', 'Completed')
+            ->exists();
+    }
 }

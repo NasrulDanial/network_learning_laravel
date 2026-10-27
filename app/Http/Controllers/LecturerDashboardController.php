@@ -66,9 +66,11 @@ class LecturerDashboardController extends Controller
             ];
         }
 
-        // 3. Published Missions with zero puzzle activities
+        // 3. Published Missions with zero published puzzle activities (drafts are invisible to students)
         $emptyMissions = Mission::where('status', 'published')
-            ->has('puzzles', '=', 0)
+            ->whereDoesntHave('puzzles', function ($q) {
+                $q->where('status', 'published');
+            })
             ->with('topic')
             ->get();
         foreach ($emptyMissions as $em) {
@@ -76,7 +78,7 @@ class LecturerDashboardController extends Controller
                 'type' => 'Empty Mission',
                 'title' => $em->title,
                 'badge' => 'NO ACTIVITIES',
-                'reason' => 'Mission is published to students but contains zero puzzle activities.',
+                'reason' => 'Mission is published to students but contains no published puzzle activities.',
                 'edit_url' => route('lecturer.missions.show', $em->mission_id),
                 'icon' => 'fa-triangle-exclamation',
                 'color' => '#f87171',

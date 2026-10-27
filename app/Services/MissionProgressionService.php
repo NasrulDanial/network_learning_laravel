@@ -9,6 +9,8 @@ use App\Models\PuzzleAttempt;
 use App\Models\UserPuzzleProgress;
 use App\Models\UserMissionProgress;
 use App\Models\Progress;
+use App\Models\Quiz;
+use App\Models\Result;
 use Illuminate\Support\Facades\DB;
 
 class MissionProgressionService
@@ -91,19 +93,6 @@ class MissionProgressionService
                 $topicProgress->total_xp += $newXpAwarded;
             }
 
-            // Derive clearance level: 500 XP per level
-            $newLevel = (int) floor($topicProgress->total_xp / 500) + 1;
-            $topicProgress->current_level = $newLevel;
-
-            $ranks = [
-                'Clearance Level 1: Network Cadet',
-                'Clearance Level 2: Packet Analyst',
-                'Clearance Level 3: Infrastructure Technician',
-                'Clearance Level 4: Network Security Specialist',
-                'Clearance Level 5: Principal Network Architect',
-            ];
-            $topicProgress->current_rank = $ranks[min((int) floor($newLevel / 2), 4)];
-
             // 4. Mission evaluation (Pass mark & Mission Unlock)
             $missionUnlocked = null;
             $missionCompleted = false;
@@ -140,17 +129,33 @@ class MissionProgressionService
                 }
             }
 
+            // A topic without an assessment quiz is completed by finishing all of its missions
+            if ($topicId && $topicProgress->learning_status !== 'Completed' && $this->allMissionsCompleted($user, $topicId) && !$this->topicHasQuiz($topicId)) {
+                $topicProgress->learning_status = 'Completed';
+                $topicProgress->progress_percentage = 100;
+            }
+
             $topicProgress->save();
+
+            // Clearance rank is global: quiz XP (results) + PBL XP (progress), same as dashboards
+            $totalXp = (int) Progress::where('user_id', $user->user_id)->sum('total_xp')
+                + (int) Result::where('user_id', $user->user_id)->sum('points_earned');
+            $rank = RankProgressionService::getRankTelemetry($totalXp);
+
+            Progress::where('user_id', $user->user_id)->update([
+                'current_level' => $rank['current_level'],
+                'current_rank'  => $rank['current_rank_title'],
+            ]);
 
             return [
                 'status'                => $status,
                 'score'                 => $score,
                 'max_score'             => $puzzle->points,
                 'earned_xp'             => $newXpAwarded,
-                'total_xp'              => $topicProgress->total_xp,
+                'total_xp'              => $totalXp,
                 'personal_best'         => $puzzleProgress->best_score,
-                'clearance_level'       => $topicProgress->current_level,
-                'clearance_rank'        => $topicProgress->current_rank,
+                'clearance_level'       => $rank['current_level'],
+                'clearance_rank'        => $rank['current_rank_title'],
                 'mission_completed'     => $missionCompleted,
                 'mission_xp_reward'     => $missionXpReward,
                 'unlocked_next_mission' => $missionUnlocked ? $missionUnlocked->title : null,
@@ -176,6 +181,10 @@ class MissionProgressionService
         );
 
         $requiredPuzzles = $mission->puzzles()->where('is_required', true)->where('status', 'published')->get();
+        if ($requiredPuzzles->isEmpty()) {
+            // No puzzle flagged as required: every published puzzle counts, otherwise the mission could never be passed
+            $requiredPuzzles = $mission->puzzles()->where('status', 'published')->get();
+        }
         if ($requiredPuzzles->isEmpty()) {
             return [
                 'is_completed'          => false,
@@ -250,5 +259,25 @@ class MissionProgressionService
             'xp_awarded'            => $xpAwarded,
             'unlocked_next_mission' => $unlockedNext,
         ];
+    }
+
+    private function allMissionsCompleted(User $user, int $topicId): bool
+    {
+        $missionIds = Mission::where('topic_id', $topicId)->where('status', 'published')->pluck('mission_id');
+        if ($missionIds->isEmpty()) {
+            return false;
+        }
+
+        $completed = UserMissionProgress::where('user_id', $user->user_id)
+            ->whereIn('mission_id', $missionIds)
+            ->where('is_completed', true)
+            ->count();
+
+        return $completed === $missionIds->count();
+    }
+
+    private function topicHasQuiz(int $topicId): bool
+    {
+        return Quiz::where('topic_id', $topicId)->whereHas('questions')->exists();
     }
 }

@@ -4,9 +4,6 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Puzzle;
-use App\Models\PuzzleAttempt;
-use App\Models\Progress;
-use App\Models\Mission;
 use App\Services\PuzzleEvaluatorService;
 use App\Services\MissionProgressionService;
 use App\Services\AchievementService;
@@ -32,41 +29,15 @@ class PuzzleController extends Controller
             return 'The mission for this activity is not currently published.';
         }
 
-        // Check if parent topic is unlocked
-        $topic = $puzzle->topic ?? ($puzzle->mission ? $puzzle->mission->topic : null);
-        if ($topic && (int)$topic->topic_order > 1) {
-            $prevTopic = \App\Models\Topic::where('topic_order', '<', $topic->topic_order)
-                ->orderByDesc('topic_order')
-                ->first();
-
-            if ($prevTopic) {
-                $prevProgress = Progress::where('user_id', $user->user_id)
-                    ->where('topic_id', $prevTopic->topic_id)
-                    ->first();
-
-                if (!$prevProgress || $prevProgress->learning_status !== 'Completed') {
-                    return 'Prerequisite curriculum topic must be completed before accessing this activity.';
-                }
-            }
+        // Parent topic must be visible and unlocked (same rule as the learning journey)
+        $topic = $puzzle->mission ? $puzzle->mission->topic : $puzzle->topic;
+        if ($topic && !$topic->isUnlockedFor($user->user_id)) {
+            return 'Prerequisite curriculum topic must be completed before accessing this activity.';
         }
 
-        // Check if parent mission is unlocked
-        if ($puzzle->mission) {
-            $mission = $puzzle->mission;
-            $firstMission = Mission::where('topic_id', $mission->topic_id)
-                ->where('status', 'published')
-                ->orderBy('mission_order', 'asc')
-                ->first();
-
-            if ($firstMission && (int)$firstMission->mission_id !== (int)$mission->mission_id) {
-                $missionProg = \App\Models\UserMissionProgress::where('user_id', $user->user_id)
-                    ->where('mission_id', $mission->mission_id)
-                    ->first();
-
-                if (!$missionProg || !$missionProg->is_unlocked) {
-                    return 'This mission is locked. Complete previous missions to unlock.';
-                }
-            }
+        // Parent mission must be unlocked
+        if ($puzzle->mission && !$puzzle->mission->isUnlockedFor($user->user_id)) {
+            return 'This mission is locked. Complete previous missions to unlock.';
         }
 
         return null;
@@ -225,11 +196,9 @@ class PuzzleController extends Controller
             ], 422);
         }
 
+        // Board simulations stay outside student missions unless a mission is chosen explicitly;
+        // auto-attaching them injected required puzzles students could not solve.
         $missionId = $validated['mission_id'] ?? null;
-        if (!$missionId) {
-            $mission = Mission::where('topic_id', $topicId)->first();
-            $missionId = $mission ? $mission->mission_id : null;
-        }
 
         $typeMap = [
             'topology' => 'drag_and_drop',
@@ -258,31 +227,28 @@ class PuzzleController extends Controller
             }
         }
 
-        $attributes = [];
-        if ($request->filled('puzzle_id')) {
-            $attributes['puzzle_id'] = (int) $request->input('puzzle_id');
-        } else {
-            $attributes = [
-                'topic_id'    => $topicId,
-                'puzzle_type' => $dbType,
-            ];
-        }
+        // Only ever update a board puzzle (no mission) so authored mission activities are never overwritten
+        $puzzle = $request->filled('puzzle_id')
+            ? Puzzle::whereNull('mission_id')->find((int) $request->input('puzzle_id'))
+            : Puzzle::whereNull('mission_id')
+                ->where('topic_id', $topicId)
+                ->where('puzzle_type', $dbType)
+                ->first();
 
-        $puzzle = Puzzle::updateOrCreate(
-            $attributes,
-            [
-                'mission_id'     => $missionId,
-                'puzzle_type'    => $dbType,
-                'question_text'  => $validated['question_text'] ?? ('Interactive simulation challenge for topic #' . $topicId),
-                'instruction'    => $validated['instruction'] ?? 'Complete the network simulation according to laboratory specifications.',
-                'correct_answer' => $answer,
-                'activity_data'  => $activityData,
-                'points'         => $validated['points'] ?? 150,
-                'hint'           => $validated['hint'] ?? null,
-                'explanation'    => $validated['explanation'] ?? null,
-                'status'         => 'published',
-            ]
-        );
+        $puzzle = $puzzle ?? new Puzzle(['topic_id' => $topicId]);
+        $puzzle->fill([
+            'mission_id'     => $missionId,
+            'puzzle_type'    => $dbType,
+            'question_text'  => $validated['question_text'] ?? ('Interactive simulation challenge for topic #' . $topicId),
+            'instruction'    => $validated['instruction'] ?? 'Complete the network simulation according to laboratory specifications.',
+            'correct_answer' => $answer,
+            'activity_data'  => $activityData,
+            'points'         => $validated['points'] ?? 150,
+            'hint'           => $validated['hint'] ?? null,
+            'explanation'    => $validated['explanation'] ?? null,
+            'status'         => 'published',
+        ]);
+        $puzzle->save();
 
         return response()->json([
             'status'  => 'success',
@@ -302,7 +268,7 @@ class PuzzleController extends Controller
      */
     public function getBoardState(Request $request, $topicId)
     {
-        $puzzle = Puzzle::where('topic_id', $topicId)->first();
+        $puzzle = Puzzle::whereNull('mission_id')->where('topic_id', $topicId)->first();
         if (!$puzzle) {
             return response()->json(['status' => 'empty', 'puzzle' => null]);
         }

@@ -66,7 +66,8 @@ class QuizController extends Controller
             ];
             $dbType = $typeMap[$data['puzzle_category']] ?? 'drag_and_drop';
 
-            Puzzle::firstOrCreate(
+            // Board puzzles live outside missions; never touch authored mission activities
+            Puzzle::whereNull('mission_id')->firstOrCreate(
                 ['topic_id' => $data['topic_id']],
                 [
                     'puzzle_type'    => $dbType,
@@ -121,7 +122,8 @@ class QuizController extends Controller
             ];
             $dbType = $typeMap[$data['puzzle_category']] ?? 'drag_and_drop';
 
-            $puzzle = Puzzle::firstOrNew(['topic_id' => $data['topic_id']]);
+            // Board puzzles live outside missions; never retype an authored mission activity
+            $puzzle = Puzzle::whereNull('mission_id')->firstOrNew(['topic_id' => $data['topic_id']]);
             $puzzle->puzzle_type = $dbType;
             if (!empty($data['scenario'])) {
                 $puzzle->instruction = $data['scenario'];

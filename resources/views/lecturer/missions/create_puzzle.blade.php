@@ -605,6 +605,17 @@ function removeRow(btn) {
     if (row) {
         row.remove();
     }
+    reindexCorrectRadios();
+}
+
+// Radio values must match each row's position in the submitted options[] / scenario_choices[]
+// arrays; re-number them after a row is removed so the marked answer stays correct.
+function reindexCorrectRadios() {
+    ['correct_option_index', 'correct_choice_index'].forEach(name => {
+        document.querySelectorAll(`input[type="radio"][name="${name}"]`).forEach((radio, idx) => {
+            radio.value = idx;
+        });
+    });
 }
 
 function addIdentOption() {
