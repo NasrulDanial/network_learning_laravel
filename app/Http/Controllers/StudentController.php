@@ -65,8 +65,8 @@ class StudentController extends Controller
                 ->where('is_completed', true)
                 ->pluck('mission_id');
 
-            $nextMission = Mission::where('topic_id', $nextTopic->topic_id)
-                ->where('status', 'published')
+            $nextMission = Mission::playable()
+                ->where('topic_id', $nextTopic->topic_id)
                 ->whereNotIn('mission_id', $completedMissionIds)
                 ->orderBy('mission_order', 'asc')
                 ->first();
@@ -145,7 +145,7 @@ class StudentController extends Controller
             )
             // withCount must come after select(), otherwise select() discards the count column
             ->withCount(['missions' => function ($q) {
-                $q->where('status', 'published');
+                $q->playable();
             }])
             ->orderBy('topics.topic_order', 'asc')
             ->get();
@@ -198,8 +198,8 @@ class StudentController extends Controller
         ->first();
 
     // Load PBL missions with their published puzzles and student progress
-    $missions = Mission::where('topic_id', $topic->topic_id)
-        ->where('status', 'published')
+    $missions = Mission::playable()
+        ->where('topic_id', $topic->topic_id)
         ->withCount(['puzzles' => function ($q) {
             $q->where('status', 'published');
         }])
@@ -535,7 +535,7 @@ public function result(Result $result)
             )
             // withCount must come after select(), otherwise select() discards the count column
             ->withCount(['missions' => function ($q) {
-                $q->where('status', 'published');
+                $q->playable();
             }])
             ->orderBy('topics.topic_order', 'asc')
             ->get();

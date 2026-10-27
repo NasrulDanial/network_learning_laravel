@@ -24,6 +24,25 @@
             </div>
         </div>
 
+        @php
+            $objectives = collect(preg_split('/\r\n|\r|\n/', (string) $topic->objectives))
+                ->map(fn ($line) => trim(ltrim(trim($line), "-•* ")))
+                ->filter();
+        @endphp
+        @if ($objectives->isNotEmpty())
+            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.08);">
+                <h2 style="font-size: 0.95rem; font-weight: 700; color: #FFFFFF; margin: 0 0 10px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-bullseye" style="color: var(--nl-cyan, #22d3ee);" aria-hidden="true"></i>
+                    What you will learn
+                </h2>
+                <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.9rem; color: rgba(255, 255, 255, 0.8); line-height: 1.7;">
+                    @foreach ($objectives as $objective)
+                        <li>{{ $objective }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
         @if ($topic->content)
             <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.08); font-size: 0.9rem; color: rgba(255, 255, 255, 0.75); line-height: 1.6;">
                 {!! nl2br(e($topic->content)) !!}

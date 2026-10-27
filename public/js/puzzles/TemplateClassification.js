@@ -53,6 +53,10 @@ class TemplateClassification extends Phaser.Scene {
             const bx = binStartX + idx * (binWidth + 16);
             const zone = this.add.zone(bx, binY, binWidth, binHeight).setRectangleDropZone(binWidth, binHeight);
             zone.setData('categoryId', cat.id);
+            zone.setData('binWidth', binWidth);
+            zone.setData('binHeight', binHeight);
+            this.binZones = this.binZones || {};
+            this.binZones[cat.id] = zone;
 
             const g = this.add.graphics();
             g.fillStyle(0x0c1e36, 0.7);
@@ -109,6 +113,7 @@ class TemplateClassification extends Phaser.Scene {
         // ── Drag & Drop Events ───────────────────────────────────────────
         this.input.on('dragstart', (pointer, gameObject) => {
             this.children.bringToTop(gameObject);
+            gameObject.setScale(1);
             gameObject._bg.setFillStyle(0x0f2a4a);
             gameObject._bg.setStrokeStyle(2, 0x22d3ee);
         });
@@ -122,19 +127,24 @@ class TemplateClassification extends Phaser.Scene {
             const itemId = gameObject.getData('itemId');
             const catId = dropZone.getData('categoryId');
 
+            const previousCat = this.placements[itemId];
             this.placements[itemId] = catId;
-            gameObject.x = dropZone.x + (Math.random() * 20 - 10);
-            gameObject.y = dropZone.y + (Math.random() * 40 - 10);
             gameObject._bg.setFillStyle(0x064e3b);
             gameObject._bg.setStrokeStyle(1, 0x34d399);
+            // Lay placed items out in a tidy grid so every one stays readable
+            this.layoutBin(catId);
+            if (previousCat && previousCat !== catId) this.layoutBin(previousCat);
         });
 
         this.input.on('dragend', (pointer, gameObject, dropped) => {
             if (!dropped) {
                 const itemId = gameObject.getData('itemId');
+                const previousCat = this.placements[itemId];
                 delete this.placements[itemId];
+                gameObject.setScale(1);
                 gameObject.x = gameObject.getData('homeX');
                 gameObject.y = gameObject.getData('homeY');
+                if (previousCat) this.layoutBin(previousCat);
                 gameObject._bg.setFillStyle(0x1e293b);
                 gameObject._bg.setStrokeStyle(1, 0x38bdf8);
             }
@@ -158,6 +168,36 @@ class TemplateClassification extends Phaser.Scene {
         btnBg.on('pointerdown', () => this.handleSubmit());
 
         this._submitBtnBg = btnBg;
+    }
+
+    /** Arrange every token placed in a bin as a compact grid below the bin title. */
+    layoutBin(catId) {
+        const zone = this.binZones && this.binZones[catId];
+        if (!zone) return;
+
+        const gap = 6;
+        const binW = zone.getData('binWidth');
+        const binH = zone.getData('binHeight');
+        const top = zone.y - binH / 2 + 38;
+        const tokens = this.itemTokens.filter(t => this.placements[t.getData('itemId')] === catId);
+
+        // Shrink tokens when a bin gets crowded so they always stay inside it
+        let scale = 0.62, tokenW, tokenH, cols;
+        for (; scale >= 0.4; scale -= 0.04) {
+            tokenW = 160 * scale;
+            tokenH = 44 * scale;
+            cols = Math.max(1, Math.floor((binW - gap) / (tokenW + gap)));
+            const rows = Math.ceil(tokens.length / cols);
+            if (rows * (tokenH + gap) <= binH - 44) break;
+        }
+        tokens.forEach((token, i) => {
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            const rowWidth = Math.min(cols, tokens.length - row * cols) * (tokenW + gap) - gap;
+            token.setScale(scale);
+            token.x = zone.x - rowWidth / 2 + tokenW / 2 + col * (tokenW + gap);
+            token.y = top + tokenH / 2 + row * (tokenH + gap);
+        });
     }
 
     handleSubmit() {

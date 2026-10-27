@@ -111,11 +111,11 @@ class MissionProgressionService
                 }
 
                 // Update topic progression percentage proportionally based on completed missions
-                $totalMissionsInTopic = Mission::where('topic_id', $topicId)->where('status', 'published')->count();
+                $totalMissionsInTopic = Mission::playable()->where('topic_id', $topicId)->count();
                 if ($totalMissionsInTopic > 0) {
                     $completedMissionsCount = \App\Models\UserMissionProgress::where('user_id', $user->user_id)
                         ->whereHas('mission', function ($q) use ($topicId) {
-                            $q->where('topic_id', $topicId)->where('status', 'published');
+                            $q->playable()->where('topic_id', $topicId);
                         })
                         ->where('is_completed', true)
                         ->count();
@@ -234,9 +234,9 @@ class MissionProgressionService
             }
 
             // Unlock next mission in topic
-            $nextMission = Mission::where('topic_id', $mission->topic_id)
+            $nextMission = Mission::playable()
+                ->where('topic_id', $mission->topic_id)
                 ->where('mission_order', '>', $mission->mission_order)
-                ->where('status', 'published')
                 ->orderBy('mission_order', 'asc')
                 ->first();
 
@@ -263,7 +263,7 @@ class MissionProgressionService
 
     private function allMissionsCompleted(User $user, int $topicId): bool
     {
-        $missionIds = Mission::where('topic_id', $topicId)->where('status', 'published')->pluck('mission_id');
+        $missionIds = Mission::playable()->where('topic_id', $topicId)->pluck('mission_id');
         if ($missionIds->isEmpty()) {
             return false;
         }

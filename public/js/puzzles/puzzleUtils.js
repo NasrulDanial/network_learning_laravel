@@ -1,11 +1,11 @@
 /**
  * puzzleUtils.js
- * Network Simulation Telemetry & Packet Transmission Utilities.
+ * Shared submit, feedback and notification helpers for the Phaser puzzle templates.
  */
 window.PuzzleUtils = {
 
     /* ------------------------------------------------------------------ */
-    /* 1. Protocol Data Unit & Telemetry Transmission                      */
+    /* 1. Submit an answer to the server                                   */
     /* ------------------------------------------------------------------ */
     _inFlight: false,
 
@@ -124,35 +124,40 @@ window.PuzzleUtils = {
 
         if (isCorrect) {
             tag.style.color = '#34d399';
-            tag.textContent = '[ROUTE_STATUS: OPTIMAL]';
+            tag.textContent = '✓ Correct!';
 
-            const feedbackText = data.feedback || 'All frame destinations verified.';
-            content.appendChild(document.createTextNode(feedbackText + ' Awarded '));
+            content.appendChild(document.createTextNode((data.feedback || 'Well done.') + ' '));
 
+            const xp = parseInt(data.earned_xp, 10) || 0;
             const xpStrong = document.createElement('strong');
             xpStrong.style.color = '#fde047';
-            xpStrong.textContent = `+${data.earned_xp ?? 0} Network XP`;
+            if (window.isPreview === true) {
+                xpStrong.textContent = 'Preview only: no XP or attempts recorded.';
+            } else if (xp > 0) {
+                xpStrong.textContent = `You earned +${xp} XP.`;
+            } else {
+                xpStrong.textContent = 'XP for this activity was already earned.';
+            }
             content.appendChild(xpStrong);
 
-            content.appendChild(document.createTextNode('. Status: '));
-
-            const rankStrong = document.createElement('strong');
-            rankStrong.style.color = '#67e8f9';
-            rankStrong.textContent = data.clearance_status || data.new_rank || 'Active Operative';
-            content.appendChild(rankStrong);
-
-            content.appendChild(document.createTextNode('.'));
+            if (window.isPreview !== true && data.clearance_rank) {
+                content.appendChild(document.createTextNode(' Rank: '));
+                const rankStrong = document.createElement('strong');
+                rankStrong.style.color = '#67e8f9';
+                rankStrong.textContent = data.clearance_rank;
+                content.appendChild(rankStrong);
+            }
         } else {
             tag.style.color = '#fb7185';
-            tag.textContent = '[ROUTING_MISMATCH: PACKET_DROPPED]';
+            tag.textContent = '✗ Not quite';
 
-            const feedbackText = data.feedback || 'Topology configuration incorrect. Inspect MAC/IP routing boundaries.';
+            const feedbackText = data.feedback || 'Some answers are not right yet. Review them and try again.';
             content.appendChild(document.createTextNode(feedbackText));
 
             if (data.hint) {
                 const hintDiv = document.createElement('div');
                 hintDiv.style.cssText = 'color: #cbd5e1; font-size: 0.85em; font-style: italic; margin-top: 4px;';
-                hintDiv.textContent = `Diagnostic Trace: ${data.hint}`;
+                hintDiv.textContent = `Hint: ${data.hint}`;
                 content.appendChild(hintDiv);
             }
         }
@@ -238,7 +243,7 @@ window.PuzzleUtils = {
     },
 
     /* ------------------------------------------------------------------ */
-    /* 4. Telemetry Verified HUD Overlay & Confetti                       */
+    /* 4. Success banner                                                   */
     /* ------------------------------------------------------------------ */
     triggerSuccessOverlay(data) {
         // Escape server values before they go into markup

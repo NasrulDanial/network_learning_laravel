@@ -160,14 +160,15 @@ class ProgressionIntegrityTest extends TestCase
     public function test_journey_and_progress_pages_report_published_mission_counts()
     {
         $topic = $this->topic(1);
-        $this->mission($topic, 1);
-        $this->mission($topic, 2);
-        $this->mission($topic, 3, ['status' => 'draft']);
+        $this->identificationPuzzle($this->mission($topic, 1));
+        $this->identificationPuzzle($this->mission($topic, 2));
+        $this->identificationPuzzle($this->mission($topic, 3, ['status' => 'draft']));
+        $this->mission($topic, 4); // published but empty: not playable, not counted
 
         foreach (['student.learning' => 'topics', 'student.progress' => 'topicProgress'] as $route => $key) {
             $rows = $this->actingAs($this->student)->get(route($route))->assertOk()->viewData($key);
             $row = $rows->firstWhere('topic_id', $topic->topic_id);
-            $this->assertSame(2, (int) $row->missions_count, "{$route} should count only published missions");
+            $this->assertSame(2, (int) $row->missions_count, "{$route} should count only playable missions");
         }
     }
 
@@ -177,6 +178,7 @@ class ProgressionIntegrityTest extends TestCase
     {
         $topic = $this->topic(1);
         $m1 = $this->mission($topic, 1);
+        $this->identificationPuzzle($m1);
         $m2 = $this->mission($topic, 2);
         $p2 = $this->identificationPuzzle($m2);
 
@@ -205,6 +207,23 @@ class ProgressionIntegrityTest extends TestCase
         $this->actingAs($this->student)->postJson("/puzzles/{$standalone->puzzle_id}/submit", ['selected_option' => 'opt_1'])->assertStatus(403);
 
         $this->assertSame(0, PuzzleAttempt::where('puzzle_id', $standalone->puzzle_id)->count());
+    }
+
+    public function test_empty_mission_never_blocks_or_counts()
+    {
+        $topic = $this->topic(1);
+        $this->mission($topic, 1); // published but has no activities
+        $real = $this->mission($topic, 2);
+        $puzzle = $this->identificationPuzzle($real);
+
+        // The empty mission is skipped: mission 2 is open and the only one counted/shown
+        $this->assertTrue($real->isUnlockedFor($this->student->user_id));
+        $this->actingAs($this->student)->get(route('student.topic', $topic))->assertOk()
+            ->assertViewHas('missions', fn ($missions) => $missions->pluck('mission_id')->all() === [$real->mission_id]);
+
+        // Finishing the only playable mission completes a quizless topic
+        $this->actingAs($this->student)->postJson("/puzzles/{$puzzle->puzzle_id}/submit", ['selected_option' => 'opt_1'])->assertOk();
+        $this->assertSame('Completed', Progress::where('user_id', $this->student->user_id)->where('topic_id', $topic->topic_id)->value('learning_status'));
     }
 
     public function test_mission_added_after_completion_is_reachable()

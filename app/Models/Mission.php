@@ -55,14 +55,26 @@ class Mission extends Model
     }
 
     /**
+     * Missions students can actually play: published and holding at least one published activity.
+     * Empty missions are skipped for display, unlocking and progress so they never block a topic.
+     */
+    public function scopePlayable($query)
+    {
+        return $query->where('missions.status', 'published')
+            ->whereHas('puzzles', function ($q) {
+                $q->where('status', 'published');
+            });
+    }
+
+    /**
      * The first published mission of a topic is always open; later ones open once the
      * previous published mission is completed (or were explicitly unlocked earlier).
      * Checking the previous mission keeps newly inserted missions reachable.
      */
     public function isUnlockedFor(int $userId): bool
     {
-        $previousMission = static::where('topic_id', $this->topic_id)
-            ->where('status', 'published')
+        $previousMission = static::playable()
+            ->where('topic_id', $this->topic_id)
             ->where('mission_order', '<', $this->mission_order)
             ->orderByDesc('mission_order')
             ->first();
