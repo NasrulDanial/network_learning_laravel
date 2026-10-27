@@ -82,10 +82,11 @@ lock, feedback rendered as HTML, progress migration, enum mismatch, public lectu
 4. **Student Performance filters** by mission, activity type and date range (B5) are not implemented; search, status and topic filters exist.
 5. **Two seeders** still exist (`NetLearnSeeder`, `NetworkingMissionSeeder`); they are now non-destructive but not merged.
 6. **Older test files** (`ComprehensiveSystemAuditTest`, `ModuleSmokeTest`, `MissionAndPuzzleTest`) still use `if (!$x) return;`, which skips silently when seed data is missing. New tests use explicit fixtures.
-7. **Leftover rows in your dev DB** from earlier test runs: users `test_student_ux@netlearn.local` and `test_lecturer_ux@netlearn.local`, and standalone puzzles #2, #13, #37, #38 (now unplayable by students). Remove them only if you want to.
+7. ~~Leftover rows in the dev DB~~ — removed on request (see Database changes).
 
 ## Database changes on the dev database
 
 - Backup taken first: `storage/app/backups/network_learning_laravel_2026-10-27_before_polish.sql` (git-ignored).
 - Migration `2026_10_27_120000_add_unique_user_achievement_constraint` applied (no duplicates existed).
 - One accidental change during this work was reverted: seeder runs re-attached puzzles #2, #13, #37, #38 to Mission 1; all four were set back to no mission.
+- Cleanup on request, after a second backup (`network_learning_laravel_2026-10-27_before_cleanup.sql`): deleted users `test_student_ux@netlearn.local` and `test_lecturer_ux@netlearn.local` (no data attached) and standalone puzzles #2, #13, #37, #38. Puzzle #2 carried 14 attempts and one progress row from the demo account `student@test.com`; those were removed with it by the existing foreign-key cascade.
