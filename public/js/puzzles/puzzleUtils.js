@@ -11,15 +11,11 @@ window.PuzzleUtils = {
 
     submitResponse(payload, callbacks) {
         if (this._inFlight) {
-            PuzzleUtils.showToast('⏳ Telemetry packet already in transmission. Please wait...', 'info', 2000);
+            PuzzleUtils.showToast('⏳ Your answer is still being checked. Please wait...', 'info', 2000);
             return;
         }
 
-        PuzzleUtils.showToast(
-            '📡 Validating simulation telemetry with central network...',
-            'info',
-            2000
-        );
+        PuzzleUtils.showToast('Checking your answer...', 'info', 2000);
 
         this._inFlight = true;
 
@@ -40,10 +36,16 @@ window.PuzzleUtils = {
             body: JSON.stringify(payload),
         })
         .then(response => {
-            if (response.status === 401) throw new Error('AUTH_SESSION_EXPIRED');
-            if (response.status === 403) throw new Error('INSUFFICIENT_CLEARANCE');
-            if (response.status === 422) return response.json().then(j => { throw new Error(j.message || 'INVALID_PAYLOAD'); });
-            if (!response.ok) throw new Error('PACKET_TRANSMISSION_FAILED');
+            if (response.status === 401 || response.status === 419) {
+                throw Object.assign(new Error('Your session has expired. Please refresh the page and log in again.'), { userFacing: true });
+            }
+            if (response.status === 403 || response.status === 422) {
+                // The server explains exactly why (locked mission, attempt limit, incomplete answer...)
+                return response.json()
+                    .catch(() => ({}))
+                    .then(j => { throw Object.assign(new Error(j.message || 'This activity cannot be submitted right now.'), { userFacing: true }); });
+            }
+            if (!response.ok) throw new Error('SERVER_ERROR');
             return response.json();
         })
         .then(data => {
@@ -59,7 +61,7 @@ window.PuzzleUtils = {
                 } else if (callbacks && typeof callbacks.onSuccess === 'function') {
                     callbacks.onSuccess(data);
                 }
-                PuzzleUtils.triggerSuccessOverlay(data.earned_xp ?? data.score, data.clearance_status ?? data.new_rank);
+                PuzzleUtils.triggerSuccessOverlay(data);
             } else {
                 // Incorrect attempt: re-enable UI elements and invoke retry callback
                 document.querySelectorAll('[data-puzzle-submit]').forEach(el => {
@@ -82,18 +84,17 @@ window.PuzzleUtils = {
                 el.style.opacity = '';
             });
 
-            if (callbacks && typeof callbacks.onError === 'function') {
+            // Always hand control back to the template so its Submit button is usable again
+            if (typeof callbacks === 'function') {
+                callbacks(null, false);
+            } else if (callbacks && typeof callbacks.onError === 'function') {
                 callbacks.onError(err);
             }
 
-            if (err.message === 'AUTH_SESSION_EXPIRED') {
-                PuzzleUtils.showToast('⚠️ Terminal Disconnected: Token expired. Please re-login.', 'warning', 8000);
-            } else if (err.message === 'INSUFFICIENT_CLEARANCE') {
-                PuzzleUtils.showToast('🔒 Access Denied: Insufficient clearance or unpublished activity.', 'error');
-            } else if (err.message && err.message.startsWith('Invalid simulation')) {
-                PuzzleUtils.showToast(`⚠️ Telemetry Error: ${err.message}`, 'error', 6000);
+            if (err.userFacing) {
+                PuzzleUtils.showToast(`⚠️ ${err.message}`, 'warning', 7000);
             } else {
-                PuzzleUtils.showToast('❌ Packet transmission failed. Please try again.', 'error');
+                PuzzleUtils.showToast('❌ Your answer could not be sent. Check your connection and try again.', 'error', 6000);
             }
         });
     },
@@ -239,8 +240,26 @@ window.PuzzleUtils = {
     /* ------------------------------------------------------------------ */
     /* 4. Telemetry Verified HUD Overlay & Confetti                       */
     /* ------------------------------------------------------------------ */
-    triggerSuccessOverlay(xpAmount, clearanceRank) {
+    triggerSuccessOverlay(data) {
+        // Escape server values before they go into markup
+        const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const isPreview = window.isPreview === true;
+        const puzzleXp = parseInt(data.earned_xp, 10) || 0;
+        const missionXp = data.mission_completed ? (parseInt(data.mission_xp_reward, 10) || 0) : 0;
+        const totalXp = puzzleXp + missionXp;
+
+        const heading = isPreview
+            ? 'Preview: correct answer'
+            : (data.mission_completed && missionXp > 0 ? 'Mission complete!' : 'Activity solved');
+        const xpLine = isPreview
+            ? 'Preview only: no XP or attempts recorded'
+            : (totalXp > 0 ? `+${esc(totalXp)} XP earned` : 'Solved again: XP for this activity was already earned');
+        const rank = !isPreview && data.clearance_rank ? data.clearance_rank : null;
+        const nextMission = !isPreview && data.unlocked_next_mission ? data.unlocked_next_mission : null;
+
         const banner = document.createElement('div');
+        banner.setAttribute('role', 'status');
+        banner.setAttribute('aria-live', 'polite');
         banner.style.cssText = 'position: fixed; inset: 0 0 auto 0; top: 0; z-index: 9998; display: flex; align-items: center; justify-content: center; pointer-events: none;';
         banner.innerHTML = `
             <div id="xp-banner"
@@ -254,12 +273,13 @@ window.PuzzleUtils = {
                         transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);">
                 <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.12em; color: #22d3ee; margin-bottom: 4px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700;">
                     <span style="width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e;"></span>
-                    TELEMETRY VERIFIED // MISSION CLEARED
+                    ${esc(heading)}
                 </div>
-                <div style="font-size: 1.6rem; font-weight: 800; color: #fbbf24; text-shadow: 0 0 16px rgba(251, 191, 36, 0.5);">
-                    +${xpAmount} Network XP Credited
+                <div style="font-size: ${totalXp > 0 && !isPreview ? '1.6rem' : '1.05rem'}; font-weight: 800; color: #fbbf24; text-shadow: 0 0 16px rgba(251, 191, 36, 0.5);">
+                    ${xpLine}
                 </div>
-                ${clearanceRank ? `<div style="font-size: 0.82rem; color: rgba(255, 255, 255, 0.75); margin-top: 4px;">Clearance Level: <strong style="color: #22d3ee;">${clearanceRank}</strong></div>` : ''}
+                ${rank ? `<div style="font-size: 0.82rem; color: rgba(255, 255, 255, 0.8); margin-top: 4px;">Rank: <strong style="color: #22d3ee;">${esc(rank)}</strong></div>` : ''}
+                ${nextMission ? `<div style="font-size: 0.82rem; color: rgba(255, 255, 255, 0.8); margin-top: 4px;">Unlocked: <strong style="color: #4ade80;">${esc(nextMission)}</strong></div>` : ''}
             </div>`;
         document.body.appendChild(banner);
 

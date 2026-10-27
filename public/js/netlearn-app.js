@@ -226,7 +226,12 @@
 
         const body = document.getElementById('sheetBody');
         if (isIframe) {
-            body.innerHTML = `<iframe src="${url}" class="sheet-frame" title="${title}"></iframe>`;
+            // Build the frame with DOM APIs: title/url can contain lecturer-authored text
+            const frame = document.createElement('iframe');
+            frame.className = 'sheet-frame';
+            frame.title = title;
+            frame.src = url;
+            body.replaceChildren(frame);
         } else {
             body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;"><div class="loading-spinner"></div></div>`;
             fetch(url)

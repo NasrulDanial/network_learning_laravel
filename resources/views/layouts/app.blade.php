@@ -13,6 +13,10 @@
 
     <script>
         (function() {
+            // Pages shown inside an in-app drawer (e.g. lecturer preview) drop the outer app chrome
+            if (window.self !== window.top) {
+                document.documentElement.classList.add('is-embedded');
+            }
             var saved = localStorage.getItem('netlearn-theme');
             if (saved === 'light' || (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches)) {
                 document.documentElement.setAttribute('data-theme', 'light');

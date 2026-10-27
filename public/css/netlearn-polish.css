@@ -600,3 +600,19 @@ button[disabled] {
         -webkit-overflow-scrolling: touch;
     }
 }
+
+/* ── Embedded pages (rendered inside an in-app drawer iframe) ───────────── */
+.is-embedded .sidebar,
+.is-embedded .sidebar-overlay,
+.is-embedded .top-header {
+    display: none !important;
+}
+.is-embedded .main-content {
+    margin: 0 !important;
+    min-height: 100vh !important;
+    border-radius: 0 !important;
+    border: none !important;
+}
+.is-embedded .app-layout {
+    padding: 0 !important;
+}
