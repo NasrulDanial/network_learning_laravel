@@ -82,6 +82,10 @@ class MissionController extends Controller
             'pass_mark'     => 'required|integer|min:0|max:100',
             'xp_reward'     => 'required|integer|min:25|max:1000',
             'status'        => 'required|in:draft,published',
+            'ticket_code'   => 'nullable|string|max:20',
+            'briefing_text' => 'nullable|string|max:500',
+            'debrief_text'  => 'nullable|string|max:300',
+            'narrator'      => 'nullable|string|max:60',
         ], self::ORDER_MESSAGES);
 
         $mission = Mission::create($validated);
@@ -139,6 +143,10 @@ class MissionController extends Controller
             'pass_mark'     => 'required|integer|min:0|max:100',
             'xp_reward'     => 'required|integer|min:25|max:1000',
             'status'        => 'required|in:draft,published',
+            'ticket_code'   => 'nullable|string|max:20',
+            'briefing_text' => 'nullable|string|max:500',
+            'debrief_text'  => 'nullable|string|max:300',
+            'narrator'      => 'nullable|string|max:60',
         ], self::ORDER_MESSAGES);
 
         $oldTopicId = $mission->topic_id;

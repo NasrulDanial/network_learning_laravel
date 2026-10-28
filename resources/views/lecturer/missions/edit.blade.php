@@ -94,6 +94,8 @@
                 />
             </div>
 
+            @include('lecturer.missions.partials.story_fields', ['mission' => $mission])
+
             <!-- Grid: Difficulty, Pass Mark, XP, Order -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 22px;">
                 <div>
