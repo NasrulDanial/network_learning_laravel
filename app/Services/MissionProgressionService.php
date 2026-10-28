@@ -54,6 +54,22 @@ class MissionProgressionService
             $puzzleProgress->attempts_count += 1;
             $puzzleProgress->last_attempt_at = now();
 
+            // A paid hint permanently lowers the score this activity can count for XP, on every
+            // later attempt too, so replaying cannot win back the penalty.
+            if ((int) $puzzleProgress->hints_used > 0) {
+                $score = max(0, $score - (int) config('netlearn.hint_xp_penalty'));
+            }
+
+            // Stars for this solve: 3 = first try without a paid hint, 2 = within two tries
+            // (or first try with a hint), 1 = solved later. Only the best is kept.
+            $stars = 0;
+            if ($isCorrect) {
+                $attemptsNow = (int) $puzzleProgress->attempts_count;
+                $usedHint = (int) $puzzleProgress->hints_used > 0;
+                $stars = ($attemptsNow === 1 && ! $usedHint) ? 3 : (($attemptsNow <= 2) ? 2 : 1);
+                $puzzleProgress->best_stars = max((int) $puzzleProgress->best_stars, $stars);
+            }
+
             $newXpAwarded = 0;
             if ($score > $puzzleProgress->best_score) {
                 // Award incremental XP only for the personal-best delta
@@ -147,6 +163,12 @@ class MissionProgressionService
                 'current_rank'  => $rank['current_rank_title'],
             ]);
 
+            $hintFree = (int) $puzzleProgress->attempts_count >= (int) config('netlearn.free_hint_after')
+                && ! $puzzleProgress->is_completed;
+            $missionStars = $puzzle->mission
+                ? (int) UserMissionProgress::where('user_id', $user->user_id)->where('mission_id', $puzzle->mission_id)->value('best_stars')
+                : 0;
+
             return [
                 'status'                => $status,
                 'score'                 => $score,
@@ -160,7 +182,17 @@ class MissionProgressionService
                 'mission_xp_reward'     => $missionXpReward,
                 'unlocked_next_mission' => $missionUnlocked ? $missionUnlocked->title : null,
                 'feedback'              => $evaluation['feedback'],
-                'hint'                  => $evaluation['hint'],
+                // The hint is free once a student has failed a few times (or after paying for it)
+                'hint'                  => $isCorrect ? null : ($hintFree || (int) $puzzleProgress->hints_used > 0 ? $evaluation['hint'] : null),
+                'hint_free'             => $hintFree,
+                'diagnostics'           => $evaluation['diagnostics'] ?? null,
+                'consequence'           => $evaluation['consequence'] ?? null,
+                'attempts_count'        => (int) $puzzleProgress->attempts_count,
+                'max_attempts'          => (int) $puzzle->max_attempts,
+                'hints_used'            => (int) $puzzleProgress->hints_used,
+                'stars'                 => $stars,
+                'best_stars'            => (int) $puzzleProgress->best_stars,
+                'mission_stars'         => $missionStars,
             ];
         });
     }
@@ -249,6 +281,15 @@ class MissionProgressionService
                 $nextProg->save();
                 $unlockedNext = $nextMission;
             }
+        }
+
+        // Mission stars = rounded average of the counted activities' best stars (kept at its best)
+        if ($missionProgress->is_completed) {
+            $starValues = UserPuzzleProgress::where('user_id', $user->user_id)
+                ->whereIn('puzzle_id', $requiredPuzzles->pluck('puzzle_id'))
+                ->pluck('best_stars');
+            $average = $requiredPuzzles->count() > 0 ? $starValues->sum() / $requiredPuzzles->count() : 0;
+            $missionProgress->best_stars = max((int) $missionProgress->best_stars, (int) max(1, min(3, round($average))));
         }
 
         $missionProgress->save();

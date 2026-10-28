@@ -150,6 +150,8 @@
 
     @include('layouts.footer')
 
+    <script>window.NETLEARN_SOUND_DEFAULT = @json((bool) config('netlearn.sound_default_on'));</script>
+    <script src="{{ asset('js/run/netfx.js') }}"></script>
     <script src="{{ asset('js/theme.js') }}"></script>
     <script src="{{ asset('js/netlearn-app.js') }}"></script>
 

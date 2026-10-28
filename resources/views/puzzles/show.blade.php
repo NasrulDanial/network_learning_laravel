@@ -36,7 +36,21 @@
 @section('content')
 <div style="max-width: 960px; margin: 0 auto; padding: 12px 0;">
 
-    @if (!empty($isPreview))
+    @php
+        $inRun = $inRun ?? false;
+        $attemptsUsed = $attemptsUsed ?? 0;
+        $hintFree = !empty($isPreview) || ($hintFree ?? false);
+        $hintRevealed = $hintRevealed ?? false;
+        $hintPenalty = $hintPenalty ?? (int) config('netlearn.hint_xp_penalty');
+    @endphp
+
+    @if ($inRun)
+        {{-- Mission Run: the parent HUD shows progress; keep only a compact instruction line --}}
+        <div class="run-instruction">
+            <strong>{{ $puzzle->question_text }}</strong>
+            <span>{{ $puzzle->instruction }}</span>
+        </div>
+    @elseif (!empty($isPreview))
         <div style="background: rgba(234, 179, 8, 0.15); border: 1px solid rgba(234, 179, 8, 0.4); color: #facc15; border-radius: 12px; padding: 12px 18px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 0.88rem;">
             <div style="display: flex; align-items: center; gap: 8px;">
                 <i class="fa-solid fa-flask-vial"></i>
@@ -54,6 +68,7 @@
         </div>
     @endif
 
+    @unless ($inRun)
     <!-- Telemetry Header Card -->
     <div style="background: var(--nl-glass-card); backdrop-filter: var(--nl-glass-blur); border: 1px solid var(--nl-glass-border); border-radius: var(--nl-radius-panel); padding: 24px; margin-bottom: 20px; box-shadow: 0 16px 36px rgba(0,0,0,0.4);">
         <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;">
@@ -79,6 +94,8 @@
             </div>
         </div>
     </div>
+
+    @endunless
 
     <!-- Network Lab Terminal Wrapper -->
     <div style="position: relative; border-radius: var(--nl-radius-panel); padding: 6px; background: linear-gradient(180deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.95) 100%); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.1); margin-bottom: 20px;">
@@ -106,6 +123,32 @@
         </div>
     </div>
 
+    <!-- Link health (attempts) + hint -->
+    <div class="puzzle-toolbar">
+        <div id="link-health" class="link-health" role="status" aria-live="polite"></div>
+
+        @if (filled($puzzle->hint))
+            <div class="hint-area">
+                @if ($hintRevealed && empty($isPreview))
+                    <p id="hint-text" class="hint-text">Hint: {{ $puzzle->hint }}</p>
+                @else
+                    <button type="button" id="hint-button" class="button secondary hint-button" data-free="{{ $hintFree ? 'true' : 'false' }}">
+                        <i class="fa-solid fa-lightbulb" aria-hidden="true"></i>
+                        {{ $hintFree ? 'Show hint' : "Request hint (−{$hintPenalty} XP)" }}
+                    </button>
+                    <div id="hint-confirm" class="hint-confirm" role="dialog" aria-label="Confirm hint" hidden>
+                        <p>Using the hint now lowers the XP this activity can earn by <strong>{{ $hintPenalty }} XP</strong>, permanently. After {{ (int) config('netlearn.free_hint_after') }} failed attempts the hint is free.</p>
+                        <div class="hint-confirm-actions">
+                            <button type="button" class="button" data-hint-yes>Show hint (−{{ $hintPenalty }} XP)</button>
+                            <button type="button" class="button secondary" data-hint-no>Keep trying</button>
+                        </div>
+                    </div>
+                    <p id="hint-text" class="hint-text" hidden></p>
+                @endif
+            </div>
+        @endif
+    </div>
+
     <!-- Diagnostic Feedback Panel -->
     <div id="feedback-panel"
          style="display: none; margin-top: 16px; padding: 16px; border-radius: var(--nl-radius-card); border: 2px solid transparent; font-weight: 500; font-size: 0.9rem; line-height: 1.5; backdrop-filter: var(--nl-glass-blur); transition: var(--nl-transition);">
@@ -128,7 +171,15 @@
 
     <script>
         window.isPreview    = {!! json_encode(!empty($isPreview)) !!};
-        window.puzzleData   = {!! json_encode($puzzle->only(['puzzle_id', 'topic_id', 'puzzle_type', 'question_text', 'instruction', 'points'])) !!};
+        window.inRun        = {!! json_encode($inRun ?? false) !!};
+        window.puzzleData   = {!! json_encode(array_merge(
+            $puzzle->only(['puzzle_id', 'topic_id', 'puzzle_type', 'question_text', 'instruction', 'points', 'max_attempts']),
+            ['attempts_used' => $attemptsUsed ?? 0]
+        )) !!};
+        window.hintUrl      = @if(!empty($isPreview)) null @else "{{ route('puzzles.hint', $puzzle->puzzle_id) }}" @endif;
+        @if (!empty($isPreview))
+            window.previewHint = {!! json_encode($puzzle->hint) !!};
+        @endif
         window.activityData = {!! json_encode($puzzle->getSafeActivityData()) !!};
         window.submitUrl    = @if(!empty($isPreview)) "{{ route('lecturer.missions.puzzles.preview.submit', $puzzle->puzzle_id) }}" @else "{{ route('puzzles.submit', $puzzle->puzzle_id) }}" @endif;
     </script>

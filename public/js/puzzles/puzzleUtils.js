@@ -15,9 +15,8 @@ window.PuzzleUtils = {
             return;
         }
 
-        PuzzleUtils.showToast('Checking your answer...', 'info', 2000);
-
         this._inFlight = true;
+        PuzzleUtils.hideHintPanel();
 
         document.querySelectorAll('[data-puzzle-submit]').forEach(el => {
             el.style.pointerEvents = 'none';
@@ -43,16 +42,27 @@ window.PuzzleUtils = {
                 // The server explains exactly why (locked mission, attempt limit, incomplete answer...)
                 return response.json()
                     .catch(() => ({}))
-                    .then(j => { throw Object.assign(new Error(j.message || 'This activity cannot be submitted right now.'), { userFacing: true }); });
+                    .then(j => { throw Object.assign(new Error(j.message || 'This activity cannot be submitted right now.'), { userFacing: true, status: response.status }); });
             }
             if (!response.ok) throw new Error('SERVER_ERROR');
             return response.json();
         })
-        .then(data => {
-            this._inFlight = false;
+        .then(async data => {
             const isCorrect = (data.status === 'completed' || data.is_correct === true);
 
-            // Trigger safe DOM feedback
+            // Let the template "execute" the answer first; feedback appears once it finishes
+            if (callbacks && typeof callbacks.onResult === 'function') {
+                try {
+                    await callbacks.onResult(data, isCorrect);
+                } catch (e) {
+                    console.warn('Puzzle result animation failed:', e);
+                }
+            }
+
+            this._inFlight = false;
+            PuzzleUtils.afterResult(data, isCorrect);
+            PuzzleUtils.updateHealth(data);
+            PuzzleUtils.notifyParent(data, isCorrect);
             PuzzleUtils.showFeedback(data, isCorrect);
 
             if (isCorrect) {
@@ -61,7 +71,8 @@ window.PuzzleUtils = {
                 } else if (callbacks && typeof callbacks.onSuccess === 'function') {
                     callbacks.onSuccess(data);
                 }
-                PuzzleUtils.triggerSuccessOverlay(data);
+                // In a mission run the parent page celebrates instead
+                if (!PuzzleUtils.inRun()) PuzzleUtils.triggerSuccessOverlay(data);
             } else {
                 // Incorrect attempt: re-enable UI elements and invoke retry callback
                 document.querySelectorAll('[data-puzzle-submit]').forEach(el => {
@@ -91,12 +102,66 @@ window.PuzzleUtils = {
                 callbacks.onError(err);
             }
 
+            if (err.userFacing && err.status === 403) {
+                PuzzleUtils.postToParent({ type: 'puzzle:locked', message: err.message });
+            }
+
             if (err.userFacing) {
                 PuzzleUtils.showToast(`⚠️ ${err.message}`, 'warning', 7000);
             } else {
                 PuzzleUtils.showToast('❌ Your answer could not be sent. Check your connection and try again.', 'error', 6000);
             }
         });
+    },
+
+    /** Sound, shake and vibration once the server has judged the answer. */
+    afterResult(data, isCorrect) {
+        if (!window.NetFX) return;
+        if (isCorrect) {
+            NetFX.sound('success');
+        } else {
+            NetFX.sound('error');
+            NetFX.shake(document.getElementById('phaser-game'));
+            NetFX.vibrate(80);
+        }
+    },
+
+    /* ------------------------------------------------------------------ */
+    /* 1b. Mission Run integration (page inside the run iframe)           */
+    /* ------------------------------------------------------------------ */
+    inRun() {
+        return window.inRun === true && window.self !== window.top;
+    },
+
+    postToParent(message) {
+        if (!this.inRun()) return;
+        window.parent.postMessage(Object.assign({
+            source: 'netlearn',
+            puzzleId: window.puzzleData ? window.puzzleData.puzzle_id : null,
+        }, message), window.location.origin);
+    },
+
+    notifyParent(data, isCorrect) {
+        this.postToParent({
+            type: 'puzzle:result',
+            correct: isCorrect,
+            earnedXp: data.earned_xp || 0,
+            missionCompleted: !!data.mission_completed,
+            missionXpReward: data.mission_xp_reward || 0,
+            attemptsCount: data.attempts_count || 0,
+            maxAttempts: data.max_attempts || 0,
+            hintsUsed: data.hints_used || 0,
+            stars: data.stars || 0,
+            rank: data.clearance_rank || null,
+            newBadges: data.new_badges || [],
+            unlockedNextMission: data.unlocked_next_mission || null,
+        });
+    },
+
+    /** Templates call this at the end of create() so the run can hide its loader. */
+    ready() {
+        this.postToParent({ type: 'puzzle:ready' });
+        document.dispatchEvent(new CustomEvent('puzzle:ready'));
     },
 
     /* ------------------------------------------------------------------ */
@@ -352,4 +417,204 @@ window.PuzzleUtils = {
 
         setTimeout(() => container.remove(), 3000);
     },
+
+    /* ------------------------------------------------------------------ */
+    /* 5. Link health (remaining attempts) and paid hint                  */
+    /* ------------------------------------------------------------------ */
+    renderHealth(maxAttempts, used) {
+        const box = document.getElementById('link-health');
+        if (!box) return;
+        box.replaceChildren();
+        const label = document.createElement('span');
+        label.className = 'health-label';
+        label.textContent = 'Link health';
+        box.appendChild(label);
+
+        if (!maxAttempts) {
+            const inf = document.createElement('span');
+            inf.className = 'health-infinite';
+            inf.textContent = '∞ link redundancy';
+            box.appendChild(inf);
+            box.setAttribute('aria-label', 'Unlimited attempts');
+            return;
+        }
+
+        const left = Math.max(0, maxAttempts - used);
+        for (let i = 0; i < maxAttempts; i++) {
+            const seg = document.createElement('span');
+            seg.className = 'health-seg' + (i < left ? '' : ' is-lost');
+            box.appendChild(seg);
+        }
+        const count = document.createElement('span');
+        count.className = 'health-count';
+        count.textContent = `${left}/${maxAttempts}`;
+        box.appendChild(count);
+        box.setAttribute('aria-label', `${left} of ${maxAttempts} attempts left`);
+    },
+
+    updateHealth(data) {
+        if (typeof data.max_attempts === 'undefined') return;
+        const before = document.querySelectorAll('#link-health .health-seg:not(.is-lost)').length;
+        this.renderHealth(data.max_attempts, data.attempts_count || 0);
+        const segs = document.querySelectorAll('#link-health .health-seg');
+        const after = document.querySelectorAll('#link-health .health-seg:not(.is-lost)').length;
+        if (after < before && segs[after]) {
+            segs[after].classList.add('is-breaking');   // short-circuit animation on the segment just lost
+        }
+    },
+
+    hideHintPanel() {
+        const confirmBox = document.getElementById('hint-confirm');
+        if (confirmBox) confirmBox.hidden = true;
+    },
+
+    initHint() {
+        const btn = document.getElementById('hint-button');
+        const confirmBox = document.getElementById('hint-confirm');
+        const out = document.getElementById('hint-text');
+        if (!btn || !out) return;
+
+        const reveal = () => {
+            if (window.isPreview) {
+                // Lecturer preview: hint is free and never touches student progress
+                if (confirmBox) confirmBox.hidden = true;
+                out.hidden = false;
+                btn.hidden = true;
+                window.NetFX ? NetFX.typeText(out, `Hint: ${window.previewHint || ''}`) : (out.textContent = `Hint: ${window.previewHint || ''}`);
+                return;
+            }
+            const csrf = document.head.querySelector('meta[name="csrf-token"]')?.content ?? '';
+            btn.disabled = true;
+            fetch(window.hintUrl, { method: 'POST', headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' } })
+                .then(r => r.ok ? r.json() : r.json().catch(() => ({})).then(j => { throw new Error(j.message || 'Hint unavailable.'); }))
+                .then(d => {
+                    if (confirmBox) confirmBox.hidden = true;
+                    out.hidden = false;
+                    btn.hidden = true;
+                    const note = d.charged ? ` (−${d.penalty} XP applied to this activity)` : '';
+                    window.NetFX ? NetFX.typeText(out, `Hint: ${d.hint}${note}`) : (out.textContent = `Hint: ${d.hint}${note}`);
+                })
+                .catch(e => { btn.disabled = false; PuzzleUtils.showToast(`⚠️ ${e.message}`, 'warning', 5000); });
+        };
+
+        btn.addEventListener('click', () => {
+            if (window.NetFX) NetFX.sound('click');
+            if (btn.dataset.free === 'true' || !confirmBox) return reveal();
+            confirmBox.hidden = false;
+            confirmBox.querySelector('[data-hint-yes]')?.focus();
+        });
+        confirmBox?.querySelector('[data-hint-yes]')?.addEventListener('click', reveal);
+        confirmBox?.querySelector('[data-hint-no]')?.addEventListener('click', () => { confirmBox.hidden = true; btn.focus(); });
+    },
+
+    /* ------------------------------------------------------------------ */
+    /* 6. Phaser FX (Phaser 3.55 particle API — keep the CDN pinned)      */
+    /* ------------------------------------------------------------------ */
+    fx: {
+        speed: 1,
+
+        /** Click/tap anywhere on the canvas while an answer is executing = 4x speed. */
+        enableSpeedUp(scene) {
+            this.speed = 1;
+            const fast = () => { this.speed = 4; scene.tweens.timeScale = 4; scene.time.timeScale = 4; };
+            scene.input.once('pointerdown', fast);
+            return () => { scene.input.off('pointerdown', fast); this.speed = 1; scene.tweens.timeScale = 1; scene.time.timeScale = 1; };
+        },
+
+        reduced() { return !!(window.NetFX && NetFX.reduced); },
+
+        ensureTextures(scene) {
+            if (scene.textures.exists('nl-spark')) return;
+            const g = scene.add.graphics();
+            g.fillStyle(0xffffff, 1).fillCircle(4, 4, 4);
+            g.generateTexture('nl-spark', 8, 8);
+            g.destroy();
+        },
+
+        burst(scene, x, y, tint = 0x22d3ee, qty = 24) {
+            if (this.reduced()) return;
+            this.ensureTextures(scene);
+            const p = scene.add.particles('nl-spark').setDepth(60);
+            const e = p.createEmitter({
+                speed: { min: 80, max: 260 }, scale: { start: 0.8, end: 0 },
+                lifespan: 600, tint, blendMode: 'ADD', on: false,
+            });
+            e.explode(qty, x, y);
+            scene.time.delayedCall(800, () => p.destroy());
+        },
+
+        shake(scene) { if (!this.reduced()) scene.cameras.main.shake(220, 0.008); },
+
+        flashCam(scene, r = 239, g = 68, b = 68) { if (!this.reduced()) scene.cameras.main.flash(250, r, g, b); },
+
+        packet(scene, x, y, color = 0x22d3ee) {
+            const glow = scene.add.circle(x, y, 14, color, 0.25).setDepth(49);
+            const c = scene.add.circle(x, y, 7, color).setDepth(50);
+            return { c, glow, destroy() { c.destroy(); glow.destroy(); } };
+        },
+
+        /** Move a packet through points; stops after index stopAt (null = whole path). Resolves the last index reached. */
+        runPath(scene, pkt, points, { stepMs = 380, stopAt = null } = {}) {
+            return new Promise((resolve) => {
+                let i = 0;
+                const next = () => {
+                    if (i >= points.length || (stopAt !== null && i > stopAt)) return resolve(i - 1);
+                    const pt = points[i++];
+                    if (window.NetFX) NetFX.sound('packet');
+                    scene.tweens.add({
+                        targets: [pkt.c, pkt.glow], x: pt.x, y: pt.y,
+                        duration: this.reduced() ? 1 : stepMs, ease: 'Sine.easeInOut', onComplete: next,
+                    });
+                };
+                next();
+            });
+        },
+
+        wait(scene, ms) {
+            return new Promise((r) => scene.time.delayedCall(this.reduced() ? 1 : ms, r));
+        },
+    },
+
+    /**
+     * Typed monospace log drawn on the canvas. .log(text, color) resolves when typed.
+     * Keeps the newest 5 lines.
+     */
+    terminal(scene, x, y, w, h) {
+        const bg = scene.add.rectangle(x, y, w, h, 0x020617, 0.92).setOrigin(0).setStrokeStyle(1, 0x1e3a5f).setDepth(40);
+        const lines = [];
+        const maxLines = Math.max(1, Math.floor((h - 12) / 18));
+        const reduced = () => !!(window.NetFX && NetFX.reduced);
+
+        return {
+            log(text, color = '#a7f3d0') {
+                return new Promise((resolve) => {
+                    if (lines.length >= maxLines) {
+                        lines.shift().destroy();
+                        lines.forEach((l) => { l.y -= 18; });
+                    }
+                    const t = scene.add.text(x + 10, y + 8 + lines.length * 18, '', {
+                        fontFamily: 'Consolas, "Courier New", monospace', fontSize: '12px', color,
+                    }).setDepth(41);
+                    lines.push(t);
+                    if (reduced()) { t.setText(text); return resolve(); }
+                    let i = 0;
+                    const ev = scene.time.addEvent({
+                        delay: 18, repeat: text.length - 1,
+                        callback: () => {
+                            t.setText(text.slice(0, ++i));
+                            if (i >= text.length) { ev.remove(); resolve(); }
+                        },
+                    });
+                    if (!text.length) resolve();
+                });
+            },
+            clear() { lines.splice(0).forEach((l) => l.destroy()); },
+            destroy() { this.clear(); bg.destroy(); },
+        };
+    },
 };
+
+document.addEventListener('DOMContentLoaded', () => {
+    PuzzleUtils.renderHealth(window.puzzleData?.max_attempts || 0, window.puzzleData?.attempts_used || 0);
+    PuzzleUtils.initHint();
+});

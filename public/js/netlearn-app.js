@@ -168,6 +168,26 @@
         });
     }
 
+    // ── 1c. Sound toggle (NetFX mute, remembered across pages) ──
+    function initSoundToggle() {
+        const btn = document.getElementById('soundToggle');
+        if (!btn || !window.NetFX || btn.dataset.bound === 'true') return;
+        btn.dataset.bound = 'true';
+        const render = () => {
+            const muted = window.NetFX.muted;
+            btn.setAttribute('aria-pressed', muted ? 'true' : 'false');
+            btn.title = muted ? 'Unmute sound effects' : 'Mute sound effects';
+            btn.querySelector('i').className = 'fa-solid ' + (muted ? 'fa-volume-xmark' : 'fa-volume-high');
+        };
+        btn.addEventListener('click', () => {
+            window.NetFX.setMuted(!window.NetFX.muted);
+            render();
+            window.NetFX.sound('click');
+        });
+        document.addEventListener('netfx:mute', render);
+        render();
+    }
+
     // ── 2. Page transitions ──
     // Full page loads only. The old fetch-and-swap navigation replaced just .content-body, so
     // page scripts (Phaser templates, puzzle editor, filters) never ran. The cross-fade now
@@ -562,6 +582,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         initSidebar();
         initAccountMenu();
+        initSoundToggle();
         hoistOverlays();
         initSheetTriggers();
         initQuizStepper();

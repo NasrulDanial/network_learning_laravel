@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Puzzle;
+use App\Models\UserPuzzleProgress;
 use App\Services\PuzzleEvaluatorService;
 use App\Services\MissionProgressionService;
 use App\Services\AchievementService;
@@ -61,7 +62,56 @@ class PuzzleController extends Controller
             abort(403, $deniedReason);
         }
 
-        return view('puzzles.show', compact('puzzle'));
+        $progress = UserPuzzleProgress::where('user_id', $user->user_id)
+            ->where('puzzle_id', $puzzle->puzzle_id)
+            ->first();
+        $attemptsUsed = (int) ($progress->attempts_count ?? 0);
+
+        return view('puzzles.show', [
+            'puzzle' => $puzzle,
+            'inRun' => request()->boolean('run') && config('netlearn.run_mode'),
+            'attemptsUsed' => $attemptsUsed,
+            'hintRevealed' => (int) ($progress->hints_used ?? 0) > 0,
+            'hintFree' => $attemptsUsed >= (int) config('netlearn.free_hint_after') || ($progress->is_completed ?? false),
+            'hintPenalty' => (int) config('netlearn.hint_xp_penalty'),
+        ]);
+    }
+
+    /**
+     * Reveal the activity hint. Before the free-hint threshold it costs XP (charged once, never reset);
+     * after enough failed attempts, or once solved, it is free.
+     */
+    public function revealHint($id)
+    {
+        $user = Auth::user();
+        $puzzle = Puzzle::with(['mission.topic', 'topic'])->findOrFail($id);
+
+        $deniedReason = $this->checkStudentAccess($user, $puzzle);
+        if ($deniedReason !== null) {
+            return response()->json(['status' => 'error', 'message' => $deniedReason], 403);
+        }
+
+        if (blank($puzzle->hint)) {
+            return response()->json(['status' => 'error', 'message' => 'This activity has no hint.'], 404);
+        }
+
+        $progress = UserPuzzleProgress::firstOrCreate(
+            ['user_id' => $user->user_id, 'puzzle_id' => $puzzle->puzzle_id],
+            ['best_score' => 0, 'attempts_count' => 0, 'is_completed' => false, 'xp_awarded' => 0]
+        );
+
+        $free = (int) $progress->attempts_count >= (int) config('netlearn.free_hint_after') || $progress->is_completed;
+        $charged = false;
+        if (! $free && (int) $progress->hints_used === 0) {
+            $progress->increment('hints_used');
+            $charged = true;
+        }
+
+        return response()->json([
+            'hint' => $puzzle->hint,
+            'charged' => $charged,
+            'penalty' => (int) $progress->hints_used > 0 ? (int) config('netlearn.hint_xp_penalty') : 0,
+        ]);
     }
 
     /**

@@ -15,11 +15,13 @@ class UserMissionProgress extends Model
         'is_unlocked',
         'is_completed',
         'best_score_percentage',
+        'best_stars',
         'xp_reward_granted',
         'completed_at',
     ];
 
     protected $casts = [
+        'best_stars' => 'integer',
         'is_unlocked' => 'boolean',
         'is_completed' => 'boolean',
         'best_score_percentage' => 'integer',

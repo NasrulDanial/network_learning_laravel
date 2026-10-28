@@ -207,4 +207,7 @@ Route::middleware(['auth', 'role:student'])->group(function () {
 
     Route::post('/puzzles/{id}/submit', [PuzzleController::class, 'submitAttempt'])
         ->name('puzzles.submit');
+
+    Route::post('/puzzles/{id}/hint', [PuzzleController::class, 'revealHint'])
+        ->name('puzzles.hint');
 });

@@ -12,6 +12,11 @@
     $onProfile = request()->routeIs($profileRoute);
 @endphp
 
+<button type="button" class="sound-toggle" id="soundToggle" aria-pressed="false" title="Mute sound effects">
+    <i class="fa-solid fa-volume-high" aria-hidden="true"></i>
+    <span class="visually-hidden">Sound effects</span>
+</button>
+
 <div class="account-menu" data-account-menu>
     <button
         type="button"

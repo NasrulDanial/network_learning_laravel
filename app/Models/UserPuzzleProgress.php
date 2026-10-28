@@ -16,11 +16,15 @@ class UserPuzzleProgress extends Model
         'attempts_count',
         'is_completed',
         'xp_awarded',
+        'hints_used',
+        'best_stars',
         'first_completed_at',
         'last_attempt_at',
     ];
 
     protected $casts = [
+        'hints_used' => 'integer',
+        'best_stars' => 'integer',
         'best_score' => 'integer',
         'attempts_count' => 'integer',
         'is_completed' => 'boolean',

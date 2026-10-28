@@ -394,6 +394,12 @@ class MissionController extends Controller
             'total_xp'         => 0,
             'feedback'         => $evaluation['feedback'],
             'hint'             => $evaluation['hint'],
+            // Same diagnostics as students get, so previews animate identically
+            'diagnostics'      => $evaluation['diagnostics'] ?? null,
+            'consequence'      => $evaluation['consequence'] ?? null,
+            'attempts_count'   => 0,
+            'max_attempts'     => (int) $puzzle->max_attempts,
+            'stars'            => $evaluation['is_correct'] ? 3 : 0,
             'clearance_status' => 'Lecturer Sandbox Preview (Zero Attempts / Zero XP)',
         ]);
     }
@@ -556,6 +562,7 @@ class MissionController extends Controller
 
             case 'scenario':
                 $choices = $this->filledInputs($request, 'scenario_choices');
+                $consequences = (array) $request->input('scenario_consequences', []);
                 $correctIndex = $request->input('correct_choice_index');
                 if (count($choices) < 2) {
                     return ['error' => 'Please provide at least 2 decision choices for the scenario.'];
@@ -565,7 +572,16 @@ class MissionController extends Controller
                 $position = 0;
                 foreach ($choices as $formIndex => $cLabel) {
                     $cId = 'choice_' . (++$position);
-                    $choicesList[] = ['id' => $cId, 'label' => $cLabel];
+                    $entry = ['id' => $cId, 'label' => $cLabel];
+                    // Optional lecturer-written consequence, revealed only after the student answers
+                    $consequence = trim((string) ($consequences[$formIndex] ?? ''));
+                    if ($consequence !== '') {
+                        if (mb_strlen($consequence) > 300) {
+                            return ['error' => 'Each consequence must be 300 characters or fewer.'];
+                        }
+                        $entry['consequence'] = $consequence;
+                    }
+                    $choicesList[] = $entry;
                     if ((string)$formIndex === (string)$correctIndex) {
                         $correctChoiceId = $cId;
                     }

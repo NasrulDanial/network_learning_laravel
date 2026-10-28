@@ -555,14 +555,25 @@
                                     style="accent-color: #fb923c; width: 18px; height: 18px; cursor: pointer;"
                                     title="Mark as correct resolution"
                                 />
-                                <input
-                                    type="text"
-                                    name="scenario_choices[]"
-                                    value="{{ $choice }}"
-                                    required
-                                    placeholder="Action / Decision Choice"
-                                    style="flex: 1; padding: 10px 14px; border-radius: 10px; background: rgba(7, 20, 38, 0.8); border: 1px solid rgba(255, 255, 255, 0.12); color: #FFFFFF; font-size: 0.88rem;"
-                                />
+                                <div class="choice-fields" style="flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0;">
+                                    <input
+                                        type="text"
+                                        name="scenario_choices[]"
+                                        value="{{ $choice }}"
+                                        required
+                                        placeholder="Action / Decision Choice"
+                                        style="flex: 1; padding: 10px 14px; border-radius: 10px; background: rgba(7, 20, 38, 0.8); border: 1px solid rgba(255, 255, 255, 0.12); color: #FFFFFF; font-size: 0.88rem;"
+                                    />
+                                    <input
+                                        type="text"
+                                        name="scenario_consequences[]"
+                                        value="{{ old('scenario_consequences.' . $sIdx) }}"
+                                        maxlength="300"
+                                        placeholder="Optional: what happens if a student picks this? (shown after they answer)"
+                                        aria-label="Consequence of this choice"
+                                        style="padding: 8px 12px; border-radius: 10px; background: rgba(7, 20, 38, 0.8); border: 1px solid rgba(255, 255, 255, 0.12); color: #FFFFFF; font-size: 0.8rem;"
+                                    />
+                                </div>
                                 <button type="button" onclick="removeRow(this)" class="button danger" style="padding: 8px 12px; font-size: 0.8rem; border-radius: 8px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); color: #f87171; cursor: pointer;">
                                     <i class="fa-solid fa-trash"></i>
                                 </button>
@@ -767,7 +778,10 @@ function addScenarioChoice() {
     div.style = 'display: flex; align-items: center; gap: 12px; background: rgba(255, 255, 255, 0.03); padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.08);';
     div.innerHTML = `
         <input type="radio" name="correct_choice_index" value="${count}" style="accent-color: #fb923c; width: 18px; height: 18px; cursor: pointer;" title="Mark as correct resolution" />
-        <input type="text" name="scenario_choices[]" required placeholder="Action / Decision Choice" style="flex: 1; padding: 10px 14px; border-radius: 10px; background: rgba(7, 20, 38, 0.8); border: 1px solid rgba(255, 255, 255, 0.12); color: #FFFFFF; font-size: 0.88rem;" />
+        <div class="choice-fields" style="flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0;">
+            <input type="text" name="scenario_choices[]" required placeholder="Action / Decision Choice" style="flex: 1; padding: 10px 14px; border-radius: 10px; background: rgba(7, 20, 38, 0.8); border: 1px solid rgba(255, 255, 255, 0.12); color: #FFFFFF; font-size: 0.88rem;" />
+            <input type="text" name="scenario_consequences[]" maxlength="300" placeholder="Optional: what happens if a student picks this? (shown after they answer)" aria-label="Consequence of this choice" style="padding: 8px 12px; border-radius: 10px; background: rgba(7, 20, 38, 0.8); border: 1px solid rgba(255, 255, 255, 0.12); color: #FFFFFF; font-size: 0.8rem;" />
+        </div>
         <button type="button" onclick="removeRow(this)" class="button danger" style="padding: 8px 12px; font-size: 0.8rem; border-radius: 8px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); color: #f87171; cursor: pointer;">
             <i class="fa-solid fa-trash"></i>
         </button>

@@ -11,8 +11,12 @@ class Mission extends Model
     protected $fillable = [
         'topic_id',
         'title',
+        'ticket_code',
         'description',
         'objective',
+        'briefing_text',
+        'debrief_text',
+        'narrator',
         'difficulty',
         'mission_order',
         'pass_mark',

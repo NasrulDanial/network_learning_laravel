@@ -34,6 +34,7 @@ class Puzzle extends Model
         'points' => 'integer',
         'activity_order' => 'integer',
         'is_required' => 'boolean',
+        'max_attempts' => 'integer',
     ];
 
     public function mission()
@@ -98,6 +99,7 @@ class Puzzle extends Model
                 // Shuffle items so student must sequence them
                 shuffle($items);
                 $base['items'] = $items;
+                $base['theme'] = in_array($data['theme'] ?? null, ['tcp', 'encapsulation', 'dhcp'], true) ? $data['theme'] : 'generic';
                 break;
 
             case 'classification':
@@ -123,7 +125,15 @@ class Puzzle extends Model
 
             case 'scenario':
                 $base['scenario_text'] = $data['scenario_text'] ?? $this->instruction;
-                $base['choices'] = $data['choices'] ?? [];
+                // Only id + label: the lecturer's per-choice consequence is revealed after submitting
+                $base['choices'] = array_values(array_map(
+                    fn ($c) => ['id' => $c['id'] ?? null, 'label' => $c['label'] ?? ''],
+                    $data['choices'] ?? []
+                ));
+                $base['status_lights'] = array_values(array_map(
+                    fn ($l) => ['id' => $l['id'] ?? null, 'label' => $l['label'] ?? '', 'initial' => ($l['initial'] ?? 'up') === 'down' ? 'down' : 'up'],
+                    $data['status_lights'] ?? []
+                ));
                 break;
         }
 
