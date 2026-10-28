@@ -582,30 +582,39 @@ window.PuzzleUtils = {
     terminal(scene, x, y, w, h) {
         const bg = scene.add.rectangle(x, y, w, h, 0x020617, 0.92).setOrigin(0).setStrokeStyle(1, 0x1e3a5f).setDepth(40);
         const lines = [];
-        const maxLines = Math.max(1, Math.floor((h - 12) / 18));
+        const pad = 8;
         const reduced = () => !!(window.NetFX && NetFX.reduced);
+
+        // Long lines wrap; when the box is full, older lines scroll up by their real height
+        const layout = () => {
+            let cursor = y + pad;
+            lines.forEach((l) => { l.y = cursor; cursor += l.height + 2; });
+            const overflow = cursor - (y + h - pad);
+            if (overflow > 0) {
+                lines.forEach((l) => { l.y -= overflow; });
+                while (lines.length > 1 && lines[0].y + lines[0].height < y + pad) lines.shift().destroy();
+                lines.forEach((l) => l.setVisible(l.y >= y + pad - 2));
+            }
+        };
 
         return {
             log(text, color = '#a7f3d0', { instant = false } = {}) {
                 return new Promise((resolve) => {
-                    if (lines.length >= maxLines) {
-                        lines.shift().destroy();
-                        lines.forEach((l) => { l.y -= 18; });
-                    }
-                    const t = scene.add.text(x + 10, y + 8 + lines.length * 18, '', {
+                    const t = scene.add.text(x + 10, y + pad, '', {
                         fontFamily: 'Consolas, "Courier New", monospace', fontSize: '12px', color,
+                        wordWrap: { width: w - 20, useAdvancedWrap: true },
                     }).setDepth(41);
                     lines.push(t);
-                    if (reduced() || instant) { t.setText(text); return resolve(); }
+                    if (reduced() || instant || !text.length) { t.setText(text); layout(); return resolve(); }
                     let i = 0;
                     const ev = scene.time.addEvent({
                         delay: 18, repeat: text.length - 1,
                         callback: () => {
                             t.setText(text.slice(0, ++i));
+                            layout();
                             if (i >= text.length) { ev.remove(); resolve(); }
                         },
                     });
-                    if (!text.length) resolve();
                 });
             },
             clear() { lines.splice(0).forEach((l) => l.destroy()); },
