@@ -1,6 +1,9 @@
 /**
  * TemplateIdentification.js
  * Phaser 3 Puzzle Archetype 1: Identification & Hardware Recognition.
+ *
+ * Submits { selected_option }. A scanner beam then sweeps the chosen card: a match shows a
+ * device signature card; a wrong pick is stamped SIGNATURE MISMATCH until another is chosen.
  */
 class TemplateIdentification extends Phaser.Scene {
     constructor() {
@@ -70,7 +73,7 @@ class TemplateIdentification extends Phaser.Scene {
 
             // Interaction
             bg.on('pointerover', () => {
-                if (this.selectedOptionId !== opt.id) {
+                if (!this._executing && this.selectedOptionId !== opt.id) {
                     bg.setFillStyle(0x132a4d, 0.95);
                     bg.setStrokeStyle(1, 0x38bdf8);
                 }
@@ -84,10 +87,10 @@ class TemplateIdentification extends Phaser.Scene {
             });
 
             bg.on('pointerdown', () => {
-                this.selectOption(opt.id, container, bg, badgeBg);
+                if (!this._executing) this.selectOption(opt.id, container, bg, badgeBg);
             });
 
-            this.optionButtons.push({ id: opt.id, container, bg, badgeBg });
+            this.optionButtons.push({ id: opt.id, container, bg, badgeBg, label: opt.label });
         });
 
         // ── Submit Button ────────────────────────────────────────────────
@@ -120,7 +123,9 @@ class TemplateIdentification extends Phaser.Scene {
     }
 
     selectOption(optId, container, bg, badgeBg) {
+        if (this.selectedOptionId !== optId) this.clearVerdict();
         this.selectedOptionId = optId;
+        if (window.NetFX) NetFX.sound('click');
 
         this.optionButtons.forEach(btn => {
             if (btn.id === optId) {
@@ -144,33 +149,91 @@ class TemplateIdentification extends Phaser.Scene {
         }
 
         this._isSubmitting = true;
+        this._executing = true;
+        if (this._btnBg) this._btnBg.disableInteractive().setFillStyle(0x334155);
 
-        if (this._btnBg) {
-            this._btnBg.disableInteractive();
-            this._btnBg.setFillStyle(0x334155);
-        }
+        const unlock = () => {
+            this._isSubmitting = false;
+            this._executing = false;
+            if (this._btnBg) this._btnBg.setInteractive({ useHandCursor: true }).setFillStyle(0x0284c7);
+        };
 
-        PuzzleUtils.submitResponse({
-            selected_option: this.selectedOptionId
-        }, {
-            onSuccess: () => {
-                if (this._btnBg) this._btnBg.setFillStyle(0x059669);
-            },
-            onRetry: () => {
-                this._isSubmitting = false;
-                if (this._btnBg) {
-                    this._btnBg.setInteractive({ useHandCursor: true });
-                    this._btnBg.setFillStyle(0x0284c7);
-                }
-            },
-            onError: () => {
-                this._isSubmitting = false;
-                if (this._btnBg) {
-                    this._btnBg.setInteractive({ useHandCursor: true });
-                    this._btnBg.setFillStyle(0x0284c7);
-                }
-            }
+        PuzzleUtils.submitResponse({ selected_option: this.selectedOptionId }, {
+            onResult: (data, ok) => this.execute(data, ok),
+            onSuccess: () => { if (this._btnBg) this._btnBg.setFillStyle(0x059669); },
+            onRetry: unlock, // the mismatch stamp stays until a different option is chosen
+            onError: () => { unlock(); this.clearVerdict(); },
         });
+    }
+
+    clearVerdict() {
+        if (this._verdict) this._verdict.forEach((o) => o.destroy());
+        this._verdict = null;
+    }
+
+    // A beam sweeps the chosen card from left to right
+    scan(btn) {
+        const fx = PuzzleUtils.fx;
+        const w = btn.bg.width;
+        const x0 = btn.container.x - w / 2;
+        const y = btn.container.y;
+        const glow = this.add.rectangle(x0, y, 26, 54, 0x22d3ee, 0.18).setDepth(30);
+        const beam = this.add.rectangle(x0, y, 3, 56, 0x67e8f9, 1).setDepth(31);
+        if (window.NetFX) NetFX.sound('tick');
+        return new Promise((resolve) => this.tweens.add({
+            targets: [beam, glow], x: x0 + w, duration: fx.reduced() ? 1 : 700, ease: 'Sine.easeInOut', yoyo: !fx.reduced(),
+            onComplete: () => { beam.destroy(); glow.destroy(); resolve(); },
+        }));
+    }
+
+    async execute(data, ok) {
+        const fx = PuzzleUtils.fx;
+        const { width } = this.scale;
+        const restoreSpeed = fx.enableSpeedUp(this);
+        const btn = this.optionButtons.find((b) => b.id === this.selectedOptionId);
+        this.clearVerdict();
+        if (!btn) { restoreSpeed(); return; }
+
+        try {
+            await this.scan(btn);
+            const { x, y } = btn.container;
+
+            if (ok) {
+                btn.bg.setFillStyle(0x052e1a, 1).setStrokeStyle(2, 0x22c55e);
+                btn.badgeBg.setFillStyle(0x16a34a);
+                if (window.NetFX) NetFX.sound('success');
+                fx.burst(this, x, y, 0x22c55e, 20);
+
+                // Device signature card slides in beside the matched option
+                const cardX = Math.min(width - 110, x + btn.bg.width / 2 - 100);
+                const card = this.add.container(cardX, y - 44).setDepth(40).setAlpha(0);
+                const cbg = this.add.rectangle(0, 0, 200, 40, 0x022c22, 0.97).setStrokeStyle(1, 0x22c55e);
+                const head = this.add.text(-90, -9, 'DEVICE SIGNATURE', { font: 'bold 10px monospace', fill: '#4ade80' }).setOrigin(0, 0.5);
+                const body = this.add.text(-90, 8, `✓ ${btn.label}`.slice(0, 30), { font: '12px "Inter", sans-serif', fill: '#e2e8f0' }).setOrigin(0, 0.5);
+                card.add([cbg, head, body]);
+                this._verdict = [card];
+                await new Promise((r) => this.tweens.add({ targets: card, alpha: 1, y: y - 40, duration: fx.reduced() ? 1 : 260, onComplete: r }));
+            } else {
+                btn.bg.setFillStyle(0x3b0a0a, 1).setStrokeStyle(2, 0xef4444);
+                btn.badgeBg.setFillStyle(0xb91c1c);
+                if (window.NetFX) NetFX.sound('error');
+
+                // Rotated rubber stamp over the card
+                const stamp = this.add.container(x + btn.bg.width * 0.18, y).setDepth(40).setAngle(-8);
+                const sbg = this.add.rectangle(0, 0, 214, 30, 0x000000, 0).setStrokeStyle(3, 0xef4444);
+                const stxt = this.add.text(0, 0, 'SIGNATURE MISMATCH', { font: 'bold 14px monospace', fill: '#f87171' }).setOrigin(0.5);
+                stamp.add([sbg, stxt]);
+                this._verdict = [stamp];
+                if (!fx.reduced()) {
+                    stamp.setScale(1.8).setAlpha(0);
+                    await new Promise((r) => this.tweens.add({ targets: stamp, scale: 1, alpha: 1, duration: 180, ease: 'Back.easeOut', onComplete: r }));
+                }
+                fx.shake(this);
+                await fx.wait(this, 300);
+            }
+        } finally {
+            restoreSpeed();
+        }
     }
 }
 

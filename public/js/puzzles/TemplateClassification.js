@@ -59,10 +59,8 @@ class TemplateClassification extends Phaser.Scene {
             this.binZones[cat.id] = zone;
 
             const g = this.add.graphics();
-            g.fillStyle(0x0c1e36, 0.7);
-            g.fillRect(bx - (binWidth / 2), binY - (binHeight / 2), binWidth, binHeight);
-            g.lineStyle(2, 0x10b981, 0.7);
-            g.strokeRect(bx - (binWidth / 2), binY - (binHeight / 2), binWidth, binHeight);
+            zone._g = g;
+            this.paintBin(zone, 0x10b981, 0.7);
 
             this.add.text(bx, binY - (binHeight / 2) + 18, cat.label, {
                 font: 'bold 12px "Inter", sans-serif',
@@ -112,6 +110,9 @@ class TemplateClassification extends Phaser.Scene {
 
         // ── Drag & Drop Events ───────────────────────────────────────────
         this.input.on('dragstart', (pointer, gameObject) => {
+            if (this._executing) return;
+            this.clearMarks();
+            if (window.NetFX) NetFX.sound('click');
             this.children.bringToTop(gameObject);
             gameObject.setScale(1);
             gameObject._bg.setFillStyle(0x0f2a4a);
@@ -119,11 +120,13 @@ class TemplateClassification extends Phaser.Scene {
         });
 
         this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
+            if (this._executing) return;
             gameObject.x = dragX;
             gameObject.y = dragY;
         });
 
         this.input.on('drop', (pointer, gameObject, dropZone) => {
+            if (this._executing) return;
             const itemId = gameObject.getData('itemId');
             const catId = dropZone.getData('categoryId');
 
@@ -202,42 +205,102 @@ class TemplateClassification extends Phaser.Scene {
         });
     }
 
+    paintBin(zone, color, alpha = 0.7, fill = 0x0c1e36) {
+        const w = zone.getData('binWidth');
+        const h = zone.getData('binHeight');
+        zone._g.clear();
+        zone._g.fillStyle(fill, 0.7);
+        zone._g.fillRect(zone.x - w / 2, zone.y - h / 2, w, h);
+        zone._g.lineStyle(2, color, alpha);
+        zone._g.strokeRect(zone.x - w / 2, zone.y - h / 2, w, h);
+    }
+
+    clearMarks() {
+        Object.values(this.binZones || {}).forEach((z) => {
+            this.paintBin(z, 0x10b981, 0.7);
+            if (z._count) { z._count.destroy(); z._count = null; }
+        });
+        if (this._misrouted) { this._misrouted.destroy(); this._misrouted = null; }
+        this.itemTokens.forEach((t) => {
+            if (this.placements[t.getData('itemId')]) t._bg.setFillStyle(0x064e3b).setStrokeStyle(1, 0x34d399);
+        });
+    }
+
+    setLocked(locked) {
+        this._executing = locked;
+        this.itemTokens.forEach((t) => (locked ? t.disableInteractive() : t.setInteractive({ useHandCursor: true })));
+    }
+
     handleSubmit() {
         const placedCount = Object.keys(this.placements).length;
         if (placedCount < this.totalItems) {
-            PuzzleUtils.showToast(`⚠️ Please categorize all ${this.totalItems} items. (${placedCount}/${this.totalItems} placed)`, 'warning');
+            PuzzleUtils.showToast(`⚠️ Sort all ${this.totalItems} items first. (${placedCount}/${this.totalItems} placed)`, 'warning');
             return;
         }
-
         if (this._isSubmitting) return;
         this._isSubmitting = true;
+        this._submitBtnBg.disableInteractive().setFillStyle(0x334155);
+        this.setLocked(true);
 
-        if (this._submitBtnBg) {
-            this._submitBtnBg.disableInteractive();
-            this._submitBtnBg.setFillStyle(0x334155);
-        }
+        const unlock = () => {
+            this._isSubmitting = false;
+            this.setLocked(false);
+            this._submitBtnBg.setInteractive({ useHandCursor: true }).setFillStyle(0x059669);
+        };
 
-        PuzzleUtils.submitResponse({
-            placements: this.placements
-        }, {
-            onSuccess: () => {
-                if (this._submitBtnBg) this._submitBtnBg.setFillStyle(0x059669);
-            },
-            onRetry: () => {
-                this._isSubmitting = false;
-                if (this._submitBtnBg) {
-                    this._submitBtnBg.setInteractive({ useHandCursor: true });
-                    this._submitBtnBg.setFillStyle(0x0284c7);
-                }
-            },
-            onError: () => {
-                this._isSubmitting = false;
-                if (this._submitBtnBg) {
-                    this._submitBtnBg.setInteractive({ useHandCursor: true });
-                    this._submitBtnBg.setFillStyle(0x0284c7);
-                }
-            }
+        PuzzleUtils.submitResponse({ placements: this.placements }, {
+            onResult: (data, ok) => this.execute(data, ok),
+            onSuccess: () => this._submitBtnBg.setFillStyle(0x059669),
+            onRetry: unlock,
+            onError: unlock,
         });
+    }
+
+    /** Scan the sorted items one by one; reject the first misrouted item or light every bin. */
+    async execute(data, ok) {
+        const fx = PuzzleUtils.fx;
+        const restoreSpeed = fx.enableSpeedUp(this);
+        this.clearMarks();
+        const failId = ok ? null : (data && data.diagnostics ? data.diagnostics.first_error : null);
+        // Natural id order (item_1, item_2…) mirrors the authored order the server checks in
+        const order = [...this.itemTokens].sort((a, b) => String(a.getData('itemId')).localeCompare(String(b.getData('itemId')), undefined, { numeric: true }));
+
+        try {
+            for (const token of order) {
+                const id = token.getData('itemId');
+                if (window.NetFX) NetFX.sound('tick');
+                await new Promise((r) => this.tweens.add({ targets: token, scaleX: token.scaleX * 1.12, scaleY: token.scaleY * 1.12, yoyo: true, duration: fx.reduced() ? 1 : 110, onComplete: r }));
+
+                if (id === failId) {
+                    token._bg.setFillStyle(0x3b0d12).setStrokeStyle(2, 0xef4444);
+                    const homeY = token.y;
+                    await new Promise((r) => this.tweens.add({ targets: token, y: homeY - 26, duration: fx.reduced() ? 1 : 160, yoyo: true, ease: 'Quad.easeOut', onComplete: r }));
+                    fx.shake(this);
+                    if (window.NetFX) NetFX.sound('drop');
+                    this._misrouted = this.add.text(token.x, token.y - 22, 'Misrouted', {
+                        font: 'bold 11px "Inter", sans-serif', fill: '#fecaca', backgroundColor: '#7f1d1d', padding: { x: 6, y: 2 },
+                    }).setOrigin(0.5).setDepth(30);
+                    return;
+                }
+                // Scanned: neutral highlight only (other items' correctness is not revealed)
+                token._bg.setStrokeStyle(2, ok ? 0x22c55e : 0x22d3ee);
+                await fx.wait(this, 40);
+            }
+
+            if (ok) {
+                Object.values(this.binZones).forEach((z) => {
+                    this.paintBin(z, 0x22c55e, 1, 0x052e1a);
+                    const count = Object.values(this.placements).filter((c) => c === z.getData('categoryId')).length;
+                    z._count = this.add.text(z.x + z.getData('binWidth') / 2 - 8, z.y - z.getData('binHeight') / 2 + 8, `✓ ${count}`, {
+                        font: 'bold 12px "Inter", sans-serif', fill: '#4ade80',
+                    }).setOrigin(1, 0).setDepth(30);
+                    fx.burst(this, z.x, z.y, 0x22c55e, 12);
+                });
+                if (window.NetFX) NetFX.sound('linkup');
+            }
+        } finally {
+            restoreSpeed();
+        }
     }
 }
 

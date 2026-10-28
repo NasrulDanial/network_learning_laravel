@@ -1,6 +1,10 @@
 /**
  * TemplateMatching.js
  * Phaser 3 Puzzle Archetype 2: Matching Protocols, Ports & Layer Definitions.
+ *
+ * Submits { pairs }. Each pair is then patched in as a cable, one at a time, with a spark
+ * running along it: the first wrong pair (diagnostics.first_error, a left id) sparks red
+ * and snaps; a fully correct set pulses green together.
  */
 class TemplateMatching extends Phaser.Scene {
     constructor() {
@@ -117,6 +121,7 @@ class TemplateMatching extends Phaser.Scene {
     }
 
     handleLeftClick(leftId) {
+        if (this._executing) return;
         this.selectedLeft = leftId;
         Object.entries(this.leftNodes).forEach(([id, node]) => {
             if (id === leftId) {
@@ -130,6 +135,7 @@ class TemplateMatching extends Phaser.Scene {
     }
 
     handleRightClick(rightId) {
+        if (this._executing) return;
         if (!this.selectedLeft) {
             PuzzleUtils.showToast('ℹ️ Select a concept on the left first.', 'info', 2000);
             return;
@@ -154,7 +160,10 @@ class TemplateMatching extends Phaser.Scene {
     }
 
     redrawLines() {
+        this.clearSnap();
         this.lineGraphics.clear();
+        // Reset every node, then highlight the paired ones
+        [...Object.values(this.leftNodes), ...Object.values(this.rightNodes)].forEach((n) => n.bg.setFillStyle(0x0f1f38).setStrokeStyle(1, 0x1e3a5f));
         this.lineGraphics.lineStyle(2, 0x22d3ee, 0.85);
 
         Object.entries(this.pairs).forEach(([lId, rId]) => {
@@ -185,33 +194,141 @@ class TemplateMatching extends Phaser.Scene {
         }
 
         this._isSubmitting = true;
+        this._executing = true;
+        if (this._submitBtnBg) this._submitBtnBg.disableInteractive().setFillStyle(0x334155);
 
-        if (this._submitBtnBg) {
-            this._submitBtnBg.disableInteractive();
-            this._submitBtnBg.setFillStyle(0x334155);
-        }
+        const unlock = () => {
+            this._isSubmitting = false;
+            this._executing = false;
+            if (this._submitBtnBg) this._submitBtnBg.setInteractive({ useHandCursor: true }).setFillStyle(0x7c3aed);
+        };
 
-        PuzzleUtils.submitResponse({
-            pairs: this.pairs
-        }, {
-            onSuccess: () => {
-                if (this._submitBtnBg) this._submitBtnBg.setFillStyle(0x059669);
-            },
-            onRetry: () => {
-                this._isSubmitting = false;
-                if (this._submitBtnBg) {
-                    this._submitBtnBg.setInteractive({ useHandCursor: true });
-                    this._submitBtnBg.setFillStyle(0x0284c7);
-                }
-            },
-            onError: () => {
-                this._isSubmitting = false;
-                if (this._submitBtnBg) {
-                    this._submitBtnBg.setInteractive({ useHandCursor: true });
-                    this._submitBtnBg.setFillStyle(0x0284c7);
-                }
-            }
+        PuzzleUtils.submitResponse({ pairs: this.pairs }, {
+            onResult: (data, ok) => this.execute(data, ok),
+            onSuccess: () => { if (this._submitBtnBg) this._submitBtnBg.setFillStyle(0x059669); },
+            onRetry: unlock, // the snapped cable stays visible until the student re-patches
+            onError: () => { unlock(); this.clearSnap(); this.redrawLines(); },
         });
+    }
+
+    // Cable between a left and right node as a cubic Bezier
+    cableCurve(lNode, rNode) {
+        const dx = (rNode.x - lNode.x) * 0.45;
+        return new Phaser.Curves.CubicBezier(
+            new Phaser.Math.Vector2(lNode.x, lNode.y),
+            new Phaser.Math.Vector2(lNode.x + dx, lNode.y),
+            new Phaser.Math.Vector2(rNode.x - dx, rNode.y),
+            new Phaser.Math.Vector2(rNode.x, rNode.y),
+        );
+    }
+
+    strokeCurves(curves, color, width = 3, alpha = 0.95) {
+        this.lineGraphics.lineStyle(width, color, alpha);
+        curves.forEach((c) => this.lineGraphics.strokePoints(c.getPoints(32), false, false));
+    }
+
+    // Draws the cable progressively with a spark at its tip, on top of the cables already patched
+    patchCable(curve, color, done) {
+        const fx = PuzzleUtils.fx;
+        const spark = fx.packet(this, curve.p0.x, curve.p0.y, color);
+        const pts = curve.getPoints(32);
+        const drawTo = (t) => {
+            this.lineGraphics.clear();
+            this.strokeCurves(done, 0x22d3ee);
+            this.lineGraphics.lineStyle(3, color, 0.95);
+            this.lineGraphics.strokePoints(pts.filter((_, i) => i / 32 <= t).concat([curve.getPoint(t)]), false, false);
+        };
+        return new Promise((resolve) => {
+            const state = { t: 0 };
+            this.tweens.add({
+                targets: state, t: 1, duration: fx.reduced() ? 1 : 520, ease: 'Sine.easeInOut',
+                onUpdate: () => {
+                    const p = curve.getPoint(state.t);
+                    spark.c.setPosition(p.x, p.y);
+                    spark.glow.setPosition(p.x, p.y);
+                    drawTo(state.t);
+                },
+                onComplete: () => { drawTo(1); spark.destroy(); resolve(); },
+            });
+        });
+    }
+
+    // The two halves of a red cable fall apart and fade
+    snapCable(curve) {
+        const fx = PuzzleUtils.fx;
+        const mid = curve.getPoint(0.5);
+        const pts = curve.getPoints(32);
+        this.clearSnap();
+        this._snapped = [[0, 0.46, -1], [0.54, 1, 1]].map(([a, b, dir]) => {
+            const g = this.add.graphics().setDepth(5);
+            g.lineStyle(3, 0xef4444, 1).strokePoints(pts.filter((_, i) => i / 32 >= a && i / 32 <= b), false, false);
+            this.tweens.add({ targets: g, y: 22, x: dir * 8, alpha: 0.25, duration: fx.reduced() ? 1 : 650, ease: 'Quad.easeIn' });
+            return g;
+        });
+        fx.burst(this, mid.x, mid.y, 0xef4444, 18);
+        return fx.wait(this, 450);
+    }
+
+    clearSnap() {
+        if (this._snapped) this._snapped.forEach((g) => g.destroy());
+        this._snapped = null;
+    }
+
+    paintNode(node, color, fill) {
+        node.bg.setFillStyle(fill).setStrokeStyle(2, color);
+    }
+
+    async execute(data, ok) {
+        const fx = PuzzleUtils.fx;
+        const restoreSpeed = fx.enableSpeedUp(this);
+        const firstError = data && data.diagnostics ? data.diagnostics.first_error : null;
+        this.clearSnap();
+        this.redrawLines(); // resets node colours from a previous attempt
+        this.lineGraphics.clear();
+
+        try {
+            // Left column order (insertion order of leftNodes)
+            const order = Object.keys(this.leftNodes).filter((id) => this.pairs[id]);
+            const done = [];
+            for (const lId of order) {
+                const lNode = this.leftNodes[lId];
+                const rNode = this.rightNodes[this.pairs[lId]];
+                if (!lNode || !rNode) continue;
+                const curve = this.cableCurve(lNode, rNode);
+                const isBad = !ok && lId === firstError;
+                if (window.NetFX) NetFX.sound(isBad ? 'error' : 'packet');
+                await this.patchCable(curve, isBad ? 0xef4444 : 0x22d3ee, done);
+                if (isBad) {
+                    this.paintNode(lNode, 0xef4444, 0x3b0a0a);
+                    this.paintNode(rNode, 0xef4444, 0x3b0a0a);
+                    this.lineGraphics.clear();
+                    this.strokeCurves(done, 0x22d3ee);
+                    fx.shake(this);
+                    await this.snapCable(curve);
+                    return;
+                }
+                done.push(curve);
+            }
+
+            if (ok) {
+                const pulse = { a: 1 };
+                const paint = () => {
+                    this.lineGraphics.clear();
+                    this.strokeCurves(done, 0x22c55e, 3 + 2 * (1 - pulse.a), 0.5 + 0.5 * pulse.a);
+                };
+                order.forEach((lId) => {
+                    this.paintNode(this.leftNodes[lId], 0x22c55e, 0x052e1a);
+                    this.paintNode(this.rightNodes[this.pairs[lId]], 0x22c55e, 0x052e1a);
+                });
+                if (window.NetFX) NetFX.sound('linkup');
+                await new Promise((r) => this.tweens.add({
+                    targets: pulse, a: 0.2, duration: fx.reduced() ? 1 : 260, yoyo: true, repeat: 1,
+                    onUpdate: paint, onComplete: () => { pulse.a = 1; paint(); r(); },
+                }));
+            }
+        } finally {
+            restoreSpeed();
+        }
     }
 }
 
