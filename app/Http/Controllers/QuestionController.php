@@ -44,6 +44,7 @@ class QuestionController extends Controller
             'option_c' => ['required', 'string', 'max:255'],
             'option_d' => ['required', 'string', 'max:255'],
             'correct_answer' => ['required', 'in:A,B,C,D'],
+            'explanation' => ['nullable', 'string', 'max:600'],
         ]);
 
         Question::create([
@@ -54,6 +55,7 @@ class QuestionController extends Controller
             'option_c' => $data['option_c'],
             'option_d' => $data['option_d'],
             'correct_answer' => $data['correct_answer'],
+            'explanation' => $data['explanation'] ?? null,
         ]);
 
         return redirect()
@@ -90,6 +92,7 @@ class QuestionController extends Controller
             'option_c' => ['required', 'string', 'max:255'],
             'option_d' => ['required', 'string', 'max:255'],
             'correct_answer' => ['required', 'in:A,B,C,D'],
+            'explanation' => ['nullable', 'string', 'max:600'],
         ]);
 
         $question->update([
@@ -99,6 +102,7 @@ class QuestionController extends Controller
             'option_c' => $data['option_c'],
             'option_d' => $data['option_d'],
             'correct_answer' => $data['correct_answer'],
+            'explanation' => $data['explanation'] ?? null,
         ]);
 
         return redirect()

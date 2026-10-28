@@ -1,7 +1,9 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="quiz-stepper-container" id="quizStepper">
+<div class="quiz-stepper-container" id="quizStepper"
+     data-check-url="{{ route('student.quiz.check', $quiz->quiz_id) }}"
+     data-checked='@json((object) $checked)'>
     <!-- Top Breadcrumb & Metadata -->
     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
         <a class="button secondary" href="{{ route('student.quiz') }}" style="font-size: 0.82rem; padding: 8px 16px;">
@@ -48,6 +50,17 @@
             </div>
         </div>
     </div>
+
+    <!-- Quiz HUD: answers are checked one by one and come back as ACK (correct) or RST (wrong) -->
+    <div class="quiz-hud" id="quizHud" hidden>
+        <span class="quiz-hud-item" title="Correct answers in a row"><i class="fa-solid fa-fire" aria-hidden="true"></i> <span id="quizStreak">x0</span></span>
+        <span class="quiz-hud-item quiz-hud-health" id="quizHealth" title="Link health (cosmetic: keep all three for a flawless run)" aria-label="Link health 3 of 3">
+            <i class="fa-solid fa-heart" aria-hidden="true"></i><i class="fa-solid fa-heart" aria-hidden="true"></i><i class="fa-solid fa-heart" aria-hidden="true"></i>
+        </span>
+        <span class="quiz-hud-item"><strong id="quizAckCount">0</strong>&nbsp;ACK / <span id="quizAnsweredCount">0</span>&nbsp;sent</span>
+        <span class="quiz-hud-server" id="quizServer" title="Quiz server"><i class="fa-solid fa-server" aria-hidden="true"></i></span>
+    </div>
+    <div class="visually-hidden" id="quizLive" aria-live="polite" aria-atomic="true"></div>
 
     <!-- Integrity / Convergence Progress Bar -->
     <div style="height: 4px; background: rgba(255, 255, 255, 0.08); border-radius: 99px; margin-bottom: 24px; overflow: hidden;">
@@ -98,6 +111,11 @@
                             </label>
                         @endforeach
                     </div>
+
+                    <div class="quiz-explain" hidden>
+                        <div class="quiz-explain-head"></div>
+                        <p class="quiz-explain-text"></p>
+                    </div>
                 </div>
             </div>
         @endforeach
@@ -116,8 +134,10 @@
 
             <div style="font-size: 0.75rem; color: var(--nl-text-tertiary); display: flex; align-items: center; gap: 6px;">
                 <i class="fa-regular fa-keyboard"></i>
-                <span>Keyboard: [A, B, C, D] to select, [←, →] to navigate</span>
+                <span id="quizKeyHint">Keyboard: [A, B, C, D] to select, [←, →] to navigate</span>
             </div>
+
+            <div class="quiz-summary" id="quizSummary" hidden></div>
 
             <div>
                 <button

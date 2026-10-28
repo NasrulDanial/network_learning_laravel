@@ -332,20 +332,78 @@ public function quiz(Quiz $quiz)
             ]);
     }
 
+    // Answers already checked in this attempt come back locked (e.g. after a reload)
+    $locked = session(self::quizRunKey($quiz), [])['answers'] ?? [];
+    $checked = [];
+    foreach ($quiz->questions as $question) {
+        if (isset($locked[$question->question_id])) {
+            $checked[$question->question_id] = self::quizVerdict($question, $locked[$question->question_id], true);
+        }
+    }
+
     return view('student.quiz', [
         'pageTitle' => 'Quiz Challenge',
         'activePage' => 'quiz',
         'quiz' => $quiz,
         'topic' => $quiz->topic,
         'questions' => $quiz->questions,
+        'checked' => $checked,
     ]);
+}
+
+private static function quizRunKey(Quiz $quiz): string
+{
+    return 'quizrun.' . $quiz->quiz_id;
+}
+
+/** Verdict for a locked answer. The correct option and explanation are only revealed once locked. */
+private static function quizVerdict(Question $question, string $answer, bool $alreadyLocked): array
+{
+    return [
+        'question_id' => $question->question_id,
+        'answer' => $answer,
+        'correct' => $answer === $question->correct_answer,
+        'correct_answer' => $question->correct_answer,
+        'explanation' => $question->explanation,
+        'locked' => $alreadyLocked,
+    ];
+}
+
+public function checkQuizAnswer(Request $request, Quiz $quiz)
+{
+    $data = $request->validate([
+        'question_id' => ['required', 'integer'],
+        'answer' => ['required', 'in:A,B,C,D'],
+    ]);
+
+    $quiz->load('topic');
+    if (! $quiz->topic || ! $quiz->topic->isUnlockedFor(auth()->user()->user_id)) {
+        abort(403);
+    }
+
+    $question = Question::where('quiz_id', $quiz->quiz_id)
+        ->where('question_id', $data['question_id'])
+        ->firstOrFail();
+
+    $key = self::quizRunKey($quiz);
+    $run = session($key, ['answers' => [], 'started_at' => now()->timestamp]);
+
+    // Once checked, an answer cannot be changed: return the stored verdict
+    if (isset($run['answers'][$question->question_id])) {
+        return response()->json(self::quizVerdict($question, $run['answers'][$question->question_id], true));
+    }
+
+    $run['answers'][$question->question_id] = $data['answer'];
+    session([$key => $run]);
+
+    return response()->json(self::quizVerdict($question, $data['answer'], false));
 }
 
 public function submitQuiz(Request $request)
 {
     $data = $request->validate([
         'quiz_id' => ['required', 'integer', 'exists:quizzes,quiz_id'],
-        'answers' => ['required', 'array'],
+        'answers' => ['nullable', 'array'],
     ]);
 
     $userId = auth()->user()->user_id;
@@ -368,6 +426,14 @@ public function submitQuiz(Request $request)
 
     $totalQuestions = $questions->count();
 
+    // Answers checked during the attempt are locked: they override anything posted
+    $runKey = self::quizRunKey($quiz);
+    $locked = session($runKey, [])['answers'] ?? [];
+    $answers = $data['answers'] ?? [];
+    foreach ($locked as $questionId => $answer) {
+        $answers[$questionId] = $answer;
+    }
+
     if ($totalQuestions < 1) {
         return redirect()
             ->route('student.quiz.take', $quiz->quiz_id)
@@ -381,7 +447,7 @@ public function submitQuiz(Request $request)
 
     foreach ($questions as $question) {
         $questionId = $question->question_id;
-        $selectedAnswer = $data['answers'][$questionId] ?? '';
+        $selectedAnswer = $answers[$questionId] ?? '';
 
         if (in_array($selectedAnswer, ['A', 'B', 'C', 'D'], true)) {
             $answeredQuestions++;
@@ -421,6 +487,8 @@ public function submitQuiz(Request $request)
     } else {
         $pointsEarned = $hasAttemptedBefore ? 0 : 20;
     }
+
+    session()->forget($runKey);
 
     $result = Result::create([
         'user_id' => $userId,

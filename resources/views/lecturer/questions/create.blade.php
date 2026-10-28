@@ -102,6 +102,13 @@
                 </select>
             </div>
 
+            <div class="form-group">
+                <label for="explanation">Explanation <span style="font-weight: 400; opacity: .7;">(optional, shown after the student answers)</span></label>
+                <textarea id="explanation" name="explanation" rows="3" maxlength="600" aria-describedby="explanation_hint"
+                    placeholder="Why the correct answer is right, in one or two sentences.">{{ old('explanation') }}</textarea>
+                <small id="explanation_hint" style="display: block; opacity: .65; margin-top: 4px;">Up to 600 characters. Revealed only once the answer is locked.</small>
+            </div>
+
             <div class="actions">
                 <button type="submit">
                     <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>

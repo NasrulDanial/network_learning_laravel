@@ -60,6 +60,11 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::post('/student/quiz/submit', [StudentController::class, 'submitQuiz'])
         ->name('student.quiz.submit');
 
+    // Instant per-question check; the answer is locked in the session once checked
+    Route::post('/student/quiz/{quiz}/check', [StudentController::class, 'checkQuizAnswer'])
+        ->middleware('throttle:60,1')
+        ->name('student.quiz.check');
+
     Route::get('/student/result/{result}', [StudentController::class, 'result'])
         ->name('student.result');
 

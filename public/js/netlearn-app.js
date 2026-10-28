@@ -295,9 +295,13 @@
     }
 
     // ── 4. Gamified Quiz Stepper ──
+    // With data-check-url, each answer is checked (and locked) on the server as soon as it is
+    // picked and comes back as ACK (correct) or RST (wrong) with the explanation. Without JS the
+    // radios still submit the plain form.
     window.initQuizStepper = function () {
         const stepper = document.getElementById('quizStepper');
-        if (!stepper) return;
+        if (!stepper || stepper.dataset.stepperReady) return;
+        stepper.dataset.stepperReady = '1';
 
         const slides = stepper.querySelectorAll('.quiz-slide');
         const dots = stepper.querySelectorAll('.stepper-node-dot');
@@ -307,8 +311,24 @@
         const counterCurrent = document.getElementById('stepperCurrentNum');
         const integrityBar = document.getElementById('stepperIntegrityBar');
 
+        const checkUrl = stepper.dataset.checkUrl;
+        const checkMode = !!checkUrl && !!window.fetch;
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.content
+            || stepper.querySelector('input[name="_token"]')?.value || '';
+        const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const verdicts = {}; // slide index -> verdict
+        let streak = 0;
+
         let currentIdx = 0;
         const total = slides.length;
+
+        const questionIdOf = (slide) => {
+            const radio = slide.querySelector('input[type="radio"]');
+            const m = radio && radio.name.match(/answers\[(\d+)\]/);
+            return m ? Number(m[1]) : null;
+        };
+        const isLocked = (idx) => !!verdicts[idx];
+        const allLocked = () => Object.keys(verdicts).length === total;
 
         function updateStep(newIdx) {
             if (newIdx < 0 || newIdx >= total) return;
@@ -320,7 +340,7 @@
 
             dots.forEach((dot, idx) => {
                 dot.classList.toggle('current', idx === currentIdx);
-                dot.classList.toggle('completed', idx < currentIdx);
+                if (!checkMode) dot.classList.toggle('completed', idx < currentIdx);
             });
 
             if (counterCurrent) counterCurrent.textContent = currentIdx + 1;
@@ -329,9 +349,163 @@
                 integrityBar.style.width = pct + '%';
             }
 
+            const last = currentIdx === total - 1;
+            // In check mode "Next" waits until the current answer is locked
+            const canAdvance = !checkMode || isLocked(currentIdx);
             if (prevBtn) prevBtn.style.display = currentIdx > 0 ? 'inline-flex' : 'none';
-            if (nextBtn) nextBtn.style.display = currentIdx < total - 1 ? 'inline-flex' : 'none';
-            if (submitBtn) submitBtn.style.display = currentIdx === total - 1 ? 'inline-flex' : 'none';
+            if (nextBtn) nextBtn.style.display = !last && canAdvance ? 'inline-flex' : 'none';
+            if (submitBtn) submitBtn.style.display = last && (!checkMode || allLocked()) ? 'inline-flex' : 'none';
+            renderSummary();
+        }
+
+        // ── Check mode helpers ──
+        const hud = document.getElementById('quizHud');
+        const live = document.getElementById('quizLive');
+        if (checkMode && hud) hud.hidden = false;
+
+        function renderHud() {
+            const sent = Object.keys(verdicts).length;
+            const acks = Object.values(verdicts).filter((v) => v.correct).length;
+            const rsts = sent - acks;
+            const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+            set('quizStreak', 'x' + streak);
+            set('quizAckCount', acks);
+            set('quizAnsweredCount', sent);
+            const health = document.getElementById('quizHealth');
+            if (health) {
+                const left = Math.max(0, 3 - rsts);
+                health.querySelectorAll('i').forEach((h, i) => h.classList.toggle('is-lost', i >= left));
+                health.setAttribute('aria-label', `Link health ${left} of 3`);
+            }
+        }
+
+        function renderSummary() {
+            const box = document.getElementById('quizSummary');
+            if (!box || !checkMode) return;
+            if (!allLocked() || currentIdx !== total - 1) { box.hidden = true; return; }
+            const acks = Object.values(verdicts).filter((v) => v.correct).length;
+            box.hidden = false;
+            box.innerHTML = `<i class="fa-solid fa-satellite-dish" aria-hidden="true"></i> Transmission summary: <strong>${acks}/${total} ACK</strong>`
+                + (acks === total ? ' <span class="quiz-flawless">Flawless</span>' : '');
+        }
+
+        // A packet travels from the option to the server icon and returns ACK or RST
+        function flyPacket(option, ok) {
+            const server = document.getElementById('quizServer');
+            if (reduced || !server || !option.animate) return Promise.resolve();
+            const a = option.querySelector('.option-key-badge').getBoundingClientRect();
+            const b = server.getBoundingClientRect();
+            const pkt = document.createElement('span');
+            pkt.className = 'quiz-packet ' + (ok ? 'is-ack' : 'is-rst');
+            pkt.textContent = ok ? 'ACK' : 'RST';
+            document.body.appendChild(pkt);
+            const from = `translate(${a.left + a.width / 2}px, ${a.top + a.height / 2}px)`;
+            const to = `translate(${b.left + b.width / 2}px, ${b.top + b.height / 2}px)`;
+            const anim = pkt.animate([
+                { transform: from + ' scale(.6)', opacity: 0 },
+                { transform: to + ' scale(.8)', opacity: 1, offset: 0.45 },
+                { transform: from + ' scale(1)', opacity: 1, offset: 0.9 },
+                { transform: from + ' scale(1)', opacity: 0 },
+            ], { duration: 900, easing: 'ease-in-out' });
+            // Background tabs can pause animations, so never let the verdict wait longer than this
+            const timeout = new Promise((r) => setTimeout(r, 1200));
+            return Promise.race([anim.finished.catch(() => {}), timeout]).then(() => pkt.remove());
+        }
+
+        function applyVerdict(idx, v, animate) {
+            const slide = slides[idx];
+            verdicts[idx] = v;
+            slide.classList.add('is-locked');
+            slide.querySelectorAll('.gamified-option').forEach((opt) => {
+                const key = opt.dataset.option;
+                const radio = opt.querySelector('input[type="radio"]');
+                if (radio) radio.checked = key === v.answer; // server's locked answer wins
+                opt.classList.toggle('selected', key === v.answer);
+                opt.classList.toggle('is-ack', key === v.answer && v.correct);
+                opt.classList.toggle('is-rst', key === v.answer && !v.correct);
+                opt.classList.toggle('is-correct', key === v.correct_answer && !v.correct);
+                opt.setAttribute('aria-disabled', 'true');
+                if (animate && key === v.answer && !v.correct && !reduced) {
+                    opt.classList.add('is-shaking');
+                    setTimeout(() => opt.classList.remove('is-shaking'), 450);
+                }
+            });
+            if (dots[idx]) {
+                dots[idx].classList.add(v.correct ? 'is-ack' : 'is-rst');
+                dots[idx].classList.remove('completed');
+            }
+
+            const box = slide.querySelector('.quiz-explain');
+            if (box) {
+                box.hidden = false;
+                box.classList.toggle('is-ack', v.correct);
+                box.classList.toggle('is-rst', !v.correct);
+                box.querySelector('.quiz-explain-head').textContent = v.correct
+                    ? 'ACK: correct'
+                    : `RST: the correct answer is ${v.correct_answer}`;
+                const text = v.explanation || (v.correct ? 'Nice work.' : 'Review this one before the next attempt.');
+                const p = box.querySelector('.quiz-explain-text');
+                if (animate && window.NetFX && NetFX.typeText) NetFX.typeText(p, text, 90);
+                else p.textContent = text;
+            }
+        }
+
+        function recomputeStreak() {
+            streak = 0;
+            for (let i = 0; i < total; i++) {
+                if (!verdicts[i]) continue;
+                streak = verdicts[i].correct ? streak + 1 : 0;
+            }
+        }
+
+        async function checkAnswer(idx, option) {
+            const slide = slides[idx];
+            if (isLocked(idx) || slide.classList.contains('is-checking')) return;
+            const qid = questionIdOf(slide);
+            slide.classList.add('is-checking');
+            slide.querySelectorAll('.gamified-option').forEach((opt) => opt.classList.toggle('selected', opt === option));
+            if (window.NetFX) NetFX.sound('packet');
+
+            try {
+                const res = await fetch(checkUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
+                    body: JSON.stringify({ question_id: qid, answer: option.dataset.option }),
+                });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const v = await res.json();
+                await flyPacket(option, v.correct);
+                applyVerdict(idx, v, true);
+                recomputeStreak();
+                renderHud();
+                if (window.NetFX) {
+                    NetFX.sound(v.correct ? 'success' : 'error');
+                    if (!v.correct) NetFX.vibrate && NetFX.vibrate(80);
+                }
+                if (live) live.textContent = v.correct
+                    ? `Question ${idx + 1}: correct.`
+                    : `Question ${idx + 1}: wrong. The correct answer is ${v.correct_answer}.`;
+                updateStep(currentIdx);
+            } catch (e) {
+                slide.querySelectorAll('.gamified-option').forEach((opt) => opt.classList.remove('selected'));
+                if (live) live.textContent = 'Could not check that answer. Please try again.';
+                
+            } finally {
+                slide.classList.remove('is-checking');
+            }
+        }
+
+        if (checkMode) {
+            let restored = {};
+            try { restored = JSON.parse(stepper.dataset.checked || '{}') || {}; } catch (e) { restored = {}; }
+            slides.forEach((slide, idx) => {
+                const v = restored[questionIdOf(slide)];
+                if (v) applyVerdict(idx, v, false);
+            });
+            recomputeStreak();
+            renderHud();
+            const hint = document.getElementById('quizKeyHint');
+            if (hint) hint.textContent = 'Keyboard: [A, B, C, D] to answer, [Enter] for next';
         }
 
         if (prevBtn) {
@@ -348,19 +522,32 @@
             });
         }
 
-        // Dot navigation
+        // Dot navigation (in check mode only to answered questions and the next open one)
         dots.forEach((dot, idx) => {
-            dot.addEventListener('click', () => updateStep(idx));
+            dot.addEventListener('click', () => {
+                if (checkMode) {
+                    const firstOpen = [...Array(total).keys()].find((i) => !isLocked(i));
+                    if (!isLocked(idx) && idx !== firstOpen) return;
+                }
+                updateStep(idx);
+            });
         });
 
         // Option selection
         stepper.querySelectorAll('.gamified-option').forEach(option => {
-            option.addEventListener('click', function () {
+            option.addEventListener('click', function (e) {
                 const radio = this.querySelector('input[type="radio"]');
                 if (!radio) return;
-                radio.checked = true;
-
                 const parentCard = this.closest('.quiz-slide');
+                const idx = Array.prototype.indexOf.call(slides, parentCard);
+
+                if (checkMode) {
+                    e.preventDefault(); // the server decides what gets locked in
+                    checkAnswer(idx, this);
+                    return;
+                }
+
+                radio.checked = true;
                 if (parentCard) {
                     parentCard.querySelectorAll('.gamified-option').forEach(opt => opt.classList.remove('selected'));
                 }
@@ -371,24 +558,32 @@
             });
         });
 
-        // Keyboard shortcuts (A, B, C, D and arrows)
+        // Keyboard shortcuts (A, B, C, D, arrows, Enter = next)
         document.addEventListener('keydown', (e) => {
             if (!document.getElementById('quizStepper')) return;
+            if (e.target.closest && e.target.closest('input[type="text"], textarea, select')) return;
             const activeSlide = slides[currentIdx];
             if (!activeSlide) return;
 
             const key = e.key.toUpperCase();
-            if (['A', 'B', 'C', 'D'].includes(key)) {
+            const canAdvance = !checkMode || isLocked(currentIdx);
+            if (['A', 'B', 'C', 'D'].includes(key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
                 const targetOption = activeSlide.querySelector(`.gamified-option[data-option="${key}"]`);
                 if (targetOption) targetOption.click();
-            } else if (e.key === 'ArrowRight' && currentIdx < total - 1) {
+            } else if (e.key === 'Enter' && checkMode && e.target.tagName !== 'BUTTON' && e.target.tagName !== 'A') {
+                e.preventDefault();
+                if (canAdvance && currentIdx < total - 1) updateStep(currentIdx + 1);
+                else if (allLocked() && currentIdx === total - 1 && submitBtn) submitBtn.click();
+            } else if (e.key === 'ArrowRight' && currentIdx < total - 1 && canAdvance) {
                 updateStep(currentIdx + 1);
             } else if (e.key === 'ArrowLeft' && currentIdx > 0) {
                 updateStep(currentIdx - 1);
             }
         });
 
-        updateStep(0);
+        // Resume at the first unanswered question
+        const resumeAt = checkMode ? [...Array(total).keys()].find((i) => !isLocked(i)) : 0;
+        updateStep(resumeAt === undefined ? total - 1 : resumeAt);
     };
 
     // ── 5. Lecturer 3-Pane Finder Interaction ──
