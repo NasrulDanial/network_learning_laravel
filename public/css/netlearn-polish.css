@@ -1080,3 +1080,97 @@ button[disabled] {
 .practice-list[open] > summary::after { transform: rotate(180deg); }
 .practice-list > summary span { font-weight: 500; color: var(--nl-text-tertiary); }
 .practice-list > summary:hover { color: var(--nl-text-primary); }
+
+/* ── Topic page: topology mission board ──────────────────────────────── */
+.topo-board {
+    background: rgba(13, 33, 56, 0.55);
+    border: 1px solid rgba(34, 211, 238, 0.18);
+    border-radius: 20px;
+    padding: 18px 20px 20px;
+    margin-bottom: 24px;
+}
+.topo-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.topo-head h3 { margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--nl-text-primary, #fff); display: flex; gap: 8px; align-items: center; }
+.topo-head h3 i { color: var(--nl-cyan, #22d3ee); }
+.topo-count { font-size: 0.78rem; font-weight: 600; color: var(--nl-text-secondary); font-family: ui-monospace, monospace; }
+
+.topo-path { list-style: none; margin: 0; padding: 0; display: flex; align-items: flex-start; overflow-x: auto; padding-bottom: 4px; }
+.topo-item { flex: 0 0 auto; width: 118px; }
+.topo-link { flex: 1 1 24px; min-width: 24px; height: 52px; display: flex; align-items: center; }
+.topo-link svg { width: 100%; height: 10px; overflow: visible; }
+.topo-link line { stroke-width: 3; stroke-linecap: round; }
+.topo-link.is-down line { stroke: rgba(148, 163, 184, 0.35); stroke-dasharray: 4 6; }
+.topo-link.is-up line { stroke: #22c55e; stroke-dasharray: 10 8; animation: topo-flow 1.2s linear infinite; }
+@keyframes topo-flow { to { stroke-dashoffset: -18; } }
+
+.topo-node {
+    position: relative;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    text-align: center; text-decoration: none; color: inherit;
+    border-radius: 14px; padding: 0 4px 4px;
+    outline-offset: 4px;
+}
+.topo-device {
+    width: 52px; height: 52px; border-radius: 14px;
+    display: grid; place-items: center; font-size: 1.25rem;
+    background: rgba(15, 31, 56, 0.9); border: 2px solid rgba(148, 163, 184, 0.3); color: #94a3b8;
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+.topo-name { font-size: 0.78rem; font-weight: 700; line-height: 1.25; color: var(--nl-text-primary, #fff); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.topo-state { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--nl-text-secondary); }
+.topo-stars { display: inline-flex; gap: 2px; font-size: 0.72rem; }
+.topo-stars i { color: rgba(148, 163, 184, 0.35); }
+.topo-stars i.is-lit { color: #facc15; }
+
+.topo-node.is-cleared .topo-device { border-color: #22c55e; color: #4ade80; background: rgba(5, 46, 26, 0.85); }
+.topo-node.is-active .topo-device { border-color: #22d3ee; color: #22d3ee; box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.5); animation: topo-pulse 2s ease-out infinite; }
+.topo-node.is-active .topo-state { color: #22d3ee; }
+.topo-node.is-core .topo-device { border-color: rgba(168, 85, 247, 0.6); color: #c084fc; }
+.topo-node.is-core.is-active .topo-device { border-color: #a855f7; animation-name: topo-pulse-core; }
+.topo-node.is-locked { cursor: not-allowed; opacity: 0.6; }
+.topo-node.is-locked .topo-device { border-style: dashed; }
+a.topo-node:hover .topo-device, a.topo-node:focus-visible .topo-device { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(34, 211, 238, 0.25); }
+@keyframes topo-pulse { 70% { box-shadow: 0 0 0 10px rgba(34, 211, 238, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); } }
+@keyframes topo-pulse-core { 0% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.5); } 70% { box-shadow: 0 0 0 10px rgba(168, 85, 247, 0); } 100% { box-shadow: none; } }
+
+.topo-tip {
+    position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+    width: max-content; max-width: 200px; padding: 6px 10px; border-radius: 8px;
+    background: #0f172a; color: #e2e8f0; border: 1px solid rgba(148, 163, 184, 0.3);
+    font-size: 0.75rem; font-weight: 600; line-height: 1.3; z-index: 5;
+    opacity: 0; visibility: hidden; transition: opacity .15s ease; pointer-events: none;
+}
+.topo-node.is-locked:hover .topo-tip, .topo-node.is-locked:focus .topo-tip { opacity: 1; visibility: visible; }
+.topo-path { padding-top: 64px; margin-top: -64px; } /* room for tooltips inside the scroll box */
+
+.topo-banner {
+    margin-top: 16px; padding: 12px 14px; border-radius: 14px;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.35); color: var(--nl-text-primary, #fff); font-size: 0.88rem;
+}
+.topo-banner > i { color: #4ade80; font-size: 1.1rem; }
+.topo-banner > span { flex: 1; min-width: 180px; }
+.topo-banner-cta { padding: 8px 16px !important; font-size: 0.85rem !important; display: inline-flex !important; gap: 8px; align-items: center; }
+
+[data-theme="light"] .topo-board { background: rgba(255, 255, 255, 0.75); border-color: rgba(8, 145, 178, 0.25); }
+[data-theme="light"] .topo-device { background: #f1f5f9; color: #64748b; }
+[data-theme="light"] .topo-node.is-cleared .topo-device { background: #dcfce7; color: #15803d; border-color: #16a34a; }
+[data-theme="light"] .topo-node.is-active .topo-device { background: #ecfeff; color: #0e7490; border-color: #0891b2; }
+[data-theme="light"] .topo-node.is-active .topo-state { color: #0e7490; }
+[data-theme="light"] .topo-node.is-core .topo-device { background: #faf5ff; color: #7e22ce; }
+[data-theme="light"] .topo-stars i.is-lit { color: #b45309; }
+[data-theme="light"] .topo-banner > i { color: #15803d; }
+
+@media (max-width: 640px) {
+    .topo-path { flex-direction: column; align-items: stretch; overflow: visible; padding-top: 0; margin-top: 0; }
+    .topo-item { width: auto; }
+    .topo-node { flex-direction: row; text-align: left; gap: 12px; padding: 0; }
+    .topo-node .topo-name { flex: 1; }
+    .topo-device { width: 44px; height: 44px; font-size: 1.05rem; flex: 0 0 auto; }
+    .topo-link { height: 22px; min-height: 22px; width: 44px; flex: 0 0 auto; justify-content: center; }
+    .topo-link svg { width: 22px; height: 22px; transform: rotate(90deg); }
+    .topo-tip { bottom: auto; top: 50%; left: auto; right: 0; transform: translateY(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .topo-link.is-up line, .topo-node.is-active .topo-device { animation: none; }
+}

@@ -61,6 +61,8 @@
     </h2>
 
     @if ($missions->count() > 0)
+        @include('student.partials.topology_board')
+
         <div style="display: flex; flex-direction: column; gap: 20px; margin-bottom: 32px;">
             @php
                 $typeLabels = [
@@ -80,7 +82,7 @@
                     $scorePct = $mission->student_score_pct ?? 0;
                 @endphp
 
-                <div style="background: rgba(13, 33, 56, 0.65); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid {{ $isCompleted ? 'rgba(34, 197, 94, 0.35)' : ($isUnlocked ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.06)') }}; border-radius: 20px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.3); opacity: {{ $isUnlocked ? '1' : '0.6' }};">
+                <div id="mission-{{ $mission->mission_id }}" class="mission-card" style="background: rgba(13, 33, 56, 0.65); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid {{ $isCompleted ? 'rgba(34, 197, 94, 0.35)' : ($isUnlocked ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.06)') }}; border-radius: 20px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.3); opacity: {{ $isUnlocked ? '1' : '0.6' }};">
 
                     <!-- Mission Header -->
                     <div style="padding: 22px 24px 18px; border-bottom: 1px solid rgba(255, 255, 255, 0.07); display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">

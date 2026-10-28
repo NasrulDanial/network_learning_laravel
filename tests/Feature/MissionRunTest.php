@@ -131,4 +131,24 @@ class MissionRunTest extends TestCase
         // Puzzle pages ignore ?run=1 when run mode is off
         $this->actingAs($this->student)->get("/puzzles/{$this->puzzles[0]->puzzle_id}?run=1")->assertOk()->assertViewHas('inRun', false);
     }
+
+    public function test_topology_board_shows_states_and_names_the_unlocking_mission()
+    {
+        $page = $this->actingAs($this->student)->get(route('student.topic', $this->topic))->assertOk();
+        $page->assertSee('Network path');
+        $page->assertSee('0/2 segments up');
+        $page->assertSee('topo-node is-active', false);
+        $page->assertSee('topo-node is-locked', false);
+        $page->assertSee('Complete “Run Mission One” to unlock', false);
+        $page->assertDontSee('End-to-end connectivity established');
+
+        foreach ([...$this->puzzles, ...Puzzle::where('mission_id', $this->m2->mission_id)->get()] as $p) {
+            $this->actingAs($this->student)->postJson("/puzzles/{$p->puzzle_id}/submit", ['selected_option' => 'opt_1'])->assertOk();
+        }
+
+        $done = $this->actingAs($this->student)->get(route('student.topic', $this->topic))->assertOk();
+        $done->assertSee('2/2 segments up');
+        $done->assertSee('End-to-end connectivity established');
+        $done->assertDontSee('topo-node is-locked', false);
+    }
 }
