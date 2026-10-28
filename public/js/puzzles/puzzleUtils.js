@@ -586,7 +586,7 @@ window.PuzzleUtils = {
         const reduced = () => !!(window.NetFX && NetFX.reduced);
 
         return {
-            log(text, color = '#a7f3d0') {
+            log(text, color = '#a7f3d0', { instant = false } = {}) {
                 return new Promise((resolve) => {
                     if (lines.length >= maxLines) {
                         lines.shift().destroy();
@@ -596,7 +596,7 @@ window.PuzzleUtils = {
                         fontFamily: 'Consolas, "Courier New", monospace', fontSize: '12px', color,
                     }).setDepth(41);
                     lines.push(t);
-                    if (reduced()) { t.setText(text); return resolve(); }
+                    if (reduced() || instant) { t.setText(text); return resolve(); }
                     let i = 0;
                     const ev = scene.time.addEvent({
                         delay: 18, repeat: text.length - 1,

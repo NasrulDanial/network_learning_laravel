@@ -226,4 +226,5 @@ const config = {
     },
 };
 
-new Phaser.Game(config);
+// Exposed for debugging and automated QA (inspect scene state, simulate placements)
+window.netlearnGame = new Phaser.Game(config);
