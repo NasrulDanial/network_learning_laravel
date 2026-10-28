@@ -18,6 +18,11 @@
             try { stored = localStorage.getItem('netlearn-mute'); } catch (e) { /* storage blocked */ }
             this.muted = stored === null ? window.NETLEARN_SOUND_DEFAULT === false : stored === '1';
 
+            // Keep pages and the Mission Run iframe in sync when the mute toggle changes elsewhere
+            window.addEventListener('storage', (e) => {
+                if (e.key === 'netlearn-mute') this.muted = e.newValue === '1';
+            });
+
             if (motionQuery && motionQuery.addEventListener) {
                 motionQuery.addEventListener('change', (e) => { this.reduced = e.matches; });
             }

@@ -220,6 +220,7 @@ class StudentController extends Controller
         $previousCompleted = $prog && $prog->is_completed;
         $m->student_is_completed = $prog && $prog->is_completed;
         $m->student_score_pct = $prog ? $prog->best_score_percentage : 0;
+        $m->student_stars = $prog ? (int) $prog->best_stars : 0;
 
         // Load puzzles for this mission with student's puzzle progress
         $puzzles = $m->puzzles()
@@ -240,6 +241,7 @@ class StudentController extends Controller
         }
 
         $m->setRelation('puzzles', $puzzles);
+        $m->student_done_count = $puzzles->where('student_is_completed', true)->count();
     }
 
     return view('student.topic', [
@@ -628,6 +630,135 @@ public function result(Result $result)
         }
 
         return $unlocked;
+    }
+
+    /**
+     * Mission Run: one continuous full-screen run through a mission's activities.
+     * Uses the same access rules as playing a single puzzle.
+     */
+    public function missionRun(Request $request, Mission $mission)
+    {
+        $userId = auth()->user()->user_id;
+        $mission->load('topic');
+
+        abort_unless(config('netlearn.run_mode'), 404);
+
+        $playable = Mission::playable()->whereKey($mission->mission_id)->exists();
+        if (! $playable || ! $mission->topic || ! $mission->topic->isUnlockedFor($userId) || ! $mission->isUnlockedFor($userId)) {
+            $target = $mission->topic && $mission->topic->isUnlockedFor($userId)
+                ? redirect()->route('student.topic', $mission->topic_id)
+                : redirect()->route('student.learning');
+
+            return $target->with('error', 'That mission is not available yet. Complete the previous mission first.');
+        }
+
+        $puzzles = $mission->publishedPuzzles()->get();
+        $progress = UserPuzzleProgress::where('user_id', $userId)
+            ->whereIn('puzzle_id', $puzzles->pluck('puzzle_id'))
+            ->get()
+            ->keyBy('puzzle_id');
+
+        // Resume at the first unfinished activity; a fully finished mission replays from the start
+        $startIndex = $request->boolean('restart') ? 0 : max(0, (int) $puzzles->search(fn ($p) => ! optional($progress->get($p->puzzle_id))->is_completed));
+        if ($puzzles->every(fn ($p) => optional($progress->get($p->puzzle_id))->is_completed)) {
+            $startIndex = 0;
+        }
+
+        $devices = ['pc', 'switch', 'router', 'firewall'];
+        $last = $puzzles->count() - 1;
+        $runPuzzles = $puzzles->values()->map(function ($p, $i) use ($progress, $devices, $last) {
+            $prog = $progress->get($p->puzzle_id);
+            return [
+                'id' => $p->puzzle_id,
+                'url' => route('puzzles.show', $p->puzzle_id) . '?run=1',
+                'type' => $p->puzzle_type,
+                'title' => $p->question_text,
+                'device' => $i === $last ? 'server' : $devices[$i % count($devices)],
+                'completed' => (bool) optional($prog)->is_completed,
+                'stars' => (int) optional($prog)->best_stars,
+                'maxAttempts' => (int) $p->max_attempts,
+                'attemptsUsed' => (int) optional($prog)->attempts_count,
+            ];
+        });
+
+        $totalXp = (int) Result::where('user_id', $userId)->sum('points_earned')
+            + (int) Progress::where('user_id', $userId)->sum('total_xp');
+
+        $config = [
+            'missionId' => $mission->mission_id,
+            'title' => $mission->title,
+            'topicTitle' => $mission->topic->title,
+            'ticketCode' => $mission->ticket_code ?: '#' . str_pad((string) $mission->mission_id, 4, '0', STR_PAD_LEFT),
+            'narrator' => $mission->narrator ?: 'Senior Network Engineer',
+            'briefing' => $mission->briefing_text ?: ($mission->objective ?: ($mission->description ?: 'A user ticket has arrived. Complete each task to restore the network.')),
+            'debriefText' => $mission->debrief_text ?: 'Ticket resolved. Network services restored.',
+            'studentName' => auth()->user()->name,
+            'topicUrl' => route('student.topic', $mission->topic_id),
+            'summaryUrl' => route('student.mission.summary', $mission->mission_id),
+            'restartUrl' => route('student.mission.run', $mission->mission_id) . '?restart=1',
+            'ttl' => (int) config('netlearn.ttl_seconds'),
+            'rankAtStart' => RankProgressionService::getRankTelemetry($totalXp)['current_rank_title'],
+            'puzzles' => $runPuzzles,
+            'startIndex' => $startIndex,
+        ];
+
+        return view('student.mission_run', [
+            'pageTitle' => $mission->title,
+            'mission' => $mission,
+            'runConfig' => $config,
+        ]);
+    }
+
+    /** Debrief data for a Mission Run (JSON). */
+    public function missionSummary(Mission $mission)
+    {
+        $userId = auth()->user()->user_id;
+        $mission->load('topic');
+
+        if (! $mission->topic || ! $mission->topic->isUnlockedFor($userId) || ! $mission->isUnlockedFor($userId)) {
+            return response()->json(['message' => 'Mission not available.'], 403);
+        }
+
+        $puzzles = $mission->publishedPuzzles()->get();
+        $progress = UserPuzzleProgress::where('user_id', $userId)
+            ->whereIn('puzzle_id', $puzzles->pluck('puzzle_id'))
+            ->get()
+            ->keyBy('puzzle_id');
+        $missionProgress = UserMissionProgress::where('user_id', $userId)->where('mission_id', $mission->mission_id)->first();
+
+        $puzzleXp = (int) $progress->sum('xp_awarded');
+        $missionXp = $missionProgress && $missionProgress->xp_reward_granted ? (int) $mission->xp_reward : 0;
+
+        $totalXp = (int) Result::where('user_id', $userId)->sum('points_earned')
+            + (int) Progress::where('user_id', $userId)->sum('total_xp');
+        $rank = RankProgressionService::getRankTelemetry($totalXp);
+
+        $nextMission = Mission::playable()
+            ->where('topic_id', $mission->topic_id)
+            ->where('mission_order', '>', $mission->mission_order)
+            ->orderBy('mission_order')
+            ->first();
+        $nextAvailable = $nextMission && $nextMission->isUnlockedFor($userId);
+
+        return response()->json([
+            'completed' => (bool) optional($missionProgress)->is_completed,
+            'stars' => (int) optional($missionProgress)->best_stars,
+            'puzzleStars' => $puzzles->map(fn ($p) => (int) optional($progress->get($p->puzzle_id))->best_stars)->values(),
+            'hintsUsed' => (int) $progress->sum('hints_used'),
+            'totalXpThisMission' => $puzzleXp + $missionXp,
+            'totalXp' => $totalXp,
+            'rank' => $rank['current_rank_title'],
+            'rankShort' => $rank['current_rank_short'],
+            'rankProgressPct' => (int) $rank['tier_progress_pct'],
+            'nextRankXp' => $rank['next_tier_xp'],
+            'nextMission' => $nextAvailable ? [
+                'title' => $nextMission->title,
+                'runUrl' => route('student.mission.run', $nextMission->mission_id),
+            ] : null,
+            'topicCompleted' => Progress::where('user_id', $userId)->where('topic_id', $mission->topic_id)->value('learning_status') === 'Completed',
+            'ticketCode' => $mission->ticket_code ?: '#' . str_pad((string) $mission->mission_id, 4, '0', STR_PAD_LEFT),
+            'debriefText' => $mission->debrief_text ?: 'Ticket resolved. Network services restored.',
+        ]);
     }
 
     /**

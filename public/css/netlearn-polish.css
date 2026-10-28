@@ -1050,3 +1050,33 @@ button[disabled] {
 [data-theme="light"] .hint-text { color: #92400E; background: rgba(217, 119, 6, 0.08); }
 [data-theme="light"] .health-count { color: var(--nl-text-primary); }
 @media (prefers-reduced-motion: reduce) { .health-seg.is-breaking { animation: none; } }
+
+/* ── Topic page: Mission Run entry ───────────────────────────────────── */
+.mission-run-btn {
+    padding: 10px 18px !important;
+    font-size: 0.88rem !important;
+    display: inline-flex !important;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+.mission-stars { display: inline-flex; gap: 3px; font-size: 0.95rem; }
+.mission-stars i { color: rgba(148, 163, 184, 0.35); }
+.mission-stars i.is-lit { color: #facc15; }
+[data-theme="light"] .mission-stars i.is-lit { color: #b45309; }
+.practice-list > summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 12px 24px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--nl-text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.practice-list > summary::-webkit-details-marker { display: none; }
+.practice-list > summary::after { content: '\f078'; font-family: 'Font Awesome 6 Free'; font-weight: 900; font-size: 0.7rem; margin-left: auto; transition: transform 0.2s ease; }
+.practice-list[open] > summary::after { transform: rotate(180deg); }
+.practice-list > summary span { font-weight: 500; color: var(--nl-text-tertiary); }
+.practice-list > summary:hover { color: var(--nl-text-primary); }

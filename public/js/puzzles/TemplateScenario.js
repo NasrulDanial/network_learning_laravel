@@ -113,6 +113,8 @@ class TemplateScenario extends Phaser.Scene {
         btnBg.on('pointerdown', () => this.handleSubmit());
 
         this._submitBtnBg = btnBg;
+
+        PuzzleUtils.ready();
     }
 
     selectChoice(choiceId) {

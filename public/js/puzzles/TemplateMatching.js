@@ -111,6 +111,8 @@ class TemplateMatching extends Phaser.Scene {
         btnBg.on('pointerdown', () => this.handleSubmit());
 
         this._submitBtnBg = btnBg;
+
+        PuzzleUtils.ready();
         this.totalLeft = leftItems.length;
     }
 

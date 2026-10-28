@@ -1,6 +1,10 @@
 @extends('layouts.app')
 
 @section('content')
+    @php $runMode = (bool) config('netlearn.run_mode'); @endphp
+    @if (session('error'))
+        <div class="message error" role="alert"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> {{ session('error') }}</div>
+    @endif
     <a class="breadcrumb-link" href="{{ route('student.learning') }}">
         <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
         Back to Learning Journey
@@ -137,12 +141,38 @@
                                     Best: {{ $scorePct }}%
                                 </div>
                             @endif
+
+                            @if ($isCompleted)
+                                <div class="mission-stars" aria-label="{{ $mission->student_stars }} of 3 stars">
+                                    @for ($s = 1; $s <= 3; $s++)
+                                        <i class="fa-solid fa-star {{ $s <= $mission->student_stars ? 'is-lit' : '' }}" aria-hidden="true"></i>
+                                    @endfor
+                                </div>
+                            @endif
+
+                            @if ($runMode && $isUnlocked && $mission->puzzles->count() > 0)
+                                @php
+                                    $runLabel = $isCompleted
+                                        ? ($mission->student_stars < 3 ? 'Replay for ★★★' : 'Replay mission')
+                                        : ($mission->student_done_count > 0 ? 'Continue mission' : 'Start mission');
+                                @endphp
+                                <a class="button mission-run-btn" href="{{ route('student.mission.run', $mission->mission_id) }}{{ $isCompleted ? '?restart=1' : '' }}">
+                                    <i class="fa-solid {{ $isCompleted ? 'fa-rotate-right' : 'fa-play' }}" aria-hidden="true"></i>
+                                    {{ $runLabel }}
+                                </a>
+                            @endif
                         </div>
                     </div>
 
                     <!-- Puzzle Activities List -->
                     @if ($isUnlocked && $mission->puzzles->count() > 0)
-                        <div style="padding: 16px 24px 20px;">
+                        <details class="practice-list" {{ $runMode ? '' : 'open' }}>
+                            <summary>
+                                <i class="fa-solid fa-list-check" aria-hidden="true"></i>
+                                {{ $runMode ? 'Practice single activities' : 'Activities' }}
+                                <span>({{ $mission->student_done_count }}/{{ $mission->puzzles->count() }} solved)</span>
+                            </summary>
+                        <div style="padding: 4px 24px 20px;">
                             <div style="display: flex; flex-direction: column; gap: 10px;">
                                 @foreach ($mission->puzzles as $puzzle)
                                     @php
@@ -197,6 +227,7 @@
                                 @endforeach
                             </div>
                         </div>
+                        </details>
                     @elseif (!$isUnlocked)
                         <div style="padding: 18px 24px; text-align: center; color: rgba(255, 255, 255, 0.4); font-size: 0.88rem;">
                             <i class="fa-solid fa-lock" style="font-size: 1.2rem; margin-bottom: 6px; display: block;"></i>

@@ -115,6 +115,8 @@ class TemplateIdentification extends Phaser.Scene {
 
         this._submitBtn = submitBtn;
         this._btnBg = btnBg;
+
+        PuzzleUtils.ready();
     }
 
     selectOption(optId, container, bg, badgeBg) {

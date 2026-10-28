@@ -69,6 +69,13 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::get('/student/achievements', [StudentController::class, 'achievements'])
         ->name('student.achievements');
 
+    // Mission Run (continuous play) and its debrief data
+    Route::get('/student/missions/{mission}/run', [StudentController::class, 'missionRun'])
+        ->name('student.mission.run');
+
+    Route::get('/student/missions/{mission}/summary', [StudentController::class, 'missionSummary'])
+        ->name('student.mission.summary');
+
     Route::get('/student/profile', [ProfileController::class, 'show'])
         ->name('student.profile');
 

@@ -168,6 +168,8 @@ class TemplateClassification extends Phaser.Scene {
         btnBg.on('pointerdown', () => this.handleSubmit());
 
         this._submitBtnBg = btnBg;
+
+        PuzzleUtils.ready();
     }
 
     /** Arrange every token placed in a bin as a compact grid below the bin title. */
