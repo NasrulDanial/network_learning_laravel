@@ -113,7 +113,7 @@
                         Identified Learning Difficulties
                     </h3>
                 </div>
-                <span style="font-size: 0.72rem; color: var(--nl-text-tertiary);">Score &lt; 70%</span>
+                <a href="{{ route('lecturer.student-performance.index', ['search' => $student->email]) }}" style="font-size: 0.75rem; color: var(--nl-cyan);">View all</a>
             </div>
 
             @if ($weakAreas->count() > 0)
@@ -127,7 +127,7 @@
                                 <span class="status-pill fail" style="font-size: 0.68rem;">{{ round($wa->percentage) }}%</span>
                             </div>
                             <div style="font-size: 0.74rem; color: var(--nl-text-secondary);">
-                                Topic: {{ $wa->quiz->topic->title ?? 'Curriculum Stage' }} &bull; Taken: {{ $wa->date_taken }}
+                                Topic: {{ $wa->quiz->topic->title ?? 'Curriculum Stage' }} &bull; Taken: {{ $wa->date_taken ? \Illuminate\Support\Carbon::parse($wa->date_taken)->format('d M Y') : '—' }}
                             </div>
                         </div>
                     @endforeach
@@ -146,14 +146,24 @@
                 Clearance Honors ({{ $earnedAchievements->count() }})
             </h3>
             @if ($earnedAchievements->count() > 0)
+                @php
+                    $badge = fn ($ea) => '<span style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; background: rgba(251, 191, 36, 0.12); border: 1px solid rgba(251, 191, 36, 0.3); color: #fbbf24; font-size: 0.76rem; font-weight: 700;"><i class="fa-solid ' . e($ea->achievement->badge_icon ?? 'fa-award') . '" aria-hidden="true"></i> ' . e($ea->achievement->badge_name ?? 'Badge') . '</span>';
+                @endphp
                 <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                    @foreach ($earnedAchievements as $ea)
-                        <span style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; background: rgba(251, 191, 36, 0.12); border: 1px solid rgba(251, 191, 36, 0.3); color: #fbbf24; font-size: 0.76rem; font-weight: 700;">
-                            <i class="fa-solid {{ $ea->achievement->badge_icon ?? 'fa-award' }}"></i>
-                            {{ $ea->achievement->badge_name }}
-                        </span>
+                    @foreach ($earnedAchievements->take(8) as $ea)
+                        {!! $badge($ea) !!}
                     @endforeach
                 </div>
+                @if ($earnedAchievements->count() > 8)
+                    <details class="badge-more">
+                        <summary>Show all ({{ $earnedAchievements->count() }})</summary>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+                            @foreach ($earnedAchievements->slice(8) as $ea)
+                                {!! $badge($ea) !!}
+                            @endforeach
+                        </div>
+                    </details>
+                @endif
             @else
                 <p style="font-size: 0.8rem; color: var(--nl-text-tertiary); margin: 0;">No honors unlocked yet.</p>
             @endif
@@ -161,116 +171,183 @@
     </div>
 
     <!-- Right Column: Full Attempts History -->
-    <div style="display: flex; flex-direction: column; gap: 24px;">
+    <div style="display: flex; flex-direction: column; gap: 24px; min-width: 0;">
+        @php
+            $endedLabels = ['finished' => 'Finished', 'link_down' => 'Link down', 'abandoned' => 'Abandoned'];
+            $fmt = fn ($d) => $d ? \Illuminate\Support\Carbon::parse($d) : null;
+        @endphp
 
         <!-- Quiz Attempts Table -->
-        <div style="background: var(--nl-glass-card); backdrop-filter: var(--nl-glass-blur); border: 1px solid var(--nl-glass-border); border-radius: var(--nl-radius-panel); padding: 22px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
-                <h3 style="font-size: 1rem; font-weight: 700; margin: 0; color: #FFFFFF;">
-                    Quiz Evaluation History ({{ $quizAttempts->count() }})
+        <section class="log-panel" aria-labelledby="quizLogTitle">
+            <div class="log-panel-head">
+                <h3 id="quizLogTitle">
+                    Quiz evaluation history
+                    <span class="log-panel-total">{{ $quizAttempts->total() }} {{ Str::plural('attempt', $quizAttempts->total()) }}</span>
                 </h3>
+                <form method="GET" class="log-filters">
+                    @foreach (request()->except(['quiz_status', 'quiz_page']) as $key => $value)
+                        @if (is_scalar($value))<input type="hidden" name="{{ $key }}" value="{{ $value }}">@endif
+                    @endforeach
+                    <label class="visually-hidden" for="quizStatusFilter">Quiz result</label>
+                    <select id="quizStatusFilter" name="quiz_status">
+                        <option value="">All results</option>
+                        <option value="Pass" @selected($quizStatus === 'Pass')>Passed</option>
+                        <option value="Fail" @selected($quizStatus === 'Fail')>Failed</option>
+                    </select>
+                    <button type="submit" class="button secondary">Apply</button>
+                </form>
             </div>
 
             @if ($quizAttempts->count() > 0)
-                <table class="table-borderless-glass">
-                    <thead>
-                        <tr>
-                            <th>Challenge</th>
-                            <th>Score</th>
-                            <th>Status</th>
-                            <th>XP</th>
-                            <th>Date</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($quizAttempts as $qa)
+                <div class="log-panel-body">
+                    <table class="table-borderless-glass">
+                        <thead>
                             <tr>
-                                <td>
-                                    <div style="font-weight: 600; color: #FFFFFF; font-size: 0.86rem;">
-                                        {{ $qa->quiz->title ?? 'Assessment' }}
-                                    </div>
-                                    <div style="font-size: 0.72rem; color: var(--nl-text-tertiary);">
-                                        {{ $qa->quiz->topic->title ?? '' }}
-                                    </div>
-                                </td>
-                                <td>
-                                    <strong style="color: #FFFFFF;">{{ (int) $qa->score }}/{{ (int) $qa->total_questions }}</strong>
-                                    <span style="font-size: 0.72rem; color: var(--nl-text-secondary);">({{ round($qa->percentage) }}%)</span>
-                                </td>
-                                <td>
-                                    <span class="status-pill {{ $qa->status === 'Pass' ? 'pass' : 'fail' }}">
-                                        {{ $qa->status }}
-                                    </span>
-                                </td>
-                                <td>
-                                    <span style="color: #fbbf24; font-weight: 700; font-size: 0.8rem;">
-                                        +{{ (int) $qa->points_earned }} XP
-                                    </span>
-                                </td>
-                                <td style="font-size: 0.75rem; color: var(--nl-text-secondary);">
-                                    {{ $qa->date_taken }}
-                                </td>
+                                <th>Challenge</th>
+                                <th>Score</th>
+                                <th>Status</th>
+                                <th>XP</th>
+                                <th>Date</th>
                             </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            @foreach ($quizAttempts as $qa)
+                                @php $taken = $fmt($qa->date_taken); @endphp
+                                <tr>
+                                    <td>
+                                        <div class="log-title">{{ $qa->quiz->title ?? 'Assessment' }}</div>
+                                        <div class="log-sub">{{ $qa->quiz->topic->title ?? '' }}</div>
+                                    </td>
+                                    <td>
+                                        <strong>{{ (int) $qa->score }}/{{ (int) $qa->total_questions }}</strong>
+                                        <span class="log-sub">({{ round($qa->percentage) }}%)</span>
+                                    </td>
+                                    <td>
+                                        <span class="status-pill {{ $qa->status === 'Pass' ? 'pass' : 'fail' }}">{{ $qa->status }}</span>
+                                        @if ($qa->ended_reason && $qa->ended_reason !== 'finished')
+                                            <span class="log-pill log-pill--{{ $qa->ended_reason }}">{{ $endedLabels[$qa->ended_reason] ?? $qa->ended_reason }}</span>
+                                        @endif
+                                    </td>
+                                    <td><span class="log-xp">+{{ (int) $qa->points_earned }} XP</span></td>
+                                    <td class="log-date" @if ($taken) title="{{ $taken->diffForHumans() }}" @endif>
+                                        {{ $taken ? $taken->format('d M Y, g:i a') : '—' }}
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                @if ($quizAttempts->hasPages())
+                    <div class="log-pagination">{{ $quizAttempts->links() }}</div>
+                @endif
             @else
-                <p style="font-size: 0.85rem; color: var(--nl-text-tertiary); text-align: center; padding: 24px 0; margin: 0;">No quiz evaluations recorded.</p>
+                <p class="log-empty">{{ $quizStatus ? 'No quiz attempts match this filter.' : 'No quiz evaluations recorded.' }}</p>
             @endif
-        </div>
+        </section>
 
-        <!-- Puzzle Attempt Logs -->
-        <div style="background: var(--nl-glass-card); backdrop-filter: var(--nl-glass-blur); border: 1px solid var(--nl-glass-border); border-radius: var(--nl-radius-panel); padding: 22px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
-                <h3 style="font-size: 1rem; font-weight: 700; margin: 0; color: #FFFFFF;">
-                    Interactive Puzzle Attempts ({{ $puzzleAttempts->count() }})
+        <!-- Puzzle Attempt Logs: one row per puzzle -->
+        <section class="log-panel" aria-labelledby="puzzleLogTitle">
+            <div class="log-panel-head">
+                <h3 id="puzzleLogTitle">
+                    Interactive puzzle attempts
+                    <span class="log-panel-total">{{ $puzzleTotals['attempts'] }} {{ Str::plural('attempt', $puzzleTotals['attempts']) }} across {{ $puzzleTotals['puzzles'] }} {{ Str::plural('puzzle', $puzzleTotals['puzzles']) }}</span>
                 </h3>
+                <form method="GET" class="log-filters">
+                    @foreach (request()->except(['mission_id', 'puzzle_status', 'puzzle_page']) as $key => $value)
+                        @if (is_scalar($value))<input type="hidden" name="{{ $key }}" value="{{ $value }}">@endif
+                    @endforeach
+                    <label class="visually-hidden" for="missionFilter">Mission</label>
+                    <select id="missionFilter" name="mission_id">
+                        <option value="">All missions</option>
+                        @foreach ($studentMissions as $m)
+                            <option value="{{ $m->mission_id }}" @selected((int) $missionId === (int) $m->mission_id)>{{ $m->title }}</option>
+                        @endforeach
+                    </select>
+                    <label class="visually-hidden" for="puzzleStatusFilter">Status</label>
+                    <select id="puzzleStatusFilter" name="puzzle_status">
+                        <option value="">All</option>
+                        <option value="solved" @selected($puzzleStatus === 'solved')>Solved</option>
+                        <option value="unsolved" @selected($puzzleStatus === 'unsolved')>Unsolved</option>
+                    </select>
+                    <button type="submit" class="button secondary">Apply</button>
+                </form>
             </div>
 
-            @if ($puzzleAttempts->count() > 0)
-                <table class="table-borderless-glass">
-                    <thead>
-                        <tr>
-                            <th>Puzzle Activity</th>
-                            <th>Score</th>
-                            <th>Outcome</th>
-                            <th>Attempt #</th>
-                            <th>Timestamp</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($puzzleAttempts as $pa)
+            @if ($puzzleSummary->count() > 0)
+                <div class="log-panel-body">
+                    <table class="table-borderless-glass log-puzzles">
+                        <thead>
                             <tr>
-                                <td>
-                                    <div style="font-weight: 600; color: #FFFFFF; font-size: 0.84rem;">
-                                        {{ $pa->puzzle->question_text ?? 'Interactive Simulation' }}
-                                    </div>
-                                    <div style="font-size: 0.72rem; color: var(--nl-cyan);">
-                                        {{ $pa->puzzle->mission->title ?? 'PBL Mission' }}
-                                    </div>
-                                </td>
-                                <td>
-                                    <strong style="color: #FFFFFF;">{{ (int) $pa->score }} pts</strong>
-                                </td>
-                                <td>
-                                    <span class="status-pill {{ $pa->status === 'completed' ? 'pass' : 'fail' }}">
-                                        {{ ucfirst($pa->status) }}
-                                    </span>
-                                </td>
-                                <td style="font-size: 0.78rem; color: var(--nl-text-secondary);">
-                                    #{{ $pa->attempt_no }}
-                                </td>
-                                <td style="font-size: 0.75rem; color: var(--nl-text-secondary);">
-                                    {{ $pa->date_taken }}
-                                </td>
+                                <th>Puzzle / Mission</th>
+                                <th>Attempts</th>
+                                <th>Best</th>
+                                <th>Solved</th>
+                                <th>Stars</th>
+                                <th>Hints</th>
+                                <th>Last attempt</th>
+                                <th><span class="visually-hidden">Attempts list</span></th>
                             </tr>
+                        </thead>
+                        @foreach ($puzzleSummary as $pp)
+                            @php
+                                $attempts = $attemptsByPuzzle->get($pp->puzzle_id, collect());
+                                $struggling = ! $pp->is_completed && $pp->attempts_count >= 3;
+                                $last = $fmt($pp->last_attempt_at);
+                                $rowId = 'puzzle-attempts-' . $pp->puzzle_id;
+                            @endphp
+                            <tbody class="log-group {{ $struggling ? 'is-struggling' : '' }}">
+                                <tr>
+                                    <td>
+                                        <div class="log-title">{{ $pp->puzzle->question_text ?? 'Interactive Simulation' }}</div>
+                                        <div class="log-sub log-sub--cyan">{{ $pp->puzzle->mission->title ?? 'Standalone activity' }}</div>
+                                        @if ($struggling)<span class="log-pill log-pill--struggling">Struggling</span>@endif
+                                    </td>
+                                    <td>{{ (int) $pp->attempts_count }}</td>
+                                    <td>{{ (int) $pp->best_score }}/{{ (int) ($pp->puzzle->points ?? 100) }}</td>
+                                    <td>
+                                        <span class="status-pill {{ $pp->is_completed ? 'pass' : 'fail' }}">{{ $pp->is_completed ? 'Solved' : 'Not yet' }}</span>
+                                    </td>
+                                    <td aria-label="{{ (int) $pp->best_stars }} of 3 stars">
+                                        <span class="log-stars" aria-hidden="true">@for ($s = 1; $s <= 3; $s++)<i class="fa-solid fa-star {{ $s <= $pp->best_stars ? 'is-lit' : '' }}"></i>@endfor</span>
+                                    </td>
+                                    <td>{{ (int) $pp->hints_used > 0 ? 'Bought' : '—' }}</td>
+                                    <td class="log-date" @if ($last) title="{{ $last->diffForHumans() }}" @endif>{{ $last ? $last->format('d M Y, g:i a') : '—' }}</td>
+                                    <td>
+                                        <button type="button" class="button secondary log-toggle" aria-expanded="false" aria-controls="{{ $rowId }}"
+                                                onclick="const open = this.getAttribute('aria-expanded') !== 'true'; this.setAttribute('aria-expanded', open); document.getElementById('{{ $rowId }}').hidden = !open; this.querySelector('span').textContent = open ? 'Hide' : 'View';">
+                                            <span>View</span>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr id="{{ $rowId }}" class="log-attempts" hidden>
+                                    <td colspan="8">
+                                        <ol class="log-attempt-list">
+                                            @foreach ($attempts as $a)
+                                                @php $when = $fmt($a->date_taken); @endphp
+                                                <li>
+                                                    <span class="log-attempt-no">#{{ $a->attempt_no }}</span>
+                                                    <span>{{ (int) $a->score }} pts</span>
+                                                    <span class="status-pill {{ $a->status === 'completed' ? 'pass' : 'fail' }}">{{ $a->status === 'completed' ? 'Correct' : 'Wrong' }}</span>
+                                                    <span class="log-date" @if ($when) title="{{ $when->diffForHumans() }}" @endif>{{ $when ? $when->format('d M Y, g:i a') : '—' }}</span>
+                                                </li>
+                                            @endforeach
+                                        </ol>
+                                        @if ($pp->attempts_count > $attempts->count())
+                                            <p class="log-sub">Showing the latest {{ $attempts->count() }} of {{ (int) $pp->attempts_count }} attempts.</p>
+                                        @endif
+                                    </td>
+                                </tr>
+                            </tbody>
                         @endforeach
-                    </tbody>
-                </table>
+                    </table>
+                </div>
+                @if ($puzzleSummary->hasPages())
+                    <div class="log-pagination">{{ $puzzleSummary->links() }}</div>
+                @endif
             @else
-                <p style="font-size: 0.85rem; color: var(--nl-text-tertiary); text-align: center; padding: 24px 0; margin: 0;">No interactive puzzle attempts recorded.</p>
+                <p class="log-empty">{{ $missionId || $puzzleStatus ? 'No puzzles match these filters.' : 'No interactive puzzle attempts recorded.' }}</p>
             @endif
-        </div>
+        </section>
 
     </div>
 </div>

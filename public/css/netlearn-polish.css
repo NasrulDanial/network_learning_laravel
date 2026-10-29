@@ -1422,3 +1422,39 @@ a.topo-node:hover .topo-device, a.topo-node:focus-visible .topo-device { transfo
 .is-embedded .preview-notice-long, .is-embedded .preview-notice-exit { display: none; }
 .is-embedded .preview-notice-short { display: inline; }
 .is-embedded .embedded-instruction { display: block; margin: 0 0 10px; font-size: 0.88rem; color: var(--nl-text-secondary); }
+
+/* ── Lecturer dossier: paginated, grouped log panels ─────────────────── */
+.log-panel { background: var(--nl-glass-card); backdrop-filter: var(--nl-glass-blur); border: 1px solid var(--nl-glass-border); border-radius: var(--nl-radius-panel); padding: 22px; min-width: 0; }
+.log-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.log-panel-head h3 { font-size: 1rem; font-weight: 700; margin: 0; color: var(--nl-text-primary, #fff); display: flex; flex-direction: column; gap: 2px; }
+.log-panel-total { font-size: 0.75rem; font-weight: 600; color: var(--nl-text-secondary); }
+.log-filters { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0; }
+.log-filters select { width: auto; min-width: 130px; max-width: 220px; padding: 7px 10px; font-size: 0.82rem; }
+.log-filters .button { padding: 7px 14px !important; font-size: 0.82rem !important; }
+.log-panel-body { max-height: 420px; overflow: auto; border-radius: 12px; }
+.log-panel-body thead th { position: sticky; top: 0; z-index: 1; background: var(--nl-glass-card, #0d2138); }
+.log-title { font-weight: 600; color: var(--nl-text-primary, #fff); font-size: 0.85rem; }
+.log-sub { font-size: 0.72rem; color: var(--nl-text-tertiary, #94a3b8); }
+.log-sub--cyan { color: var(--nl-cyan, #22d3ee); }
+.log-xp { color: #fbbf24; font-weight: 700; font-size: 0.8rem; }
+.log-date { font-size: 0.75rem; color: var(--nl-text-secondary); white-space: nowrap; }
+.log-empty { font-size: 0.85rem; color: var(--nl-text-tertiary); text-align: center; padding: 24px 0; margin: 0; }
+.log-pagination { margin-top: 12px; }
+.log-pill { display: inline-block; margin-left: 4px; padding: 2px 8px; border-radius: 99px; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.log-pill--link_down { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+.log-pill--abandoned { background: rgba(148, 163, 184, 0.18); color: #cbd5e1; }
+.log-pill--struggling { margin: 4px 0 0; background: rgba(251, 146, 60, 0.16); color: #fb923c; }
+.log-group.is-struggling > tr:first-child td { background: rgba(251, 146, 60, 0.05); }
+.log-stars { white-space: nowrap; }
+.log-stars i { color: rgba(148, 163, 184, 0.35); font-size: 0.75rem; }
+.log-stars i.is-lit { color: #facc15; }
+.log-toggle { padding: 5px 12px !important; font-size: 0.76rem !important; }
+.log-attempts td { background: rgba(7, 20, 38, 0.45); }
+.log-attempt-list { list-style: none; margin: 0; padding: 4px 0; display: flex; flex-direction: column; gap: 6px; }
+.log-attempt-list li { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 0.8rem; color: var(--nl-text-primary, #fff); }
+.log-attempt-no { font-family: ui-monospace, monospace; color: var(--nl-text-secondary); min-width: 32px; }
+.badge-more summary { cursor: pointer; margin-top: 10px; font-size: 0.78rem; color: var(--nl-cyan, #22d3ee); }
+[data-theme="light"] .log-panel-body thead th { background: #fff; }
+[data-theme="light"] .log-attempts td { background: #f8fafc; }
+[data-theme="light"] .log-pill--abandoned { color: #475569; }
+[data-theme="light"] .log-stars i.is-lit { color: #b45309; }

@@ -9,6 +9,9 @@ use App\Models\Progress;
 use App\Models\PuzzleAttempt;
 use App\Models\UserAchievement;
 use App\Models\UserMissionProgress;
+use App\Models\Mission;
+use App\Models\Puzzle;
+use App\Models\UserPuzzleProgress;
 use App\Services\RankProgressionService;
 use Illuminate\Http\Request;
 
@@ -82,7 +85,7 @@ class StudentPerformanceController extends Controller
     /**
      * Dedicated Student Performance Detail View.
      */
-    public function show(User $user)
+    public function show(Request $request, User $user)
     {
         if ($user->role !== 'student') {
             abort(404, 'User is not a student operative.');
@@ -90,8 +93,6 @@ class StudentPerformanceController extends Controller
 
         $userId = $user->user_id;
 
-        $quizPoints = (int) Result::where('user_id', $userId)->sum('points_earned');
-        $pblPoints = (int) Progress::where('user_id', $userId)->sum('total_xp');
         $totalXp = \App\Services\XpService::total($userId);
 
         $rankInfo = RankProgressionService::getRankTelemetry($totalXp);
@@ -113,16 +114,51 @@ class StudentPerformanceController extends Controller
             ->orderBy('topics.topic_order', 'asc')
             ->get();
 
+        $quizStatus = in_array($request->input('quiz_status'), ['Pass', 'Fail'], true) ? $request->input('quiz_status') : null;
         $quizAttempts = Result::where('user_id', $userId)
             ->with(['quiz.topic'])
+            ->when($quizStatus, fn ($q, $s) => $q->where('status', $s))
             ->orderByDesc('date_taken')
-            ->get();
+            ->orderByDesc('result_id')
+            ->paginate(8, ['*'], 'quiz_page')
+            ->withQueryString();
 
-        $puzzleAttempts = PuzzleAttempt::where('user_id', $userId)
-            ->with(['puzzle.mission', 'puzzle.topic'])
+        // One row per puzzle; its attempts open underneath
+        $missionId = $request->integer('mission_id') ?: null;
+        $puzzleStatus = in_array($request->input('puzzle_status'), ['solved', 'unsolved'], true) ? $request->input('puzzle_status') : null;
+        $puzzleSummary = UserPuzzleProgress::where('user_id', $userId)
+            ->where('attempts_count', '>', 0)
+            ->with('puzzle.mission.topic')
+            ->when($missionId, fn ($q, $m) => $q->whereHas('puzzle', fn ($p) => $p->where('mission_id', $m)))
+            ->when($puzzleStatus === 'solved', fn ($q) => $q->where('is_completed', true))
+            ->when($puzzleStatus === 'unsolved', fn ($q) => $q->where('is_completed', false))
+            ->orderByDesc('last_attempt_at')
+            ->orderByDesc('user_puzzle_progress_id')
+            ->paginate(10, ['*'], 'puzzle_page')
+            ->withQueryString();
+
+        $puzzleTotals = [
+            'attempts' => PuzzleAttempt::where('user_id', $userId)->count(),
+            'puzzles' => UserPuzzleProgress::where('user_id', $userId)->where('attempts_count', '>', 0)->count(),
+        ];
+
+        // Attempts for the puzzles on this page only, latest 10 each
+        $attemptsByPuzzle = PuzzleAttempt::where('user_id', $userId)
+            ->whereIn('puzzle_id', $puzzleSummary->pluck('puzzle_id'))
             ->orderByDesc('date_taken')
-            ->limit(20)
-            ->get();
+            ->orderByDesc('attempt_id')
+            ->get()
+            ->groupBy('puzzle_id')
+            ->map(fn ($attempts) => $attempts->take(10));
+
+        // Missions this student has worked on, for the filter
+        $studentMissions = Mission::whereIn('mission_id', Puzzle::whereIn(
+            'puzzle_id',
+            UserPuzzleProgress::where('user_id', $userId)->pluck('puzzle_id')
+        )->whereNotNull('mission_id')->pluck('mission_id'))
+            ->orderBy('topic_id')
+            ->orderBy('mission_order')
+            ->get(['mission_id', 'title']);
 
         $earnedAchievements = UserAchievement::where('user_id', $userId)
             ->with('achievement')
@@ -147,7 +183,13 @@ class StudentPerformanceController extends Controller
             'totalXp' => $totalXp,
             'topicProgress' => $topicProgress,
             'quizAttempts' => $quizAttempts,
-            'puzzleAttempts' => $puzzleAttempts,
+            'quizStatus' => $quizStatus,
+            'puzzleSummary' => $puzzleSummary,
+            'puzzleTotals' => $puzzleTotals,
+            'attemptsByPuzzle' => $attemptsByPuzzle,
+            'studentMissions' => $studentMissions,
+            'missionId' => $missionId,
+            'puzzleStatus' => $puzzleStatus,
             'earnedAchievements' => $earnedAchievements,
             'weakAreas' => $weakAreas,
         ]);
