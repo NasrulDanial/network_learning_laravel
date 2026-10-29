@@ -419,92 +419,14 @@ window.PuzzleUtils = {
     },
 
     /* ------------------------------------------------------------------ */
-    /* 5. Link health (remaining attempts) and paid hint                  */
+    /* 5. Status panel (health, stars, XP at stake, hint): missionConsole.js */
     /* ------------------------------------------------------------------ */
-    renderHealth(maxAttempts, used) {
-        const box = document.getElementById('link-health');
-        if (!box) return;
-        box.replaceChildren();
-        const label = document.createElement('span');
-        label.className = 'health-label';
-        label.textContent = 'Link health';
-        box.appendChild(label);
-
-        if (!maxAttempts) {
-            const inf = document.createElement('span');
-            inf.className = 'health-infinite';
-            inf.textContent = '∞ link redundancy';
-            box.appendChild(inf);
-            box.setAttribute('aria-label', 'Unlimited attempts');
-            return;
-        }
-
-        const left = Math.max(0, maxAttempts - used);
-        for (let i = 0; i < maxAttempts; i++) {
-            const seg = document.createElement('span');
-            seg.className = 'health-seg' + (i < left ? '' : ' is-lost');
-            box.appendChild(seg);
-        }
-        const count = document.createElement('span');
-        count.className = 'health-count';
-        count.textContent = `${left}/${maxAttempts}`;
-        box.appendChild(count);
-        box.setAttribute('aria-label', `${left} of ${maxAttempts} attempts left`);
-    },
-
     updateHealth(data) {
-        if (typeof data.max_attempts === 'undefined') return;
-        const before = document.querySelectorAll('#link-health .health-seg:not(.is-lost)').length;
-        this.renderHealth(data.max_attempts, data.attempts_count || 0);
-        const segs = document.querySelectorAll('#link-health .health-seg');
-        const after = document.querySelectorAll('#link-health .health-seg:not(.is-lost)').length;
-        if (after < before && segs[after]) {
-            segs[after].classList.add('is-breaking');   // short-circuit animation on the segment just lost
-        }
+        if (window.MissionConsole) MissionConsole.onResult(data, data.status === 'completed' || data.is_correct === true);
     },
 
     hideHintPanel() {
-        const confirmBox = document.getElementById('hint-confirm');
-        if (confirmBox) confirmBox.hidden = true;
-    },
-
-    initHint() {
-        const btn = document.getElementById('hint-button');
-        const confirmBox = document.getElementById('hint-confirm');
-        const out = document.getElementById('hint-text');
-        if (!btn || !out) return;
-
-        const reveal = () => {
-            if (window.isPreview) {
-                // Lecturer preview: hint is free and never touches student progress
-                if (confirmBox) confirmBox.hidden = true;
-                out.hidden = false;
-                btn.hidden = true;
-                window.NetFX ? NetFX.typeText(out, `Hint: ${window.previewHint || ''}`) : (out.textContent = `Hint: ${window.previewHint || ''}`);
-                return;
-            }
-            const csrf = document.head.querySelector('meta[name="csrf-token"]')?.content ?? '';
-            btn.disabled = true;
-            fetch(window.hintUrl, { method: 'POST', headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' } })
-                .then(r => r.ok ? r.json() : r.json().catch(() => ({})).then(j => { throw new Error(j.message || 'Hint unavailable.'); }))
-                .then(d => {
-                    if (confirmBox) confirmBox.hidden = true;
-                    out.hidden = false;
-                    btn.hidden = true;
-                    const note = d.charged ? ` (−${d.penalty} XP applied to this activity)` : '';
-                    window.NetFX ? NetFX.typeText(out, `Hint: ${d.hint}${note}`) : (out.textContent = `Hint: ${d.hint}${note}`);
-                })
-                .catch(e => { btn.disabled = false; PuzzleUtils.showToast(`⚠️ ${e.message}`, 'warning', 5000); });
-        };
-
-        btn.addEventListener('click', () => {
-            if (window.NetFX) NetFX.sound('click');
-            if (btn.dataset.free === 'true' || !confirmBox) return reveal();
-            confirmBox.hidden = false;
-            confirmBox.querySelector('[data-hint-yes]')?.focus();
-        });
-        confirmBox?.querySelector('[data-hint-yes]')?.addEventListener('click', reveal);
-        confirmBox?.querySelector('[data-hint-no]')?.addEventListener('click', () => { confirmBox.hidden = true; btn.focus(); });
+        if (window.MissionConsole) MissionConsole.hideConfirm();
     },
 
     /* ------------------------------------------------------------------ */
@@ -622,8 +544,3 @@ window.PuzzleUtils = {
         };
     },
 };
-
-document.addEventListener('DOMContentLoaded', () => {
-    PuzzleUtils.renderHealth(window.puzzleData?.max_attempts || 0, window.puzzleData?.attempts_used || 0);
-    PuzzleUtils.initHint();
-});

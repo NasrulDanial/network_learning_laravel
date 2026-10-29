@@ -42,6 +42,13 @@
         $hintFree = !empty($isPreview) || ($hintFree ?? false);
         $hintRevealed = $hintRevealed ?? false;
         $hintPenalty = $hintPenalty ?? (int) config('netlearn.hint_xp_penalty');
+        $tryAttempts = $tryAttempts ?? 0;
+        $tryHint = $tryHint ?? false;
+        $penaltyPaid = $penaltyPaid ?? false;
+        $solved = $solved ?? false;
+        $worth = max(0, (int) ($puzzle->points ?: 100));
+        $typeLabel = strtoupper(str_replace('_', ' ', $puzzle->puzzle_type));
+        $freeAfter = (int) config('netlearn.free_hint_after');
     @endphp
 
     @if ($inRun)
@@ -102,6 +109,8 @@
 
     @endunless
 
+    <div class="puzzle-layout">
+    <div class="puzzle-main">
     <!-- Network Lab Terminal Wrapper -->
     <div class="lab-terminal" style="position: relative; border-radius: var(--nl-radius-panel); padding: 6px; background: linear-gradient(180deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.95) 100%); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.1); margin-bottom: 20px;">
         <!-- Terminal Header Bar -->
@@ -114,7 +123,7 @@
                 </div>
                 <span style="color: #22d3ee; font-weight: 600; margin-left: 6px;">eth0 [Interactive Simulation Node]</span>
             </div>
-            <span>ENGINE: PHASER 3 // AUTO-SCALE</span>
+            <span class="lab-status"><i class="lab-status-dot" aria-hidden="true"></i>{{ $typeLabel }} LAB · LIVE</span>
         </div>
 
         <!-- Phaser Mount Container -->
@@ -128,37 +137,95 @@
         </div>
     </div>
 
-    <!-- Link health (attempts) + hint -->
-    <div class="puzzle-toolbar">
-        <div id="link-health" class="link-health" role="status" aria-live="polite"></div>
+    <!-- Diagnostic Feedback Panel (shown under the board) -->
+    <div id="feedback-panel"
+         style="display: none; margin-top: 16px; padding: 16px; border-radius: var(--nl-radius-card); border: 2px solid transparent; font-weight: 500; font-size: 0.9rem; line-height: 1.5; backdrop-filter: var(--nl-glass-blur); transition: var(--nl-transition);">
+        <p id="feedback-text" style="margin: 0;"></p>
+    </div>
+
+    </div>{{-- /puzzle-main --}}
+
+    <!-- Mission console: health, star rating, XP at stake, hint and an event log -->
+    <aside class="mission-console" id="mission-console" aria-label="Mission status"
+           data-max="{{ (int) $puzzle->max_attempts }}"
+           data-used="{{ (int) $attemptsUsed }}"
+           data-try-wrong="{{ (int) $tryAttempts }}"
+           data-try-hint="{{ $tryHint ? 1 : 0 }}"
+           data-points="{{ $worth }}"
+           data-penalty="{{ (int) $hintPenalty }}"
+           data-penalty-paid="{{ $penaltyPaid ? 1 : 0 }}"
+           data-solved="{{ $solved ? 1 : 0 }}"
+           data-free-after="{{ $freeAfter }}">
+        <header class="mc-head">
+            <span class="mc-head-title"><i class="mc-dot" aria-hidden="true"></i> Operator status</span>
+            <span class="mc-head-task">{{ $typeLabel }}</span>
+        </header>
+
+        <section class="mc-card mc-health" id="mc-health" aria-labelledby="mc-health-label">
+            <div class="mc-card-top">
+                <span class="mc-label" id="mc-health-label"><i class="fa-solid fa-heart-pulse" aria-hidden="true"></i> Link health</span>
+                <span class="mc-hp"><b id="mc-hp-num">100</b><small>/100</small></span>
+            </div>
+            <div class="mc-bar" id="mc-bar" role="progressbar" aria-labelledby="mc-health-label" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+                <div class="mc-bar-ghost" id="mc-bar-ghost"></div>
+                <div class="mc-bar-fill" id="mc-bar-fill"></div>
+                <div class="mc-bar-notches" id="mc-bar-notches" aria-hidden="true"></div>
+            </div>
+            <p class="mc-sub" id="mc-health-sub">Wrong answers cost link health.</p>
+        </section>
+
+        <section class="mc-card mc-stars-card" aria-labelledby="mc-stars-label">
+            <div class="mc-card-top">
+                <span class="mc-label" id="mc-stars-label"><i class="fa-solid fa-star" aria-hidden="true"></i> Star rating</span>
+            </div>
+            <div class="mc-stars" id="mc-stars" role="img" aria-label="3 of 3 stars possible">
+                <i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i>
+            </div>
+            <p class="mc-sub" id="mc-stars-sub">Solve it first try for ★★★.</p>
+        </section>
+
+        <section class="mc-card mc-xp" id="mc-xp" aria-labelledby="mc-xp-label">
+            <div class="mc-card-top">
+                <span class="mc-label" id="mc-xp-label"><i class="fa-solid fa-bolt" aria-hidden="true"></i> <span id="mc-xp-title">XP at stake</span></span>
+                <span class="mc-xp-value"><b id="mc-xp-num">{{ $worth }}</b> <small>XP</small></span>
+            </div>
+            <p class="mc-sub" id="mc-xp-sub">Earned once, when you solve it.</p>
+        </section>
 
         @if (filled($puzzle->hint))
-            <div class="hint-area">
+            <section class="mc-card mc-hint" id="mc-hint" aria-labelledby="mc-hint-label">
+                <div class="mc-card-top">
+                    <span class="mc-label" id="mc-hint-label"><i class="fa-solid fa-lightbulb" aria-hidden="true"></i> Hint</span>
+                    <span class="mc-hint-state" id="mc-hint-state"></span>
+                </div>
                 @if ($hintRevealed && empty($isPreview))
-                    <p id="hint-text" class="hint-text">Hint: {{ $puzzle->hint }}</p>
+                    <p id="hint-text" class="hint-text">{{ $puzzle->hint }}</p>
                 @else
-                    <button type="button" id="hint-button" class="button secondary hint-button" data-free="{{ $hintFree ? 'true' : 'false' }}">
+                    <p class="mc-sub" id="hint-lead">Stuck? A hint costs <strong>{{ $hintPenalty }} XP</strong>, taken the moment you reveal it. It becomes free after {{ $freeAfter }} wrong answers.</p>
+                    <button type="button" id="hint-button" class="button mc-hint-button" data-free="{{ $hintFree ? 'true' : 'false' }}">
                         <i class="fa-solid fa-lightbulb" aria-hidden="true"></i>
-                        {{ $hintFree ? 'Show hint' : "Request hint (−{$hintPenalty} XP)" }}
+                        <span id="hint-button-label">{{ $hintFree ? 'Reveal free hint' : 'Reveal hint' }}</span>
+                        <span class="mc-cost" id="hint-cost" @if ($hintFree) hidden @endif>−{{ $hintPenalty }} XP</span>
                     </button>
                     <div id="hint-confirm" class="hint-confirm" role="dialog" aria-label="Confirm hint" hidden>
-                        <p>Using the hint now lowers the XP this activity can earn by <strong>{{ $hintPenalty }} XP</strong>, permanently. After {{ (int) config('netlearn.free_hint_after') }} failed attempts the hint is free.</p>
+                        <p>Reveal the hint for <strong>−{{ $hintPenalty }} XP</strong>? It comes off straight away and a hint caps this try at ★★.</p>
                         <div class="hint-confirm-actions">
-                            <button type="button" class="button" data-hint-yes>Show hint (−{{ $hintPenalty }} XP)</button>
+                            <button type="button" class="button" data-hint-yes>Pay −{{ $hintPenalty }} XP</button>
                             <button type="button" class="button secondary" data-hint-no>Keep trying</button>
                         </div>
                     </div>
                     <p id="hint-text" class="hint-text" hidden></p>
                 @endif
-            </div>
+            </section>
         @endif
-    </div>
 
-    <!-- Diagnostic Feedback Panel -->
-    <div id="feedback-panel"
-         style="display: none; margin-top: 16px; padding: 16px; border-radius: var(--nl-radius-card); border: 2px solid transparent; font-weight: 500; font-size: 0.9rem; line-height: 1.5; backdrop-filter: var(--nl-glass-blur); transition: var(--nl-transition);">
-        <p id="feedback-text" style="margin: 0;"></p>
-    </div>
+        <section class="mc-card mc-log-card" aria-labelledby="mc-log-label">
+            <div class="mc-card-top"><span class="mc-label" id="mc-log-label"><i class="fa-solid fa-terminal" aria-hidden="true"></i> Event log</span></div>
+            <ul class="mc-log" id="mc-log" aria-live="polite"></ul>
+        </section>
+    </aside>
+    </div>{{-- /puzzle-layout --}}
+
 
 </div>
 
@@ -173,6 +240,7 @@
 @section('scripts')
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
     <script src="{{ asset('js/puzzles/puzzleUtils.js') }}"></script>
+    <script src="{{ asset('js/puzzles/missionConsole.js') }}"></script>
 
     <script>
         window.isPreview    = {!! json_encode(!empty($isPreview)) !!};

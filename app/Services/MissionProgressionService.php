@@ -147,6 +147,8 @@ class MissionProgressionService
                 'attempts_count'        => (int) $puzzleProgress->attempts_count,
                 'max_attempts'          => (int) $puzzle->max_attempts,
                 'hints_used'            => (int) $puzzleProgress->hints_used,
+                'try_attempts'          => (int) $puzzleProgress->try_attempts,
+                'try_hint_used'         => (bool) $puzzleProgress->try_hint_used,
                 'stars'                 => $stars,
                 'best_stars'            => (int) $puzzleProgress->best_stars,
                 'mission_stars'         => $missionStars,

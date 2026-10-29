@@ -131,33 +131,31 @@
                 .onfinish = () => dot.remove();
         },
 
-        health(max, used, broke) {
-            const box = qs('#hud-health');
-            box.hidden = false;
-            box.innerHTML = '';
-            if (!max) {
-                box.innerHTML = '<i class="fa-solid fa-infinity" aria-hidden="true"></i><span>links</span>';
-                box.setAttribute('aria-label', 'Unlimited attempts');
-                return;
-            }
-            const left = Math.max(0, max - used);
-            for (let k = 0; k < max; k++) {
-                const seg = document.createElement('span');
-                seg.className = 'seg' + (k < left ? '' : ' lost') + (broke && k === left ? ' breaking' : '');
-                box.appendChild(seg);
-            }
-            box.setAttribute('aria-label', `${left} of ${max} attempts left on this task`);
-        },
-
         streak(n) {
             const el = qs('#hud-streak');
             el.querySelector('span').textContent = `x${n}`;
             el.classList.toggle('is-hot', n >= 2);
         },
 
-        xp(value) {
+        // The run's XP can go below zero: a hint is charged the moment it is revealed.
+        xp(value, delta = 0) {
             const el = qs('#hud-xp');
+            const box = qs('.hud-xp');
             fx.countUp(el, Number(el.textContent) || 0, value, 600);
+            box.classList.toggle('is-negative', value < 0);
+            if (!delta) return;
+            const cls = delta < 0 ? 'is-loss' : 'is-gain';
+            box.classList.remove('is-loss', 'is-gain');
+            void box.offsetWidth;
+            box.classList.add(cls);
+            setTimeout(() => box.classList.remove(cls), 900);
+            if (fx.reduced) return;
+            const f = document.createElement('span');
+            f.className = 'hud-float ' + cls;
+            f.setAttribute('aria-hidden', 'true');
+            f.textContent = (delta > 0 ? '+' : '−') + Math.abs(delta);
+            box.appendChild(f);
+            setTimeout(() => f.remove(), 1200);
         },
     };
 
@@ -170,6 +168,7 @@
         firstTry: 0,
         played: 0,
         tries: {},
+        pending: {}, // hint cost already taken off the HUD, per puzzle id
         startedAt: null,
         badges: [],
         ttlTimer: null,
@@ -254,7 +253,6 @@
             if (!this.startedAt) this.startedAt = Date.now();
             const p = cfg.puzzles[this.i];
             hud.setCurrent(this.i);
-            hud.health(p.maxAttempts, p.attemptsUsed, false);
             this.frameReady = false;
             qs('#frame-loader').hidden = false;
             frame.src = p.url;
@@ -295,7 +293,6 @@
                 // XP is only earned by solving, so a wrong answer never adds any
                 this.streak = 0;
                 hud.streak(0);
-                hud.health(p.maxAttempts, p.attemptsUsed, true);
                 fx.flash('rgba(239,68,68,.18)');
                 announce('Not quite. Check the feedback and try again.');
                 return;
@@ -310,15 +307,34 @@
                 this.streak = 0;
             }
             this.bestStreak = Math.max(this.bestStreak, this.streak);
-            this.xp += (msg.earnedXp || 0) + (msg.missionCompleted ? (msg.missionXpReward || 0) : 0);
+            // A hint bought in this run was already taken off the HUD; the server's earned XP is net
+            // of that cost, so add it back here to keep the run total equal to points - penalty.
+            const paid = this.pending[p.id] || 0;
+            delete this.pending[p.id];
+            const gain = (msg.earnedXp || 0) + paid + (msg.missionCompleted ? (msg.missionXpReward || 0) : 0);
+            this.xp += gain;
             (msg.newBadges || []).forEach((b) => { if (!this.badges.includes(b)) this.badges.push(b); });
             p.completed = true;
             p.stars = Math.max(p.stars || 0, msg.stars || 0);
 
             hud.streak(this.streak);
-            hud.xp(this.xp);
+            hud.xp(this.xp, gain);
             announce(`Correct. Link up. ${msg.earnedXp || 0} XP earned.`);
             setTimeout(() => this.hop(), fx.reduced ? 300 : 1400);
+        },
+
+        onHint(msg) {
+            const p = cfg.puzzles[this.i];
+            if (!p || Number(msg.puzzleId) !== Number(p.id)) return;
+            if (!msg.charged || !msg.penalty) {
+                announce('Hint revealed. No XP charged.');
+                return;
+            }
+            this.pending[p.id] = (this.pending[p.id] || 0) + msg.penalty;
+            this.xp -= msg.penalty;
+            hud.xp(this.xp, -msg.penalty);
+            if (fx.sound) fx.sound('drop');
+            announce(`Hint revealed. ${msg.penalty} XP charged. Run XP is now ${this.xp}.`);
         },
 
         async hop() {
@@ -444,6 +460,7 @@
         if (!m || m.source !== 'netlearn') return;
         if (m.type === 'puzzle:ready') run.frameLoaded();
         if (m.type === 'puzzle:result') run.onResult(m);
+        if (m.type === 'puzzle:hint') run.onHint(m);
         if (m.type === 'puzzle:locked') {
             qs('#locked-message').textContent = m.message || 'You have used all attempts on this task.';
             qs('#locked-modal').hidden = false;

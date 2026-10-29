@@ -16,7 +16,6 @@
         </div>
 
         <div class="hud-right">
-            <div class="hud-stat" id="hud-health" title="Link health: attempts left on this task" hidden></div>
             <div class="hud-stat hud-streak" id="hud-streak" title="First-try streak">
                 <i class="fa-solid fa-fire" aria-hidden="true"></i><span>x0</span>
             </div>

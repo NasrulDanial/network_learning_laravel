@@ -71,6 +71,11 @@ class PuzzleController extends Controller
             'puzzle' => $puzzle,
             'inRun' => request()->boolean('run') && config('netlearn.run_mode'),
             'attemptsUsed' => $attemptsUsed,
+            // Per-try state drives the status panel (health, star potential, XP at stake)
+            'tryAttempts' => (int) ($progress->try_attempts ?? 0),
+            'tryHint' => (bool) ($progress->try_hint_used ?? false),
+            'penaltyPaid' => (int) ($progress->hints_used ?? 0) > 0,
+            'solved' => (bool) ($progress->is_completed ?? false),
             // Shown up front only while it still matters for this try (a solved puzzle starts clean)
             'hintRevealed' => (bool) ($progress->try_hint_used ?? false)
                 || ((int) ($progress->hints_used ?? 0) > 0 && ! ($progress->is_completed ?? false)),
@@ -116,6 +121,7 @@ class PuzzleController extends Controller
             'hint' => $puzzle->hint,
             'charged' => $charged,
             'penalty' => (int) $progress->hints_used > 0 ? (int) config('netlearn.hint_xp_penalty') : 0,
+            'try_hint_used' => true,
         ]);
     }
 
