@@ -38,4 +38,10 @@ class Quiz extends Model
     {
         return $this->hasMany(Result::class, 'quiz_id', 'quiz_id');
     }
+
+    /** Wrong answers allowed in one attempt; the last one ends it (LINK DOWN). Same for every quiz. */
+    public static function lives(): int
+    {
+        return max(1, (int) config('netlearn.quiz_lives', 3));
+    }
 }

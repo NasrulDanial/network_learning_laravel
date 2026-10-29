@@ -275,9 +275,16 @@ public function quizHub()
         ->get();
 
     // Lock state follows the topic sequence, not the quiz list (topics may have 0 or several quizzes)
+    // and the quiz itself opens only once every mission of its topic is cleared
     $unlockedTopicIds = $this->unlockedTopicIds($userId);
+    $topics = Topic::whereIn('topic_id', $quizzes->pluck('topic_id')->unique())->get()->keyBy('topic_id');
     foreach ($quizzes as $quizItem) {
-        $quizItem->is_unlocked = in_array((int) $quizItem->topic_id, $unlockedTopicIds, true);
+        $topicOpen = in_array((int) $quizItem->topic_id, $unlockedTopicIds, true);
+        $missions = $topics->get($quizItem->topic_id)?->missionsClearedBy($userId) ?? ['done' => 0, 'total' => 0];
+        $quizItem->missions_done = $missions['done'];
+        $quizItem->missions_total = $missions['total'];
+        $quizItem->lock_reason = ! $topicOpen ? 'topic' : ($missions['done'] < $missions['total'] ? 'missions' : null);
+        $quizItem->is_unlocked = $quizItem->lock_reason === null;
     }
 
     return view('student.quiz_hub', [
@@ -293,12 +300,14 @@ public function quiz(Quiz $quiz)
 
     $quiz->load('topic', 'questions');
 
-    if (! $quiz->topic) {
+    if (! $quiz->topic || ! $quiz->topic->isUnlockedFor($userId)) {
         return redirect()->route('student.quiz');
     }
 
-    if (! $quiz->topic->isUnlockedFor($userId)) {
-        return redirect()->route('student.quiz');
+    if ($locked = self::assessmentLock($quiz, $userId)) {
+        return redirect()
+            ->route('student.topic', ['topic' => $quiz->topic_id, 'tab' => 'missions'])
+            ->with('error', $locked);
     }
 
     if ($quiz->questions->count() < 1) {
@@ -309,12 +318,15 @@ public function quiz(Quiz $quiz)
             ]);
     }
 
+    $run = self::quizRun($quiz);
+    $byId = $quiz->questions->keyBy('question_id');
+    $questions = collect($run['order'])->map(fn ($id) => $byId->get($id))->filter()->values();
+
     // Answers already checked in this attempt come back locked (e.g. after a reload)
-    $locked = session(self::quizRunKey($quiz), [])['answers'] ?? [];
     $checked = [];
-    foreach ($quiz->questions as $question) {
-        if (isset($locked[$question->question_id])) {
-            $checked[$question->question_id] = self::quizVerdict($question, $locked[$question->question_id], true);
+    foreach ($questions as $question) {
+        if (isset($run['answers'][$question->question_id])) {
+            $checked[$question->question_id] = self::quizVerdict($question, $run['answers'][$question->question_id], true, $run);
         }
     }
 
@@ -323,8 +335,12 @@ public function quiz(Quiz $quiz)
         'activePage' => 'quiz',
         'quiz' => $quiz,
         'topic' => $quiz->topic,
-        'questions' => $quiz->questions,
+        'questions' => $questions,
+        'optionOrder' => $run['options'],
         'checked' => $checked,
+        'lives' => Quiz::lives(),
+        'livesLeft' => max(0, Quiz::lives() - (int) $run['wrong']),
+        'terminated' => (bool) $run['terminated'],
         'claimableXp' => self::claimableQuizXp($userId, $quiz),
     ]);
 }
@@ -360,13 +376,62 @@ public static function claimableQuizXp(int $userId, Quiz $quiz): int
     return max(0, (int) config('netlearn.quiz_pass_xp') - (int) $previous->sum('points_earned'));
 }
 
+/** Why the quiz is closed to this student (missions not cleared), or null when it is open. */
+private static function assessmentLock(Quiz $quiz, int $userId): ?string
+{
+    if ($quiz->topic->assessmentUnlockedFor($userId)) {
+        return null;
+    }
+    $m = $quiz->topic->missionsClearedBy($userId);
+
+    return "Clear all {$m['total']} missions to unlock the assessment ({$m['done']}/{$m['total']} done).";
+}
+
 private static function quizRunKey(Quiz $quiz): string
 {
     return 'quizrun.' . $quiz->quiz_id;
 }
 
+/**
+ * The current attempt, kept in the session: locked answers, wrong-answer count, whether it
+ * ended (out of lives), and a per-attempt question and option order that survives reloads.
+ */
+private static function quizRun(Quiz $quiz): array
+{
+    $key = self::quizRunKey($quiz);
+    $run = session($key);
+    $questionIds = $quiz->questions()->orderBy('question_id')->pluck('question_id')->all();
+
+    if (! is_array($run) || ! isset($run['order']) || array_diff($questionIds, $run['order'])) {
+        $seed = random_int(1, PHP_INT_MAX >> 1);
+        mt_srand($seed);
+        $order = $questionIds;
+        shuffle($order);
+        $options = [];
+        foreach ($order as $id) {
+            $keys = ['A', 'B', 'C', 'D'];
+            shuffle($keys);
+            $options[$id] = $keys; // display order only: each key keeps its own text
+        }
+        mt_srand();
+
+        $run = [
+            'answers' => $run['answers'] ?? [],
+            'wrong' => (int) ($run['wrong'] ?? 0),
+            'terminated' => (bool) ($run['terminated'] ?? false),
+            'seed' => $seed,
+            'order' => $order,
+            'options' => $options,
+            'started_at' => now()->timestamp,
+        ];
+        session([$key => $run]);
+    }
+
+    return $run;
+}
+
 /** Verdict for a locked answer. The correct option and explanation are only revealed once locked. */
-private static function quizVerdict(Question $question, string $answer, bool $alreadyLocked): array
+private static function quizVerdict(Question $question, string $answer, bool $alreadyLocked, array $run): array
 {
     return [
         'question_id' => $question->question_id,
@@ -375,6 +440,9 @@ private static function quizVerdict(Question $question, string $answer, bool $al
         'correct_answer' => $question->correct_answer,
         'explanation' => $question->explanation,
         'locked' => $alreadyLocked,
+        'lives' => Quiz::lives(),
+        'lives_left' => max(0, Quiz::lives() - (int) $run['wrong']),
+        'terminated' => (bool) $run['terminated'],
     ];
 }
 
@@ -385,27 +453,39 @@ public function checkQuizAnswer(Request $request, Quiz $quiz)
         'answer' => ['required', 'in:A,B,C,D'],
     ]);
 
+    $userId = auth()->user()->user_id;
     $quiz->load('topic');
-    if (! $quiz->topic || ! $quiz->topic->isUnlockedFor(auth()->user()->user_id)) {
+    if (! $quiz->topic || ! $quiz->topic->isUnlockedFor($userId)) {
         abort(403);
+    }
+    if ($locked = self::assessmentLock($quiz, $userId)) {
+        abort(403, $locked);
     }
 
     $question = Question::where('quiz_id', $quiz->quiz_id)
         ->where('question_id', $data['question_id'])
         ->firstOrFail();
 
-    $key = self::quizRunKey($quiz);
-    $run = session($key, ['answers' => [], 'started_at' => now()->timestamp]);
+    $run = self::quizRun($quiz);
 
     // Once checked, an answer cannot be changed: return the stored verdict
     if (isset($run['answers'][$question->question_id])) {
-        return response()->json(self::quizVerdict($question, $run['answers'][$question->question_id], true));
+        return response()->json(self::quizVerdict($question, $run['answers'][$question->question_id], true, $run));
+    }
+
+    if ($run['terminated']) {
+        return response()->json(['message' => 'Attempt already ended', 'terminated' => true], 409);
     }
 
     $run['answers'][$question->question_id] = $data['answer'];
-    session([$key => $run]);
+    if ($data['answer'] !== $question->correct_answer) {
+        $run['wrong']++;
+        // Out of lives: the attempt is over (LINK DOWN) and can only be submitted as a Fail
+        $run['terminated'] = $run['wrong'] >= Quiz::lives();
+    }
+    session([self::quizRunKey($quiz) => $run]);
 
-    return response()->json(self::quizVerdict($question, $data['answer'], false));
+    return response()->json(self::quizVerdict($question, $data['answer'], false, $run));
 }
 
 public function submitQuiz(Request $request)
@@ -429,19 +509,15 @@ public function submitQuiz(Request $request)
         return redirect()->route('student.learning');
     }
 
+    if ($locked = self::assessmentLock($quiz, $userId)) {
+        abort(403, $locked);
+    }
+
     $questions = Question::where('quiz_id', $quiz->quiz_id)
         ->orderBy('question_id', 'asc')
         ->get();
 
     $totalQuestions = $questions->count();
-
-    // Answers checked during the attempt are locked: they override anything posted
-    $runKey = self::quizRunKey($quiz);
-    $locked = session($runKey, [])['answers'] ?? [];
-    $answers = $data['answers'] ?? [];
-    foreach ($locked as $questionId => $answer) {
-        $answers[$questionId] = $answer;
-    }
 
     if ($totalQuestions < 1) {
         return redirect()
@@ -451,12 +527,18 @@ public function submitQuiz(Request $request)
             ]);
     }
 
+    // Answers checked during the attempt are locked and are the only ones that count. Posted
+    // answers are used only when nothing was checked (the page without JavaScript).
+    $runKey = self::quizRunKey($quiz);
+    $run = session($runKey, []);
+    $answers = ! empty($run['answers']) ? $run['answers'] : ($data['answers'] ?? []);
+    $terminated = (bool) ($run['terminated'] ?? false);
+
     $score = 0;
     $answeredQuestions = 0;
 
     foreach ($questions as $question) {
-        $questionId = $question->question_id;
-        $selectedAnswer = $answers[$questionId] ?? '';
+        $selectedAnswer = $answers[$question->question_id] ?? '';
 
         if (in_array($selectedAnswer, ['A', 'B', 'C', 'D'], true)) {
             $answeredQuestions++;
@@ -467,7 +549,8 @@ public function submitQuiz(Request $request)
         }
     }
 
-    if ($answeredQuestions !== $totalQuestions) {
+    // Out of lives, unanswered questions simply count as wrong
+    if (! $terminated && $answeredQuestions !== $totalQuestions) {
         return redirect()
             ->route('student.quiz.take', $quiz->quiz_id)
             ->withErrors([
@@ -477,11 +560,10 @@ public function submitQuiz(Request $request)
 
     $percentage = ($score / $totalQuestions) * 100;
 
-    $status = $percentage >= $quiz->passing_mark
-        ? 'Pass'
-        : 'Fail';
+    // LINK DOWN is a Fail even when the score would reach the pass mark
+    $status = ! $terminated && $percentage >= $quiz->passing_mark ? 'Pass' : 'Fail';
 
-    $pointsEarned = self::quizPoints($userId, $quiz, $status);
+    $pointsEarned = self::quizPoints($userId, $quiz, $status, $terminated);
 
     session()->forget($runKey);
 
@@ -492,6 +574,7 @@ public function submitQuiz(Request $request)
         'total_questions' => $totalQuestions,
         'percentage' => $percentage,
         'status' => $status,
+        'ended_reason' => $terminated ? 'link_down' : 'finished',
         'points_earned' => $pointsEarned,
         'date_taken' => now(),
     ]);
@@ -501,7 +584,46 @@ public function submitQuiz(Request $request)
     // Trigger honors evaluation
     \App\Services\AchievementService::checkAndAward($userId);
 
-return redirect()->route('student.result', $result->result_id);
+    return redirect()->route('student.result', $result->result_id);
+}
+
+/**
+ * Leaving mid-quiz: an attempt with at least one checked answer is recorded as a Fail with the
+ * score so far and no XP, so answers cannot be previewed by leaving and starting again.
+ */
+public function abandonQuiz(Quiz $quiz)
+{
+    $userId = auth()->user()->user_id;
+    $quiz->load('topic');
+    if (! $quiz->topic || ! $quiz->topic->isUnlockedFor($userId)) {
+        abort(403);
+    }
+
+    $runKey = self::quizRunKey($quiz);
+    $run = session($runKey, []);
+
+    if (! empty($run['answers'])) {
+        $questions = Question::where('quiz_id', $quiz->quiz_id)->get(['question_id', 'correct_answer']);
+        $total = max(1, $questions->count());
+        $score = $questions->filter(fn ($q) => ($run['answers'][$q->question_id] ?? null) === $q->correct_answer)->count();
+
+        Result::create([
+            'user_id' => $userId,
+            'quiz_id' => $quiz->quiz_id,
+            'score' => $score,
+            'total_questions' => $questions->count(),
+            'percentage' => ($score / $total) * 100,
+            'status' => 'Fail',
+            'ended_reason' => 'abandoned',
+            'points_earned' => 0,
+            'date_taken' => now(),
+        ]);
+        app(TopicProgressService::class)->recalculate($userId, $quiz->topic);
+    }
+
+    session()->forget($runKey);
+
+    return response()->json(['redirect' => route('student.quiz')]);
 }
 
 public function result(Result $result)

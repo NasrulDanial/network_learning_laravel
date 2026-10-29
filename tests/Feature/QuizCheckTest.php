@@ -57,6 +57,7 @@ class QuizCheckTest extends TestCase
         $this->check($this->q1, 'B')->assertOk()->assertExactJson([
             'question_id' => $this->q1->question_id, 'answer' => 'B', 'correct' => true, 'correct_answer' => 'B',
             'explanation' => 'Layer 3 (Network) chooses paths using IP addresses.', 'locked' => false,
+            'lives' => 3, 'lives_left' => 3, 'terminated' => false,
         ]);
         $this->check($this->q2, 'A')->assertOk()->assertJson(['correct' => false, 'correct_answer' => 'C', 'explanation' => null]);
     }

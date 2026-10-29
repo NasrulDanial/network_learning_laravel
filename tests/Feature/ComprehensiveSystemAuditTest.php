@@ -78,8 +78,20 @@ class ComprehensiveSystemAuditTest extends TestCase
         $response->assertSee('Topic Quizzes');
     }
 
+    /** The topic quiz opens only once every mission of its topic is cleared. */
+    private function clearMissionsFor(User $user, int $topicId): void
+    {
+        foreach (Mission::playable()->where('topic_id', $topicId)->pluck('mission_id') as $missionId) {
+            UserMissionProgress::updateOrCreate(
+                ['user_id' => $user->user_id, 'mission_id' => $missionId],
+                ['is_unlocked' => true, 'is_completed' => true, 'xp_reward_granted' => true]
+            );
+        }
+    }
+
     public function test_student_can_take_quiz()
     {
+        $this->clearMissionsFor($this->student, $this->quiz->topic_id);
         $response = $this->actingAs($this->student)->get("/student/quiz/{$this->quiz->quiz_id}");
         $response->assertStatus(200);
         $response->assertSee($this->quiz->title);
@@ -336,6 +348,8 @@ class ComprehensiveSystemAuditTest extends TestCase
         foreach ($questions as $question) {
             $correctAnswers[$question->question_id] = $question->correct_answer;
         }
+
+        $this->clearMissionsFor($isolatedStudent, $quiz->topic_id);
 
         // ── Round 1: first ever Pass ─────────────────────────────────────────
         $response = $this->actingAs($isolatedStudent)->post('/student/quiz/submit', [

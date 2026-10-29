@@ -130,8 +130,22 @@
                                     ></i>
 
                                     <span>
-                                        {{ $isPassed ? 'Retry Challenge' : ($isFailed ? 'Retry Challenge' : 'Start Challenge') }}
+                                        {{ $isPassed || $isFailed ? 'Retry assessment' : 'Start assessment' }}
                                     </span>
+                                </a>
+                            </div>
+                        @elseif ($quizItem->lock_reason === 'missions')
+                            <div class="hub-mission-lock">
+                                <p style="margin: 0 0 8px; font-size: 0.9rem;">
+                                    <i class="fa-solid fa-lock" style="margin-right: 4px;" aria-hidden="true"></i>
+                                    Clear missions first ({{ $quizItem->missions_done }}/{{ $quizItem->missions_total }})
+                                </p>
+                                <div class="hub-mission-bar" role="progressbar" aria-label="Missions cleared"
+                                     aria-valuemin="0" aria-valuemax="{{ $quizItem->missions_total }}" aria-valuenow="{{ $quizItem->missions_done }}">
+                                    <span style="width: {{ $quizItem->missions_total ? round($quizItem->missions_done / $quizItem->missions_total * 100) : 0 }}%"></span>
+                                </div>
+                                <a class="button secondary" href="{{ route('student.topic', ['topic' => $quizItem->topic_id, 'tab' => 'missions']) }}" style="margin-top: 12px;">
+                                    <i class="fa-solid fa-route" aria-hidden="true"></i> <span>Go to missions</span>
                                 </a>
                             </div>
                         @else

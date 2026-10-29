@@ -65,6 +65,10 @@ Route::middleware(['auth', 'role:student'])->group(function () {
         ->middleware('throttle:60,1')
         ->name('student.quiz.check');
 
+    // Leaving mid-quiz records the attempt as a Fail (no XP) once an answer was checked
+    Route::post('/student/quiz/{quiz}/abandon', [StudentController::class, 'abandonQuiz'])
+        ->name('student.quiz.abandon');
+
     Route::get('/student/result/{result}', [StudentController::class, 'result'])
         ->name('student.result');
 

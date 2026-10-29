@@ -296,26 +296,32 @@
 
     // ── 4. Gamified Quiz Stepper ──
     // With data-check-url, each answer is checked (and locked) on the server as soon as it is
-    // picked and comes back as ACK (correct) or RST (wrong) with the explanation. Without JS the
-    // radios still submit the plain form.
+    // picked and comes back as ACK (correct) or RST (wrong) with the explanation. The student
+    // moves forward only (Continue, then Finish on the last question). The server counts lives:
+    // when they run out the attempt ends (LINK DOWN). Leaving mid-attempt asks first and records
+    // a failed attempt. Without JS the radios and the Finish button still submit the plain form.
     window.initQuizStepper = function () {
         const stepper = document.getElementById('quizStepper');
         if (!stepper || stepper.dataset.stepperReady) return;
         stepper.dataset.stepperReady = '1';
 
+        const form = document.getElementById('quizChallengeForm');
         const slides = stepper.querySelectorAll('.quiz-slide');
         const dots = stepper.querySelectorAll('.stepper-node-dot');
-        const prevBtn = document.getElementById('stepperPrevBtn');
-        const nextBtn = document.getElementById('stepperNextBtn');
         const submitBtn = document.getElementById('stepperSubmitBtn');
         const counterCurrent = document.getElementById('stepperCurrentNum');
         const integrityBar = document.getElementById('stepperIntegrityBar');
 
         const checkUrl = stepper.dataset.checkUrl;
+        const abandonUrl = stepper.dataset.abandonUrl;
         const checkMode = !!checkUrl && !!window.fetch;
         const csrf = document.querySelector('meta[name="csrf-token"]')?.content
             || stepper.querySelector('input[name="_token"]')?.value || '';
         const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const lives = Number(stepper.dataset.lives) || 3;
+        let livesLeft = stepper.dataset.livesLeft !== undefined ? Number(stepper.dataset.livesLeft) : lives;
+        let terminated = stepper.dataset.terminated === '1';
+        let finishing = false;
         const verdicts = {}; // slide index -> verdict
         let streak = 0;
 
@@ -328,7 +334,10 @@
             return m ? Number(m[1]) : null;
         };
         const isLocked = (idx) => !!verdicts[idx];
-        const allLocked = () => Object.keys(verdicts).length === total;
+        const answeredCount = () => Object.keys(verdicts).length;
+        const allLocked = () => answeredCount() === total;
+        // Options are shuffled, so the letter a student sees is the option's position
+        const labelFor = (slide, key) => slide.querySelector(`.gamified-option[data-option="${key}"]`)?.dataset.label || key;
 
         function updateStep(newIdx) {
             if (newIdx < 0 || newIdx >= total) return;
@@ -349,12 +358,8 @@
                 integrityBar.style.width = pct + '%';
             }
 
-            const last = currentIdx === total - 1;
-            // In check mode "Next" waits until the current answer is locked
-            const canAdvance = !checkMode || isLocked(currentIdx);
-            if (prevBtn) prevBtn.style.display = currentIdx > 0 ? 'inline-flex' : 'none';
-            if (nextBtn) nextBtn.style.display = !last && canAdvance ? 'inline-flex' : 'none';
-            if (submitBtn) submitBtn.style.display = last && (!checkMode || allLocked()) ? 'inline-flex' : 'none';
+            // With checking, Finish lives in the last question's explanation box
+            if (submitBtn) submitBtn.style.display = !checkMode && currentIdx === total - 1 ? 'inline-flex' : 'none';
             renderSummary();
         }
 
@@ -364,18 +369,16 @@
         if (checkMode && hud) hud.hidden = false;
 
         function renderHud() {
-            const sent = Object.keys(verdicts).length;
+            const sent = answeredCount();
             const acks = Object.values(verdicts).filter((v) => v.correct).length;
-            const rsts = sent - acks;
             const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
             set('quizStreak', 'x' + streak);
             set('quizAckCount', acks);
             set('quizAnsweredCount', sent);
             const health = document.getElementById('quizHealth');
             if (health) {
-                const left = Math.max(0, 3 - rsts);
-                health.querySelectorAll('i').forEach((h, i) => h.classList.toggle('is-lost', i >= left));
-                health.setAttribute('aria-label', `Link health ${left} of 3`);
+                health.querySelectorAll('i').forEach((h, i) => h.classList.toggle('is-lost', i >= livesLeft));
+                health.setAttribute('aria-label', `Lives ${livesLeft} of ${lives}`);
             }
         }
 
@@ -442,11 +445,16 @@
                 box.classList.toggle('is-rst', !v.correct);
                 box.querySelector('.quiz-explain-head').textContent = v.correct
                     ? 'ACK: correct'
-                    : `RST: the correct answer is ${v.correct_answer}`;
+                    : `RST: the correct answer is ${labelFor(slide, v.correct_answer)}`;
                 const text = v.explanation || (v.correct ? 'Nice work.' : 'Review this one before the next attempt.');
                 const p = box.querySelector('.quiz-explain-text');
                 if (animate && window.NetFX && NetFX.typeText) NetFX.typeText(p, text, 90);
                 else p.textContent = text;
+                const cont = box.querySelector('.quiz-continue');
+                if (cont) {
+                    cont.hidden = terminated;
+                    if (animate && !terminated) cont.focus({ preventScroll: true });
+                }
             }
         }
 
@@ -458,9 +466,38 @@
             }
         }
 
+        // ── Dialogs ──
+        const openDialog = (d) => { if (!d) return; if (d.showModal) { if (!d.open) d.showModal(); } else d.setAttribute('open', ''); };
+        const closeDialog = (d) => { if (!d) return; if (d.close) d.close(); else d.removeAttribute('open'); };
+        const linkDown = document.getElementById('quizLinkDown');
+        const leaveDialog = document.getElementById('quizLeaveDialog');
+
+        function finish() {
+            finishing = true;
+            window.removeEventListener('beforeunload', onBeforeUnload);
+            // form.submit() skips the radios' "required": after LINK DOWN some stay unanswered
+            if (form) form.submit();
+        }
+
+        function showLinkDown(animate) {
+            terminated = true;
+            slides.forEach((s) => s.classList.add('is-locked'));
+            stepper.querySelectorAll('.quiz-continue').forEach((b) => { b.hidden = true; });
+            const correct = Object.values(verdicts).filter((v) => v.correct).length;
+            const stats = document.getElementById('linkDownStats');
+            if (stats) stats.textContent = `You answered ${answeredCount()} of ${total}, ${correct} correct.`;
+            if (animate && window.NetFX) {
+                NetFX.sound('drop');
+                if (NetFX.flash) NetFX.flash('rgba(239,68,68,.3)');
+            }
+            if (live) live.textContent = 'Link down. You are out of lives, so passing is no longer possible.';
+            openDialog(linkDown);
+            document.getElementById('linkDownResult')?.focus();
+        }
+
         async function checkAnswer(idx, option) {
             const slide = slides[idx];
-            if (isLocked(idx) || slide.classList.contains('is-checking')) return;
+            if (terminated || isLocked(idx) || slide.classList.contains('is-checking')) return;
             const qid = questionIdOf(slide);
             slide.classList.add('is-checking');
             slide.querySelectorAll('.gamified-option').forEach((opt) => opt.classList.toggle('selected', opt === option));
@@ -472,9 +509,12 @@
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
                     body: JSON.stringify({ question_id: qid, answer: option.dataset.option }),
                 });
+                if (res.status === 409) { showLinkDown(true); return; }
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 const v = await res.json();
                 await flyPacket(option, v.correct);
+                if (typeof v.lives_left === 'number') livesLeft = v.lives_left; // the server counts lives
+                terminated = !!v.terminated;
                 applyVerdict(idx, v, true);
                 recomputeStreak();
                 renderHud();
@@ -484,18 +524,70 @@
                 }
                 if (live) live.textContent = v.correct
                     ? `Question ${idx + 1}: correct.`
-                    : `Question ${idx + 1}: wrong. The correct answer is ${v.correct_answer}.`;
+                    : `Question ${idx + 1}: wrong. The correct answer is ${labelFor(slide, v.correct_answer)}. ${livesLeft} ${livesLeft === 1 ? 'life' : 'lives'} left.`;
                 updateStep(currentIdx);
+                if (terminated) showLinkDown(true);
             } catch (e) {
                 slide.querySelectorAll('.gamified-option').forEach((opt) => opt.classList.remove('selected'));
                 if (live) live.textContent = 'Could not check that answer. Please try again.';
-                
             } finally {
                 slide.classList.remove('is-checking');
             }
         }
 
+        // ── Leaving mid-attempt ──
+        const attemptInProgress = () => checkMode && answeredCount() > 0 && !finishing;
+        function onBeforeUnload(e) {
+            if (!attemptInProgress()) return;
+            e.preventDefault();
+            e.returnValue = ''; // the browser shows its own wording
+        }
+
+        let pendingHref = null;
+        function interceptLinks(e) {
+            const link = e.target.closest && e.target.closest('a[href]');
+            if (!link || !attemptInProgress()) return;
+            if (form && form.contains(link)) return;
+            if (link.target === '_blank' || e.ctrlKey || e.metaKey || e.shiftKey || link.getAttribute('href').startsWith('#')) return;
+            e.preventDefault();
+            e.stopPropagation();
+            pendingHref = link.href;
+            openDialog(leaveDialog);
+            document.getElementById('leaveStay')?.focus();
+        }
+
         if (checkMode) {
+            window.addEventListener('beforeunload', onBeforeUnload);
+            document.addEventListener('click', interceptLinks, true);
+
+            document.getElementById('leaveStay')?.addEventListener('click', () => { pendingHref = null; closeDialog(leaveDialog); });
+            document.getElementById('leaveConfirm')?.addEventListener('click', async (e) => {
+                e.currentTarget.disabled = true;
+                finishing = true;
+                window.removeEventListener('beforeunload', onBeforeUnload);
+                let target = pendingHref;
+                try {
+                    const res = await fetch(abandonUrl, {
+                        method: 'POST',
+                        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    target = target || data.redirect;
+                } catch (err) { /* leave anyway: the server clears the attempt on the next visit */ }
+                window.location.href = target || '/student/quiz';
+            });
+            document.getElementById('linkDownResult')?.addEventListener('click', finish);
+            // Esc must not dismiss LINK DOWN: the only way on is the result
+            linkDown?.addEventListener('cancel', (e) => e.preventDefault());
+
+            stepper.querySelectorAll('.quiz-continue').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    if (currentIdx === total - 1) finish();
+                    else updateStep(currentIdx + 1);
+                    slides[currentIdx]?.querySelector('.question-title')?.focus?.();
+                });
+            });
+
             let restored = {};
             try { restored = JSON.parse(stepper.dataset.checked || '{}') || {}; } catch (e) { restored = {}; }
             slides.forEach((slide, idx) => {
@@ -504,34 +596,7 @@
             });
             recomputeStreak();
             renderHud();
-            const hint = document.getElementById('quizKeyHint');
-            if (hint) hint.textContent = 'Keyboard: [A, B, C, D] to answer, [Enter] for next';
         }
-
-        if (prevBtn) {
-            prevBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                updateStep(currentIdx - 1);
-            });
-        }
-
-        if (nextBtn) {
-            nextBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                updateStep(currentIdx + 1);
-            });
-        }
-
-        // Dot navigation (in check mode only to answered questions and the next open one)
-        dots.forEach((dot, idx) => {
-            dot.addEventListener('click', () => {
-                if (checkMode) {
-                    const firstOpen = [...Array(total).keys()].find((i) => !isLocked(i));
-                    if (!isLocked(idx) && idx !== firstOpen) return;
-                }
-                updateStep(idx);
-            });
-        });
 
         // Option selection
         stepper.querySelectorAll('.gamified-option').forEach(option => {
@@ -558,32 +623,28 @@
             });
         });
 
-        // Keyboard shortcuts (A, B, C, D, arrows, Enter = next)
+        // Keyboard: A–D answer by the letter shown, Enter continues (forward only)
         document.addEventListener('keydown', (e) => {
             if (!document.getElementById('quizStepper')) return;
-            if (e.target.closest && e.target.closest('input[type="text"], textarea, select')) return;
+            if (e.target.closest && e.target.closest('input[type="text"], textarea, select, dialog')) return;
             const activeSlide = slides[currentIdx];
             if (!activeSlide) return;
 
             const key = e.key.toUpperCase();
-            const canAdvance = !checkMode || isLocked(currentIdx);
             if (['A', 'B', 'C', 'D'].includes(key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
-                const targetOption = activeSlide.querySelector(`.gamified-option[data-option="${key}"]`);
+                const targetOption = activeSlide.querySelector(`.gamified-option[data-label="${key}"]`)
+                    || activeSlide.querySelector(`.gamified-option[data-option="${key}"]`);
                 if (targetOption) targetOption.click();
             } else if (e.key === 'Enter' && checkMode && e.target.tagName !== 'BUTTON' && e.target.tagName !== 'A') {
-                e.preventDefault();
-                if (canAdvance && currentIdx < total - 1) updateStep(currentIdx + 1);
-                else if (allLocked() && currentIdx === total - 1 && submitBtn) submitBtn.click();
-            } else if (e.key === 'ArrowRight' && currentIdx < total - 1 && canAdvance) {
-                updateStep(currentIdx + 1);
-            } else if (e.key === 'ArrowLeft' && currentIdx > 0) {
-                updateStep(currentIdx - 1);
+                const cont = activeSlide.querySelector('.quiz-explain:not([hidden]) .quiz-continue:not([hidden])');
+                if (cont) { e.preventDefault(); cont.click(); }
             }
         });
 
         // Resume at the first unanswered question
         const resumeAt = checkMode ? [...Array(total).keys()].find((i) => !isLocked(i)) : 0;
         updateStep(resumeAt === undefined ? total - 1 : resumeAt);
+        if (checkMode && terminated) showLinkDown(false);
     };
 
     // ── 5. Lecturer 3-Pane Finder Interaction ──
