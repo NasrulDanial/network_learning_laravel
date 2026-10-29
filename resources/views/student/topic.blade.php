@@ -231,9 +231,9 @@
 
                         <!-- Meta Badges & XP -->
                         <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px; text-align: right;">
-                            <div style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; font-weight: 800; color: #c084fc;">
+                            <div style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; font-weight: 800; color: #c084fc;" title="XP earned from this mission, out of the most it can give (activities plus the mission reward)">
                                 <i class="fa-solid fa-bolt"></i>
-                                +{{ $mission->xp_reward }} XP
+                                {{ $mission->student_xp_earned }} / {{ $mission->student_xp_possible }} XP
                             </div>
 
                             <div class="mission-solved-count">
@@ -241,10 +241,18 @@
                             </div>
 
                             @if ($isCompleted)
-                                <div class="mission-stars" aria-label="{{ $mission->student_stars }} of 3 stars">
+                                <div class="mission-stars" aria-label="Best rating: {{ $mission->student_stars }} of 3 stars" title="Best rating: the health segments you had left when you finished the mission">
                                     @for ($s = 1; $s <= 3; $s++)
                                         <i class="fa-solid fa-star {{ $s <= $mission->student_stars ? 'is-lit' : '' }}" aria-hidden="true"></i>
                                     @endfor
+                                </div>
+                            @endif
+
+                            @if ($mission->student_run_active)
+                                @php $runStars = \App\Services\LinkHealthService::stars($mission->student_run_health); @endphp
+                                <div class="mission-run-health" title="Mission health of the run in progress: each third of the bar is a star">
+                                    <span class="mission-run-health-label">Run health {{ $mission->student_run_health }}/100 · {{ str_repeat('★', $runStars) }}</span>
+                                    <span class="mission-run-health-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $mission->student_run_health }}"><span style="width: {{ $mission->student_run_health }}%"></span></span>
                                 </div>
                             @endif
 
@@ -298,13 +306,23 @@
 
                                                 <div style="font-weight: 700; font-size: 0.92rem; color: #FFFFFF;">{{ $puzzle->question_text }}</div>
 
-                                                <div style="font-size: 0.8rem; color: rgba(255, 255, 255, 0.5); margin-top: 2px; display: flex; align-items: center; gap: 10px;">
-                                                    <span><i class="fa-solid fa-bolt" style="color: #a855f7; font-size: 0.72rem;"></i> {{ $puzzle->points }} pts</span>
+                                                <div class="puzzle-facts">
+                                                    <span title="XP earned from this activity, out of what it is worth">
+                                                        <i class="fa-solid fa-bolt" style="color: #a855f7; font-size: 0.72rem;"></i>
+                                                        {{ $pCompleted ? $puzzle->student_xp . '/' . $puzzle->points . ' XP earned' : $puzzle->points . ' XP available' }}
+                                                    </span>
                                                     @if ($pAttempts > 0)
-                                                        <span><i class="fa-solid fa-rotate-right" style="font-size: 0.72rem;"></i> {{ $pAttempts }} {{ Str::plural('attempt', $pAttempts) }}</span>
+                                                        <span>
+                                                            <i class="fa-solid fa-rotate-right" style="font-size: 0.72rem;"></i>
+                                                            @if ($pCompleted && $puzzle->student_solved_on)
+                                                                Solved on attempt {{ $puzzle->student_solved_on }}@if ($pAttempts > $puzzle->student_solved_on) ({{ $pAttempts }} in total, counting replays)@endif
+                                                            @else
+                                                                {{ $pAttempts }} {{ Str::plural('attempt', $pAttempts) }} so far
+                                                            @endif
+                                                        </span>
                                                     @endif
-                                                    @if (($puzzle->student_best_score ?? 0) > 0)
-                                                        <span style="color: #facc15;"><i class="fa-solid fa-star" style="font-size: 0.72rem;"></i> Best: {{ $puzzle->student_best_score }}/{{ $puzzle->points }}</span>
+                                                    @if ($puzzle->student_hint)
+                                                        <span style="color: #fbbf24;"><i class="fa-solid fa-lightbulb" style="font-size: 0.72rem;"></i> Hint used (−{{ (int) config('netlearn.hint_xp_penalty') }} XP)</span>
                                                     @endif
                                                 </div>
                                             </div>
@@ -384,10 +402,15 @@
                             <li><i class="fa-solid fa-forward" aria-hidden="true"></i> Answers are checked as you go and cannot be changed.</li>
                             <li><i class="fa-solid fa-door-open" aria-hidden="true"></i> Leaving part-way counts as a failed attempt.</li>
                         </ul>
-                        @if ($bestResult)
+                        @if ($quizSummary && $quizSummary['attempts'] > 0)
                             <p class="overview-muted">
-                                Best result so far: <strong>{{ (int) round($bestResult->percentage) }}%</strong>
-                                ({{ $bestResult->status === 'Pass' ? 'passed' : 'not passed' }})
+                                {{ $quizSummary['attempts'] }} {{ Str::plural('attempt', $quizSummary['attempts']) }}
+                                &bull; best <strong>{{ (int) round($quizSummary['best']) }}%</strong>
+                                ({{ $bestResult && $bestResult->status === 'Pass' ? 'passed' : 'not passed' }})
+                                @if ($quizSummary['last'])
+                                    &bull; last <strong>{{ (int) round($quizSummary['last']->percentage) }}%</strong>
+                                    @if ($quizSummary['last']->ended_reason === 'link_down') (link down) @elseif ($quizSummary['last']->ended_reason === 'abandoned') (left early) @endif
+                                @endif
                             </p>
                         @endif
                         <a class="button" href="{{ route('student.quiz.take', $quiz->quiz_id) }}">

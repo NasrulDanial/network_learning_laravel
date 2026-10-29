@@ -2,93 +2,119 @@
 
 namespace Tests\Feature;
 
+use App\Models\UserMissionProgress;
 use App\Models\UserPuzzleProgress;
 use App\Services\LinkHealthService;
 use Tests\Concerns\BuildsLearningContent;
 use Tests\TestCase;
 
-/** Link health: damage scales with severity, escalates with repeat misses, has a safe-mode floor. */
+/** Mission health: one pool per run, three segments = three stars, damage by severity, safe-mode floor. */
 class LinkHealthTest extends TestCase
 {
     use BuildsLearningContent;
 
-    public function test_damage_scales_with_how_wrong_the_answer_was()
+    private function health($mission): int
     {
-        $nothingRight = LinkHealthService::damage(['correct_count' => 0, 'total' => 4], 1);
-        $halfRight = LinkHealthService::damage(['correct_count' => 2, 'total' => 4], 1);
-        $almost = LinkHealthService::damage(['correct_count' => 3, 'total' => 4], 1);
-
-        $this->assertSame(24, $nothingRight);
-        $this->assertGreaterThan($almost, $halfRight);
-        $this->assertGreaterThan($halfRight, $nothingRight);
-        $this->assertGreaterThanOrEqual(8, $almost); // a near miss still costs about a third
-        $this->assertSame(24, LinkHealthService::damage(['correct_count' => 0, 'total' => 1], 1)); // all-or-nothing tasks
-        $this->assertSame(24, LinkHealthService::damage(null, 1));
+        return (int) UserMissionProgress::where('user_id', $this->student->user_id)->where('mission_id', $mission->mission_id)->value('run_health');
     }
 
-    public function test_repeat_misses_escalate_up_to_a_cap()
+    public function test_damage_scales_with_severity_and_escalates_with_repeat_misses()
     {
-        $diag = ['correct_count' => 0, 'total' => 1];
-        $this->assertSame([24, 28, 31, 35, 35], array_map(fn ($n) => LinkHealthService::damage($diag, $n), [1, 2, 3, 4, 9]));
-        $this->assertEquals(1.0, LinkHealthService::escalation(1));
-        $this->assertEquals(1.45, LinkHealthService::escalation(50));
+        $this->assertSame(24, LinkHealthService::damage(['correct_count' => 0, 'total' => 1], 1));
+        $this->assertSame(16, LinkHealthService::damage(['correct_count' => 2, 'total' => 4], 1));
+        $this->assertGreaterThanOrEqual(8, LinkHealthService::damage(['correct_count' => 3, 'total' => 4], 1));
+        $this->assertSame([24, 28, 31, 35, 35], array_map(fn ($n) => LinkHealthService::damage(['correct_count' => 0, 'total' => 1], $n), [1, 2, 3, 4, 9]));
     }
 
-    public function test_unlimited_tasks_never_drop_below_the_safe_mode_floor()
+    public function test_the_three_segments_are_the_three_stars()
+    {
+        $this->assertSame(3, LinkHealthService::stars(100));
+        $this->assertSame(3, LinkHealthService::stars(67));
+        $this->assertSame(2, LinkHealthService::stars(66));
+        $this->assertSame(2, LinkHealthService::stars(34));
+        $this->assertSame(1, LinkHealthService::stars(33));
+        $this->assertSame(1, LinkHealthService::stars(10));
+    }
+
+    public function test_health_never_drops_below_the_safe_mode_floor()
     {
         $health = 100;
         $trail = [];
-        foreach ([1, 2, 3, 4, 5, 6] as $miss) {
-            $r = LinkHealthService::afterMiss($health, ['correct_count' => 0, 'total' => 1], $miss, 0, $miss);
+        foreach ([1, 2, 3, 4, 5] as $miss) {
+            $r = LinkHealthService::afterMiss($health, ['correct_count' => 0, 'total' => 1], $miss);
             $health = $r['link_health'];
             $trail[] = $health;
         }
-        $this->assertSame([76, 48, 17, 10, 10, 10], $trail);
+        $this->assertSame([76, 48, 17, 10, 10], $trail);
         $this->assertTrue($r['safe_mode']);
-        $this->assertSame(0, $r['damage']); // already at the floor
+        $this->assertSame(1, $r['health_stars']);
     }
 
-    public function test_limited_tasks_show_attempts_left_as_health()
-    {
-        $one = LinkHealthService::afterMiss(100, ['correct_count' => 0, 'total' => 1], 1, 4, 1);
-        $last = LinkHealthService::afterMiss(25, ['correct_count' => 0, 'total' => 1], 3, 4, 4);
-
-        $this->assertSame(75, $one['link_health']);
-        $this->assertSame(0, $last['link_health']);
-        $this->assertFalse($last['safe_mode']);
-    }
-
-    public function test_submit_responses_persist_health_and_a_solve_refills_it()
-    {
-        $this->setUpStudent();
-        $match = $this->makeMatching($this->makeMission($this->makeTopic()));
-
-        // 2 of 4 pairs right: half-severity damage
-        $first = $this->answerWrong($match)->json();
-        $this->assertSame(['link_health' => 84, 'damage' => 16, 'damage_multiplier' => 1, 'safe_mode' => false],
-            ['link_health' => $first['link_health'], 'damage' => $first['damage'], 'damage_multiplier' => $first['damage_multiplier'], 'safe_mode' => $first['safe_mode']]);
-
-        $second = $this->answerWrong($match)->json();
-        $this->assertSame(84 - 19, $second['link_health']); // the repeat miss hits harder
-        $this->assertSame(65, (int) UserPuzzleProgress::where('puzzle_id', $match->puzzle_id)->value('link_health'));
-
-        // The page opens with the stored health
-        $this->actingAs($this->student)->get("/puzzles/{$match->puzzle_id}")->assertSee('data-health="65"', false);
-
-        $this->solve($match)->assertJson(['link_health' => 100, 'damage' => 0]);
-        $this->assertSame(100, (int) UserPuzzleProgress::where('puzzle_id', $match->puzzle_id)->value('link_health'));
-    }
-
-    public function test_a_mission_restart_refills_health()
+    public function test_one_wrong_answer_does_not_cost_a_star_but_accumulated_damage_does()
     {
         $this->setUpStudent();
         $mission = $this->makeMission($this->makeTopic());
         $puzzle = $this->makeIdentification($mission);
+        $this->makeIdentification($mission, 2);
+
+        $this->answerWrong($puzzle)->assertJson(['link_health' => 76, 'run_stars' => 3]);   // still 3 stars
+        $this->answerWrong($puzzle)->assertJson(['link_health' => 48, 'run_stars' => 2]);   // x1.15 repeat: a star is gone
+        $this->answerWrong($puzzle)->assertJson(['link_health' => 17, 'run_stars' => 1]);
+    }
+
+    public function test_health_is_one_pool_that_carries_over_to_the_next_task_of_the_mission()
+    {
+        $this->setUpStudent();
+        $mission = $this->makeMission($this->makeTopic());
+        $first = $this->makeIdentification($mission, 1);
+        $second = $this->makeIdentification($mission, 2);
+
+        $this->answerWrong($first)->assertJson(['link_health' => 76]);
+        $this->solve($first)->assertJson(['link_health' => 76, 'damage' => 0]);   // solving does not refill
+
+        // The next task opens with the same bar, and a miss there draws on it (first miss on that task: x1)
+        $this->actingAs($this->student)->get("/puzzles/{$second->puzzle_id}")->assertSee('data-health="76"', false);
+        $this->answerWrong($second)->assertJson(['link_health' => 52]);
+        $this->assertSame(52, $this->health($mission));
+    }
+
+    public function test_mission_stars_are_the_segments_left_when_the_run_ends()
+    {
+        $this->setUpStudent();
+        $mission = $this->makeMission($this->makeTopic());
+        $a = $this->makeIdentification($mission, 1);
+        $b = $this->makeIdentification($mission, 2);
+
+        $this->answerWrong($a);
+        $this->answerWrong($a); // 48 left: two stars
+        $this->solve($a)->assertJson(['run_complete' => false]);
+        $this->solve($b)->assertJson(['run_complete' => true, 'run_stars' => 2, 'mission_stars' => 2]);
+
+        $this->actingAs($this->student)->getJson(route('student.mission.summary', $mission))->assertJson(['stars' => 2]);
+    }
+
+    public function test_a_restart_refills_health_and_a_better_run_raises_the_stars()
+    {
+        $this->setUpStudent();
+        $mission = $this->makeMission($this->makeTopic());
+        $puzzle = $this->makeIdentification($mission);
+
         $this->answerWrong($puzzle);
-        $this->assertSame(76, (int) UserPuzzleProgress::where('puzzle_id', $puzzle->puzzle_id)->value('link_health'));
+        $this->answerWrong($puzzle);
+        $this->solve($puzzle)->assertJson(['mission_stars' => 2]);
 
         $this->actingAs($this->student)->get(route('student.mission.run', $mission) . '?restart=1')->assertOk();
-        $this->assertSame(100, (int) UserPuzzleProgress::where('puzzle_id', $puzzle->puzzle_id)->value('link_health'));
+        $this->assertSame(100, $this->health($mission));
+        $this->assertFalse((bool) UserPuzzleProgress::where('puzzle_id', $puzzle->puzzle_id)->value('run_solved'));
+
+        $this->solve($puzzle)->assertJson(['run_complete' => true, 'run_stars' => 3, 'mission_stars' => 3]);
+
+        // A worse later run never lowers the best
+        $this->actingAs($this->student)->get(route('student.mission.run', $mission) . '?restart=1');
+        $this->answerWrong($puzzle);
+        $this->answerWrong($puzzle);
+        $this->answerWrong($puzzle);
+        $this->solve($puzzle)->assertJson(['run_stars' => 1, 'mission_stars' => 3]);
     }
 
     public function test_lecturer_preview_applies_the_same_rules_from_the_page_state()
@@ -97,12 +123,10 @@ class LinkHealthTest extends TestCase
         $lecturer = $this->makeUser('lecturer');
         $puzzle = $this->makeIdentification($this->makeMission($this->makeTopic()));
 
-        $response = $this->actingAs($lecturer)
+        $this->actingAs($lecturer)
             ->withHeaders(['X-Preview-Health' => '76', 'X-Preview-Misses' => '2'])
             ->postJson(route('lecturer.missions.puzzles.preview.submit', $puzzle), ['selected_option' => 'opt_2'])
-            ->assertOk();
-
-        $response->assertJson(['link_health' => 48, 'damage' => 28, 'damage_multiplier' => 1.15, 'safe_mode' => false]);
-        $this->assertSame(0, UserPuzzleProgress::count() - UserPuzzleProgress::where('user_id', '!=', $lecturer->user_id)->count());
+            ->assertOk()
+            ->assertJson(['link_health' => 48, 'damage' => 28, 'damage_multiplier' => 1.15, 'safe_mode' => false, 'health_stars' => 2]);
     }
 }

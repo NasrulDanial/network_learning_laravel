@@ -156,6 +156,7 @@
            data-penalty-paid="{{ $penaltyPaid ? 1 : 0 }}"
            data-solved="{{ $solved ? 1 : 0 }}"
            data-health="{{ (int) ($linkHealth ?? 100) }}"
+           data-mission="{{ ($hasMission ?? false) ? 1 : 0 }}"
            data-free-after="{{ $freeAfter }}">
         <header class="mc-head">
             <span class="mc-head-title"><i class="mc-dot" aria-hidden="true"></i> Operator status</span>
@@ -164,8 +165,11 @@
 
         <section class="mc-card mc-health" id="mc-health" aria-labelledby="mc-health-label">
             <div class="mc-card-top">
-                <span class="mc-label" id="mc-health-label"><i class="fa-solid fa-heart-pulse" aria-hidden="true"></i> Link health <span class="mc-safe" id="mc-safe" hidden>Safe mode</span></span>
+                <span class="mc-label" id="mc-health-label"><i class="fa-solid fa-heart-pulse" aria-hidden="true"></i> {{ ($hasMission ?? false) ? 'Mission health' : 'Link health' }} <span class="mc-safe" id="mc-safe" hidden>Safe mode</span></span>
                 <span class="mc-hp"><b id="mc-hp-num">{{ (int) ($linkHealth ?? 100) }}</b><small>/100</small></span>
+            </div>
+            <div class="mc-stars" id="mc-stars" role="img" aria-label="3 of 3 stars at this health">
+                <span class="mc-star"><i class="fa-solid fa-star" aria-hidden="true"></i></span><span class="mc-star"><i class="fa-solid fa-star" aria-hidden="true"></i></span><span class="mc-star"><i class="fa-solid fa-star" aria-hidden="true"></i></span>
             </div>
             <div class="mc-bar" id="mc-bar" role="progressbar" aria-labelledby="mc-health-label" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
                 <div class="mc-bar-ghost" id="mc-bar-ghost"></div>
@@ -174,28 +178,20 @@
             </div>
             <p class="mc-sub" id="mc-health-sub">Wrong answers cost link health.</p>
             <details class="mc-rules">
-                <summary>How health works</summary>
+                <summary>How health and stars work</summary>
                 <ul>
-                    <li>Damage depends on how wrong the answer is: a near miss costs about a third of a total miss.</li>
-                    <li>Repeat misses in one try hit harder (×1.15, ×1.3, up to ×1.45).</li>
-                    @if ((int) $puzzle->max_attempts > 0)
-                        <li>This task allows {{ (int) $puzzle->max_attempts }} attempts: health shows how many are left.</li>
-                    @else
-                        <li>This task has unlimited retries, so health stops at a safe-mode floor and never locks you out.</li>
+                    <li>The bar is split in three segments. Each segment is one star, and the stars left when you solve the last task are the mission's rating.</li>
+                    @if ($hasMission ?? false)
+                        <li>It is one bar for the whole mission: damage carries over from task to task, and restarting the mission refills it.</li>
                     @endif
-                    <li>Solving it repairs the link to full. Health never changes your XP; stars are scored separately.</li>
+                    <li>A wrong answer does damage by how wrong it was (a near miss costs about a third of a total miss), and repeat misses on a task hit harder (×1.15, ×1.3, up to ×1.45).</li>
+                    <li>The bar never hits zero: at the floor you are in safe mode and can still finish for one star.</li>
+                    @if ((int) $puzzle->max_attempts > 0)
+                        <li>This task also has a limit of {{ (int) $puzzle->max_attempts }} attempts.</li>
+                    @endif
+                    <li>Health and stars never change your XP. Hints cost XP, not health.</li>
                 </ul>
             </details>
-        </section>
-
-        <section class="mc-card mc-stars-card" aria-labelledby="mc-stars-label">
-            <div class="mc-card-top">
-                <span class="mc-label" id="mc-stars-label"><i class="fa-solid fa-star" aria-hidden="true"></i> Star rating</span>
-            </div>
-            <div class="mc-stars" id="mc-stars" role="img" aria-label="3 of 3 stars possible">
-                <i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i>
-            </div>
-            <p class="mc-sub" id="mc-stars-sub">Solve it first try for ★★★.</p>
         </section>
 
         <section class="mc-card mc-xp" id="mc-xp" aria-labelledby="mc-xp-label">
@@ -222,7 +218,7 @@
                         <span class="mc-cost" id="hint-cost" @if ($hintFree) hidden @endif>−{{ $hintPenalty }} XP</span>
                     </button>
                     <div id="hint-confirm" class="hint-confirm" role="dialog" aria-label="Confirm hint" hidden>
-                        <p>Reveal the hint for <strong>−{{ $hintPenalty }} XP</strong>? It comes off straight away and a hint caps this try at ★★.</p>
+                        <p>Reveal the hint for <strong>−{{ $hintPenalty }} XP</strong>? It comes off straight away. Hints never cost health.</p>
                         <div class="hint-confirm-actions">
                             <button type="button" class="button" data-hint-yes>Pay −{{ $hintPenalty }} XP</button>
                             <button type="button" class="button secondary" data-hint-no>Keep trying</button>

@@ -61,19 +61,36 @@ class MissionProgressionService
             $puzzleProgress->last_attempt_at = now();
             $puzzleProgress->best_score = max((int) $puzzleProgress->best_score, $score); // analytics only
 
-            // Link health: a miss does damage scaled by how wrong it was and by the misses before it
-            // in this try; a solve ends the try and refills it.
-            $health = ['link_health' => LinkHealthService::MAX, 'damage' => 0, 'damage_multiplier' => 1.0, 'safe_mode' => false];
+            // Mission health: one pool for the whole run. A miss does damage scaled by how wrong it was
+            // and by the misses before it on this task; solving a task does not refill it. A puzzle
+            // that belongs to no mission keeps its own bar, refilled on a solve.
+            $missionProgress = $puzzle->mission
+                ? UserMissionProgress::firstOrCreate(
+                    ['user_id' => $user->user_id, 'mission_id' => $puzzle->mission_id],
+                    ['is_unlocked' => true, 'is_completed' => false, 'best_score_percentage' => 0, 'xp_reward_granted' => false]
+                )
+                : null;
+            $poolHealth = (int) ($missionProgress ? $missionProgress->run_health : $puzzleProgress->link_health);
+            $poolHealth = $poolHealth > 0 ? $poolHealth : LinkHealthService::MAX;
+
+            $health = [
+                'link_health' => $poolHealth, 'damage' => 0, 'damage_multiplier' => 1.0,
+                'safe_mode' => LinkHealthService::inSafeMode($poolHealth), 'health_stars' => LinkHealthService::stars($poolHealth),
+            ];
             if (! $isCorrect) {
-                $health = LinkHealthService::afterMiss(
-                    (int) ($puzzleProgress->link_health ?? LinkHealthService::MAX),
-                    $evaluation['diagnostics'] ?? null,
-                    (int) $puzzleProgress->try_attempts,
-                    (int) $puzzle->max_attempts,
-                    (int) $puzzleProgress->attempts_count
-                );
+                $health = LinkHealthService::afterMiss($poolHealth, $evaluation['diagnostics'] ?? null, (int) $puzzleProgress->try_attempts);
+            } elseif (! $missionProgress) {
+                $health = array_merge($health, ['link_health' => LinkHealthService::MAX, 'safe_mode' => false, 'health_stars' => 3]);
+            } else {
+                $puzzleProgress->run_solved = true;
             }
-            $puzzleProgress->link_health = $health['link_health'];
+
+            if ($missionProgress) {
+                $missionProgress->run_health = $health['link_health'];
+                $missionProgress->save();
+            } else {
+                $puzzleProgress->link_health = $health['link_health'];
+            }
 
             $newXpAwarded = 0;
             $stars = 0;
@@ -109,6 +126,7 @@ class MissionProgressionService
 
             // Mission completion and unlocking of the next mission
             $missionUnlocked = null;
+            $runComplete = false;
             $missionCompleted = false;
             $missionXpReward = 0;
 
@@ -117,6 +135,7 @@ class MissionProgressionService
                 $missionCompleted = $missionResult['is_completed'];
                 $missionXpReward = $missionResult['xp_awarded'];
                 $missionUnlocked = $missionResult['unlocked_next_mission'];
+                $runComplete = $missionResult['run_complete'];
 
                 if ($topicProgress && $missionXpReward > 0) {
                     $topicProgress->total_xp += $missionXpReward;
@@ -163,6 +182,8 @@ class MissionProgressionService
                 'hints_used'            => (int) $puzzleProgress->hints_used,
                 'try_attempts'          => (int) $puzzleProgress->try_attempts,
                 'try_hint_used'         => (bool) $puzzleProgress->try_hint_used,
+                'run_complete'          => $runComplete,
+                'run_stars'             => LinkHealthService::stars((int) $health['link_health']),
                 'link_health'           => $health['link_health'],
                 'damage'                => $health['damage'],
                 'damage_multiplier'     => $health['damage_multiplier'],
@@ -249,13 +270,13 @@ class MissionProgressionService
             }
         }
 
-        // Mission stars = rounded average of the counted activities' best stars (kept at its best)
-        if ($missionProgress->is_completed) {
-            $starValues = UserPuzzleProgress::where('user_id', $user->user_id)
-                ->whereIn('puzzle_id', $requiredPuzzles->pluck('puzzle_id'))
-                ->pluck('best_stars');
-            $average = $requiredPuzzles->count() > 0 ? $starValues->sum() / $requiredPuzzles->count() : 0;
-            $missionProgress->best_stars = max((int) $missionProgress->best_stars, (int) max(1, min(3, round($average))));
+        // Mission stars = the health segments left when the run ends, i.e. when every required task has
+        // been solved in this run. The best run is kept.
+        $solvedThisRun = $puzzleProgress->where('run_solved', true)->count() === $requiredPuzzles->count();
+        $runComplete = $solvedThisRun && $requiredPuzzles->isNotEmpty();
+        $runStars = LinkHealthService::stars((int) $missionProgress->run_health);
+        if ($runComplete) {
+            $missionProgress->best_stars = max((int) $missionProgress->best_stars, $runStars);
         }
 
         $missionProgress->save();
@@ -265,6 +286,9 @@ class MissionProgressionService
             'is_newly_completed'    => $isNewlyCompleted,
             'xp_awarded'            => $xpAwarded,
             'unlocked_next_mission' => $unlockedNext,
+            'run_complete'          => $runComplete,
+            'run_stars'             => $runStars,
+            'mission_best_stars'    => (int) $missionProgress->best_stars,
         ];
     }
 }

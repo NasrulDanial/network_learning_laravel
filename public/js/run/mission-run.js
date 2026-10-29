@@ -381,7 +381,9 @@
             // Stars light up one by one with rising pitch
             const starsBox = qs('#debrief-stars');
             starsBox.innerHTML = '';
-            starsBox.setAttribute('aria-label', `${sum.stars} of 3 stars`);
+            // The stars of THIS run are the health segments left on the bar; the best ever is shown beside them
+            const earned = sum.completed ? (sum.runStars ?? sum.stars) : 0;
+            starsBox.setAttribute('aria-label', `${earned} of 3 stars this run, best ${sum.stars}`);
             const stars = [0, 1, 2].map(() => {
                 const s = document.createElement('i');
                 s.className = 'fa-solid fa-star';
@@ -389,7 +391,7 @@
                 starsBox.appendChild(s);
                 return s;
             });
-            for (let k = 0; k < sum.stars; k++) {
+            for (let k = 0; k < earned; k++) {
                 await wait(380);
                 stars[k].classList.add('lit');
                 fx.sound('success', k);
@@ -398,7 +400,7 @@
             const secs = Math.round((Date.now() - (this.startedAt || Date.now())) / 1000);
             qs('#stat-time').textContent = `${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
             qs('#stat-accuracy').textContent = this.played ? `${Math.round((this.firstTry / this.played) * 100)}% (${this.firstTry}/${this.played})` : '—';
-            qs('#stat-streak').textContent = this.bestStreak ? `${this.bestStreak} in a row` : '—';
+            qs('#stat-health').textContent = `${sum.runHealth ?? 100}/100` + (sum.stars > earned ? ` (best ${'★'.repeat(sum.stars)})` : '');
             qs('#stat-hints').textContent = String(sum.hintsUsed || 0);
             if (this.played && this.firstTry === this.played && !sum.hintsUsed) {
                 qs('#debrief-text').textContent += ' Flawless run: every task solved on the first try.';
@@ -441,14 +443,14 @@
             };
             let primary = null;
             if (sum.nextMission) primary = addBtn(`Next mission → ${sum.nextMission.title}`, sum.nextMission.runUrl, '');
-            if (sum.stars < 3 || !sum.completed) {
+            if (earned < 3 || !sum.completed) {
                 const replay = addBtn(sum.completed ? 'Replay for ★★★' : 'Replay mission', cfg.restartUrl, sum.nextMission ? 'run-cta--ghost' : '');
                 primary = primary || replay;
             }
             const back = addBtn('Back to topic', cfg.topicUrl, 'run-cta--ghost');
             (primary || back).focus();
 
-            announce(`${stamp.textContent}. ${sum.stars} of 3 stars. ${this.xp} XP earned in this run.`);
+            announce(`${stamp.textContent}. ${earned} of 3 stars. ${this.xp} XP earned in this run.`);
         },
     };
 

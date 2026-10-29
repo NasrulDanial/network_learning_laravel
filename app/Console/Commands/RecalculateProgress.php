@@ -81,9 +81,10 @@ class RecalculateProgress extends Command
                         $mp->completed_at = $complete ? ($mp->completed_at ?? now()) : null;
                         $changes['missions']++;
                     }
+                    // The rating comes from mission health at the end of a run, which cannot be rebuilt
+                    // from stored data: keep what the student earned, and give none to an unfinished mission.
                     if ($complete) {
-                        $stars = UserPuzzleProgress::where('user_id', $userId)->whereIn('puzzle_id', $required)->pluck('best_stars');
-                        $mp->best_stars = (int) max(1, min(3, round($stars->sum() / max(1, $required->count()))));
+                        $mp->best_stars = max(1, (int) $mp->best_stars);
                     } else {
                         $mp->best_stars = 0;
                     }

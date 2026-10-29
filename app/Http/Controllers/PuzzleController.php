@@ -76,7 +76,8 @@ class PuzzleController extends Controller
             'tryHint' => (bool) ($progress->try_hint_used ?? false),
             'penaltyPaid' => (int) ($progress->hints_used ?? 0) > 0,
             'solved' => (bool) ($progress->is_completed ?? false),
-            'linkHealth' => (int) ($progress->link_health ?? 100),
+            'hasMission' => (bool) $puzzle->mission_id,
+            'linkHealth' => $this->poolHealth($user->user_id, $puzzle, $progress),
             // Shown up front only while it still matters for this try (a solved puzzle starts clean)
             'hintRevealed' => (bool) ($progress->try_hint_used ?? false)
                 || ((int) ($progress->hints_used ?? 0) > 0 && ! ($progress->is_completed ?? false)),
@@ -124,6 +125,16 @@ class PuzzleController extends Controller
             'penalty' => (int) $progress->hints_used > 0 ? (int) config('netlearn.hint_xp_penalty') : 0,
             'try_hint_used' => true,
         ]);
+    }
+
+    /** Health shown beside a task: its mission's run pool, or the puzzle's own bar when it has no mission. */
+    private function poolHealth(int $userId, Puzzle $puzzle, ?UserPuzzleProgress $progress): int
+    {
+        $value = $puzzle->mission_id
+            ? \App\Models\UserMissionProgress::where('user_id', $userId)->where('mission_id', $puzzle->mission_id)->value('run_health')
+            : ($progress->link_health ?? null);
+
+        return $value !== null ? max(1, (int) $value) : 100;
     }
 
     /**

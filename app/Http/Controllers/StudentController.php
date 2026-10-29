@@ -9,6 +9,7 @@ use App\Models\Result;
 use App\Models\Topic;
 use App\Models\Mission;
 use App\Models\Puzzle;
+use App\Models\PuzzleAttempt;
 use App\Models\UserMissionProgress;
 use App\Models\UserPuzzleProgress;
 use App\Models\Achievement;
@@ -213,18 +214,43 @@ class StudentController extends Controller
             ->get()
             ->keyBy('puzzle_id');
 
+        // The attempt on which each activity was first solved (what the student remembers of it)
+        $firstSolved = PuzzleAttempt::where('user_id', $userId)
+            ->whereIn('puzzle_id', $puzzles->pluck('puzzle_id'))
+            ->where('status', 'completed')
+            ->selectRaw('puzzle_id, MIN(attempt_no) as first_solved')
+            ->groupBy('puzzle_id')
+            ->pluck('first_solved', 'puzzle_id');
+
         foreach ($puzzles as $puzzle) {
             $pProg = $puzzleProgressMap->get($puzzle->puzzle_id);
             $puzzle->student_is_completed = $pProg && $pProg->is_completed;
-            $puzzle->student_best_score = $pProg ? $pProg->best_score : 0;
-            $puzzle->student_attempts = $pProg ? $pProg->attempts_count : 0;
+            $puzzle->student_attempts = $pProg ? (int) $pProg->attempts_count : 0;
+            // XP actually earned from this activity (points minus a bought hint), not the analytics score
+            $puzzle->student_xp = $pProg ? (int) $pProg->xp_awarded : 0;
+            $puzzle->student_hint = $pProg && (int) $pProg->hints_used > 0;
+            $puzzle->student_solved_on = $firstSolved->get($puzzle->puzzle_id);
         }
 
         $m->setRelation('puzzles', $puzzles);
         $m->student_done_count = $puzzles->where('student_is_completed', true)->count();
+
+        // XP for the mission exactly as the run debrief counts it: activity XP plus the mission reward once
+        $reward = (int) ($m->xp_reward ?: 150);
+        $m->student_xp_earned = (int) $puzzles->sum('student_xp') + ($prog && $prog->xp_reward_granted ? $reward : 0);
+        $m->student_xp_possible = (int) $puzzles->sum(fn ($p) => (int) ($p->points ?: 100)) + $reward;
+
+        // A run in progress carries its health (and so its star rating) from task to task
+        $m->student_run_health = $prog ? max(1, (int) $prog->run_health) : 100;
+        $m->student_run_active = ! $m->student_is_completed && $prog && ($m->student_done_count > 0 || (int) $prog->run_health < 100);
     }
 
     $quizResults = $quiz ? Result::where('user_id', $userId)->where('quiz_id', $quiz->quiz_id) : null;
+    $quizSummary = $quizResults ? [
+        'attempts' => (clone $quizResults)->count(),
+        'best' => (clone $quizResults)->max('percentage'),
+        'last' => (clone $quizResults)->orderByDesc('result_id')->first(),
+    ] : null;
 
     return view('student.topic', [
         'pageTitle' => 'Learning Topic',
@@ -236,6 +262,7 @@ class StudentController extends Controller
         'assessmentOpen' => $topic->assessmentUnlockedFor($userId),
         'quizPassed' => $topicProgress->quiz_status === 'Passed',
         'bestResult' => $quizResults ? (clone $quizResults)->orderByDesc('percentage')->first() : null,
+        'quizSummary' => $quizSummary,
         'claimableXp' => $quiz ? self::claimableQuizXp($userId, $quiz) : 0,
         'noteSections' => $topic->noteSections(),
     ]);
@@ -284,6 +311,17 @@ public function quizHub()
         ->orderBy('topics.topic_order', 'asc')
         ->orderBy('quizzes.quiz_id', 'asc')
         ->get();
+
+    // What the student actually got on each quiz: attempts and best result
+    $quizStats = Result::where('user_id', $userId)
+        ->selectRaw('quiz_id, COUNT(*) as attempts, MAX(percentage) as best_pct')
+        ->groupBy('quiz_id')
+        ->get()
+        ->keyBy('quiz_id');
+    foreach ($quizzes as $quizItem) {
+        $quizItem->attempts = (int) optional($quizStats->get($quizItem->quiz_id))->attempts;
+        $quizItem->best_pct = $quizItem->attempts ? (int) round($quizStats->get($quizItem->quiz_id)->best_pct) : null;
+    }
 
     // Lock state follows the topic sequence, not the quiz list (topics may have 0 or several quizzes)
     // and the quiz itself opens only once every mission of its topic is cleared
@@ -833,7 +871,8 @@ public function result(Result $result)
         if ($request->boolean('restart')) {
             UserPuzzleProgress::where('user_id', $userId)
                 ->whereIn('puzzle_id', $puzzles->pluck('puzzle_id'))
-                ->update(['try_attempts' => 0, 'try_hint_used' => false, 'link_health' => 100]);
+                ->update(['try_attempts' => 0, 'try_hint_used' => false, 'link_health' => 100, 'run_solved' => false]);
+            UserMissionProgress::where('user_id', $userId)->where('mission_id', $mission->mission_id)->update(['run_health' => 100]);
         }
 
         // Resume at the first unfinished activity; a fully finished mission replays from the start
@@ -918,7 +957,10 @@ public function result(Result $result)
 
         return response()->json([
             'completed' => (bool) optional($missionProgress)->is_completed,
+            // 'stars' is the best rating ever; runStars is this run: the health segments left on the bar
             'stars' => (int) optional($missionProgress)->best_stars,
+            'runHealth' => (int) ($missionProgress ? max(1, (int) $missionProgress->run_health) : 100),
+            'runStars' => \App\Services\LinkHealthService::stars((int) ($missionProgress ? max(1, (int) $missionProgress->run_health) : 100)),
             'puzzleStars' => $puzzles->map(fn ($p) => (int) optional($progress->get($p->puzzle_id))->best_stars)->values(),
             'hintsUsed' => (int) $progress->sum('hints_used'),
             'totalXpThisMission' => $puzzleXp + $missionXp,

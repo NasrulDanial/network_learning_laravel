@@ -402,10 +402,8 @@ class MissionController extends Controller
         if (! $evaluation['is_correct']) {
             $misses = max(1, (int) $request->header('X-Preview-Misses', 1));
             $health = \App\Services\LinkHealthService::afterMiss(
-                max(0, min(100, (int) $request->header('X-Preview-Health', 100))),
+                max(1, min(100, (int) $request->header('X-Preview-Health', 100))),
                 $evaluation['diagnostics'] ?? null,
-                $misses,
-                (int) $puzzle->max_attempts,
                 $misses
             );
         }

@@ -104,7 +104,7 @@
                 <dl class="debrief-stats">
                     <div><dt>Time</dt><dd id="stat-time">—</dd></div>
                     <div><dt>First-try accuracy</dt><dd id="stat-accuracy">—</dd></div>
-                    <div><dt>Best streak</dt><dd id="stat-streak">—</dd></div>
+                    <div><dt>Health left</dt><dd id="stat-health">—</dd></div>
                     <div><dt>Hints used</dt><dd id="stat-hints">—</dd></div>
                 </dl>
                 <div class="debrief-xp">

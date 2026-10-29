@@ -1,13 +1,14 @@
 /**
  * missionConsole.js
- * The "Operator status" panel beside the puzzle board: link health, star rating, XP at stake,
- * the hint and a short event log. It only REACTS to what the server says (submit response,
- * hint response); it never decides correctness or XP.
+ * The "Operator status" panel beside the puzzle board: mission health, XP at stake, the hint and
+ * a short event log. It only REACTS to what the server says (submit response, hint response); it
+ * never decides correctness or XP.
  *
- * Health (numbers come from the server, see LinkHealthService): a wrong answer does damage scaled
- * by how wrong it was, escalating with repeat misses; unlimited tasks bottom out in "safe mode";
- * tasks with an attempt limit show attempts left. A solve refills it.
- * Stars (per try, separate from health): 3 = first try without a hint, 2 = second try or a hint, 1 = later.
+ * Mission health (numbers come from the server, see LinkHealthService): ONE bar for the whole
+ * mission run, split in three segments that are the mission's three stars. A wrong answer does
+ * damage scaled by how wrong it was and by repeat misses; solving a task does not refill the bar,
+ * so it carries over until the mission ends; it never reaches zero ("safe mode"). The stars left
+ * when the last task is solved are the mission's rating.
  * Hint: costs XP the moment it is revealed (unless free) and the cost is shown on the spot,
  * both here and, inside a Mission Run, on the run HUD (puzzle:hint message).
  */
@@ -19,19 +20,16 @@ window.MissionConsole = (function () {
     const sound = (name) => { if (window.NetFX) NetFX.sound(name); };
 
     const st = {
-        max: 0, used: 0, tryWrong: 0, tryHint: false,
+        max: 0, used: 0, tryWrong: 0, tryHint: false, hasMission: false,
         points: 100, penalty: 10, penaltyPaid: false, solved: false, freeAfter: 2,
         hp: 100, xp: 0, ready: false, preview: false,
     };
     const SAFE_FLOOR = 10;
 
     // ── Rules mirrored from the server (display only) ───────────────────
-    function starPotential() {
-        if (st.tryWrong === 0) return st.tryHint ? 2 : 3;
-        return st.tryWrong === 1 ? 2 : 1;
-    }
-
-    const inSafeMode = () => st.max === 0 && st.hp <= SAFE_FLOOR;
+    // The three segments of the bar are the three stars: 67-100 = 3, 34-66 = 2, below = 1
+    const starsFor = (hp) => (hp >= 67 ? 3 : (hp >= 34 ? 2 : 1));
+    const inSafeMode = () => st.hp <= SAFE_FLOOR;
 
     function stake() {
         return st.solved ? 0 : Math.max(0, st.points - (st.penaltyPaid ? st.penalty : 0));
@@ -70,7 +68,7 @@ window.MissionConsole = (function () {
     function renderNotches() {
         const box = $('mc-bar-notches');
         if (!box) return;
-        const n = st.max > 0 ? Math.min(st.max, 10) : 3;
+        const n = 3; // one segment per star
         box.replaceChildren();
         for (let i = 1; i < n; i++) {
             const tick = document.createElement('i');
@@ -80,16 +78,16 @@ window.MissionConsole = (function () {
     }
 
     function healthSub() {
+        const stars = starsFor(st.hp);
+        let text;
+        if (inSafeMode()) text = 'Safe mode: you can still finish, but only for ★.';
+        else if (st.hp >= 100) text = 'Full health: finish with no damage for ★★★.';
+        else text = `${'★'.repeat(stars)} if you finish now. Damage carries over to the next task.`;
         if (st.max > 0) {
             const left = Math.max(0, st.max - st.used);
-            return left === 0
-                ? 'LINK DOWN: no attempts left on this task.'
-                : `${left} of ${st.max} attempts left. Each wrong answer costs ${Math.round(100 / st.max)} health.`;
+            text += left === 0 ? ' No attempts left on this task.' : ` ${left} of ${st.max} attempts left on this task.`;
         }
-        if (inSafeMode()) return 'Safe mode: health is at its floor. Retries stay unlimited.';
-        return st.hp >= 100
-            ? 'Full health. A near miss costs less than a total miss.'
-            : 'Repair on solve. Repeat misses hit harder.';
+        return text;
     }
 
     function setHp(next, { animate = false, damage = 0 } = {}) {
@@ -128,35 +126,28 @@ window.MissionConsole = (function () {
             pulse(card, 'is-heal');
             floatText(card, `+${next - prev}`, 'mc-float--green');
         }
+        renderStars(animate);
         $('mc-health-sub').textContent = healthSub();
     }
 
-    // ── Stars ───────────────────────────────────────────────────────────
-    function setStars(lit, { animate = false, earned = false } = {}) {
+    // ── Stars: the three segments of the bar ────────────────────────────
+    function renderStars(animate, { final = false } = {}) {
         const box = $('mc-stars');
         if (!box) return;
-        const stars = box.querySelectorAll('i');
-        stars.forEach((star, i) => {
+        const lit = starsFor(st.hp);
+        box.querySelectorAll('i').forEach((star, i) => {
             const on = i < lit;
             const was = star.classList.contains('is-lit');
             star.classList.toggle('is-lit', on);
             if (animate && !reduced()) {
-                if (was && !on) pulse(star, 'is-cracked');
-                if (earned && on) {
+                if (was && !on) pulse(star, 'is-cracked'); // a segment ran dry: its star breaks
+                if (final && on) {
                     star.style.animationDelay = `${i * 140}ms`;
                     pulse(star, 'is-pop');
                 }
             }
         });
-        box.setAttribute('aria-label', earned ? `${lit} of 3 stars earned` : `${lit} of 3 stars possible`);
-
-        const sub = $('mc-stars-sub');
-        if (earned) sub.textContent = lit === 3 ? 'Perfect: first try, no hint.' : `You earned ${lit} of 3 stars.`;
-        else if (st.solved) sub.textContent = 'Solved before. Replay to improve your stars.';
-        else if (st.tryHint && st.tryWrong === 0) sub.textContent = 'Hint used: this try is capped at ★★.';
-        else if (lit === 3) sub.textContent = 'Solve it first try for ★★★.';
-        else if (lit === 2) sub.textContent = 'Solve it next try for ★★.';
-        else sub.textContent = 'Solving now earns ★.';
+        box.setAttribute('aria-label', final ? `${lit} of 3 stars earned` : `${lit} of 3 stars at this health`);
     }
 
     // ── XP at stake ─────────────────────────────────────────────────────
@@ -185,7 +176,6 @@ window.MissionConsole = (function () {
         if (!data) return;
         if (correct) {
             st.solved = true;
-            if (typeof data.stars === 'number' && data.stars > 0) setStars(data.stars, { animate: true, earned: true });
             const xpCard = $('mc-xp');
             if (!st.preview) {
                 const earned = data.earned_xp || 0;
@@ -196,10 +186,16 @@ window.MissionConsole = (function () {
                 if (earned > 0) floatText(xpCard, `+${earned}`, 'mc-float--green');
                 pulse(xpCard, 'is-gain');
             }
-            $('mc-health')?.classList.add('is-clear');
-            if (st.hp < 100) setHp(100, { animate: true });
+            // A puzzle without a mission has its own bar, refilled by the server on a solve
+            if (typeof data.link_health === 'number' && data.link_health !== st.hp) setHp(data.link_health, { animate: true });
             log(st.preview ? '> Preview: correct answer.' : `> Link up. ${data.earned_xp || 0} XP earned.`, 'ok');
-            if (st.hp === 100) log('> Link repaired to full health.', 'ok');
+            if (data.run_complete) {
+                renderStars(true, { final: true });
+                $('mc-health')?.classList.add('is-clear');
+                log(`> Mission complete: ${data.run_stars} of 3 stars.`, 'ok');
+            } else if (st.hasMission && !st.preview) {
+                log(`> Health carries over: ${st.hp}/100.`);
+            }
             return;
         }
 
@@ -218,8 +214,8 @@ window.MissionConsole = (function () {
         const next = typeof data.link_health === 'number' ? data.link_health : Math.max(SAFE_FLOOR, before - 24);
         const dealt = typeof data.damage === 'number' ? data.damage : before - next;
         const wasSafe = inSafeMode();
+        const starsBefore = starsFor(before);
         setHp(next, { animate: true, damage: dealt });
-        setStars(starPotential(), { animate: true });
 
         const diag = data.diagnostics;
         const how = diag && diag.total > 1 ? ` (${diag.correct_count}/${diag.total} correct)` : '';
@@ -227,6 +223,7 @@ window.MissionConsole = (function () {
         if (next === 0) log('> LINK DOWN: out of attempts.', 'bad');
         else if (dealt === 0) log(`> Wrong answer${how}: already in safe mode, no further damage.`, 'bad');
         else log(`> Wrong answer${how}: link health −${dealt}${repeat}.`, 'bad');
+        if (starsFor(next) < starsBefore) log(`> A star was lost: ${starsFor(next)} left.`, 'bad');
         if (inSafeMode() && !wasSafe) {
             log('> Safe mode: retries stay unlimited.', 'bad');
             if (window.NetFX) NetFX.flash('rgba(239,68,68,.18)', 500);
@@ -263,7 +260,6 @@ window.MissionConsole = (function () {
         pulse(card, 'is-loss');
         floatText(card, `−${st.penalty} XP`, 'mc-float--red');
         sound('drop');
-        setStars(starPotential(), { animate: true });
         log(`> Hint purchased: −${st.penalty} XP.`, 'bad');
     }
 
@@ -326,10 +322,10 @@ window.MissionConsole = (function () {
         st.xp = stake();
 
         renderNotches();
+        st.hasMission = d.mission === '1';
         st.hp = Number.isFinite(Number(d.health)) ? Number(d.health) : 100;
         setHp(st.hp);
         $('mc-bar-ghost').style.width = st.hp + '%';
-        setStars(starPotential());
         renderXp(false);
 
         const state = $('mc-hint-state');

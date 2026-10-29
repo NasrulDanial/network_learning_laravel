@@ -60,11 +60,11 @@ class AchievementSeeder extends Seeder
             ['Flawless Victory', 'Score 100% on the assessments of 3 different stages.', 'perfect_quizzes', 3, 'fa-trophy'],
 
             // Stars and puzzles
-            ['Triple Star', 'Finish a mission with a 3-star rating.', 'three_star_missions', 1, 'fa-star'],
+            ['Triple Star', 'Finish a mission with 3 stars: more than two thirds of its health bar left.', 'three_star_missions', 1, 'fa-star'],
             ['Star Collector', 'Finish 5 missions with a 3-star rating.', 'three_star_missions', 5, 'fa-wand-magic-sparkles'],
             ['Puzzle Hoarder', 'Solve 25 puzzle activities.', 'puzzles_solved', 25, 'fa-cubes'],
             ['Big Brain Energy', 'Solve 75 puzzle activities.', 'puzzles_solved', 75, 'fa-lightbulb'],
-            ['Clean Run', 'Earn 3 stars on 10 puzzles: first try, no hints.', 'three_star_puzzles', 10, 'fa-bolt-lightning'],
+            ['Clean Run', 'Solve 10 puzzle activities on the first try without a hint.', 'three_star_puzzles', 10, 'fa-bolt-lightning'],
         ];
 
         foreach ($badges as [$name, $description, $type, $value, $icon]) {

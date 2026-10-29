@@ -116,6 +116,18 @@
                                 <span>Pass Mark</span>
                                 <strong>{{ (int) $quizItem->passing_mark }}%</strong>
                             </div>
+
+                            @if ($quizItem->attempts > 0)
+                                <div class="challenge-info">
+                                    <span>Attempts</span>
+                                    <strong>{{ $quizItem->attempts }}</strong>
+                                </div>
+
+                                <div class="challenge-info">
+                                    <span>Best</span>
+                                    <strong>{{ $quizItem->best_pct }}%</strong>
+                                </div>
+                            @endif
                         </div>
 
                         @if ($isUnlocked)

@@ -1585,3 +1585,21 @@ a.topo-node:hover .topo-device, a.topo-node:focus-visible .topo-device { transfo
 .mc-rules summary { cursor: pointer; font-weight: 700; color: var(--nl-cyan, #22d3ee); }
 .mc-rules ul { margin: 6px 0 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 4px; line-height: 1.4; }
 @media (prefers-reduced-motion: reduce) { .mc-health.is-hit-heavy, .mc-health.is-hit-heavy::after, .mc-safe { animation: none !important; } }
+
+/* Mission health: the three stars sit above the three segments of the bar */
+.mc-health .mc-stars { display: grid; grid-template-columns: repeat(3, 1fr); margin: 0 0 6px; font-size: 1.45rem; text-align: center; gap: 0; }
+.mc-health .mc-stars .mc-star { display: block; }
+.mc-health .mc-stars i { transition: color .3s ease, filter .3s ease, transform .3s ease; }
+.mc-health .mc-stars i:not(.is-lit) { transform: scale(.85); }
+
+/* Topic page: facts that match what the student did */
+.puzzle-facts { font-size: 0.8rem; color: rgba(255, 255, 255, 0.55); margin-top: 2px; display: flex; align-items: center; gap: 4px 14px; flex-wrap: wrap; }
+.mission-run-health { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 150px; }
+.mission-run-health-label { font-size: 0.74rem; font-weight: 700; color: var(--nl-text-secondary); }
+.mission-run-health-bar { display: block; width: 150px; height: 7px; border-radius: 99px; background: rgba(7, 20, 38, 0.9); border: 1px solid rgba(255, 255, 255, 0.08); overflow: hidden; background-image: linear-gradient(90deg, transparent calc(33.33% - 1px), rgba(255,255,255,.18) 0, transparent calc(33.33% + 1px), transparent calc(66.66% - 1px), rgba(255,255,255,.18) 0, transparent calc(66.66% + 1px)); }
+.mission-run-health-bar > span { display: block; height: 100%; background: linear-gradient(90deg, #16a34a, #4ade80); border-radius: 99px; }
+[data-theme="light"] .puzzle-facts { color: #475569; }
+
+/* The 800x500 board keeps its shape from the width alone, so Phaser's FIT scaling cannot shrink its own container */
+.puzzle-main #phaser-game { aspect-ratio: 8 / 5; }
+.is-embedded .puzzle-main #phaser-game { min-height: 0 !important; }

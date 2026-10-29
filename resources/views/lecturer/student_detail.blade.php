@@ -280,9 +280,9 @@
                             <tr>
                                 <th>Puzzle / Mission</th>
                                 <th>Attempts</th>
-                                <th>Best</th>
+                                <th title="XP earned from this puzzle, out of what it is worth">XP</th>
                                 <th>Solved</th>
-                                <th>Stars</th>
+                                <th title="Clean-solve rating of this puzzle: 3 = first try with no hint. The mission rating comes from mission health.">Clean solve</th>
                                 <th>Hints</th>
                                 <th>Last attempt</th>
                                 <th><span class="visually-hidden">Attempts list</span></th>
@@ -303,7 +303,7 @@
                                         @if ($struggling)<span class="log-pill log-pill--struggling">Struggling</span>@endif
                                     </td>
                                     <td>{{ (int) $pp->attempts_count }}</td>
-                                    <td>{{ (int) $pp->best_score }}/{{ (int) ($pp->puzzle->points ?? 100) }}</td>
+                                    <td>{{ (int) $pp->xp_awarded }}/{{ (int) ($pp->puzzle->points ?? 100) }}</td>
                                     <td>
                                         <span class="status-pill {{ $pp->is_completed ? 'pass' : 'fail' }}">{{ $pp->is_completed ? 'Solved' : 'Not yet' }}</span>
                                     </td>
