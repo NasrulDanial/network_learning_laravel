@@ -61,6 +61,20 @@ class MissionProgressionService
             $puzzleProgress->last_attempt_at = now();
             $puzzleProgress->best_score = max((int) $puzzleProgress->best_score, $score); // analytics only
 
+            // Link health: a miss does damage scaled by how wrong it was and by the misses before it
+            // in this try; a solve ends the try and refills it.
+            $health = ['link_health' => LinkHealthService::MAX, 'damage' => 0, 'damage_multiplier' => 1.0, 'safe_mode' => false];
+            if (! $isCorrect) {
+                $health = LinkHealthService::afterMiss(
+                    (int) ($puzzleProgress->link_health ?? LinkHealthService::MAX),
+                    $evaluation['diagnostics'] ?? null,
+                    (int) $puzzleProgress->try_attempts,
+                    (int) $puzzle->max_attempts,
+                    (int) $puzzleProgress->attempts_count
+                );
+            }
+            $puzzleProgress->link_health = $health['link_health'];
+
             $newXpAwarded = 0;
             $stars = 0;
             if ($isCorrect) {
@@ -149,6 +163,10 @@ class MissionProgressionService
                 'hints_used'            => (int) $puzzleProgress->hints_used,
                 'try_attempts'          => (int) $puzzleProgress->try_attempts,
                 'try_hint_used'         => (bool) $puzzleProgress->try_hint_used,
+                'link_health'           => $health['link_health'],
+                'damage'                => $health['damage'],
+                'damage_multiplier'     => $health['damage_multiplier'],
+                'safe_mode'             => $health['safe_mode'],
                 'stars'                 => $stars,
                 'best_stars'            => (int) $puzzleProgress->best_stars,
                 'mission_stars'         => $missionStars,

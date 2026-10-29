@@ -833,7 +833,7 @@ public function result(Result $result)
         if ($request->boolean('restart')) {
             UserPuzzleProgress::where('user_id', $userId)
                 ->whereIn('puzzle_id', $puzzles->pluck('puzzle_id'))
-                ->update(['try_attempts' => 0, 'try_hint_used' => false]);
+                ->update(['try_attempts' => 0, 'try_hint_used' => false, 'link_health' => 100]);
         }
 
         // Resume at the first unfinished activity; a fully finished mission replays from the start

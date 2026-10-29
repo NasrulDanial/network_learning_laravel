@@ -396,7 +396,21 @@ class MissionController extends Controller
     {
         $evaluation = $evaluator->evaluate($puzzle, $request->all());
 
-        return response()->json([
+        // Nothing is stored in a preview, so the page tells us its own health and miss count and
+        // the same damage rules as for students are applied to them.
+        $health = ['link_health' => 100, 'damage' => 0, 'damage_multiplier' => 1.0, 'safe_mode' => false];
+        if (! $evaluation['is_correct']) {
+            $misses = max(1, (int) $request->header('X-Preview-Misses', 1));
+            $health = \App\Services\LinkHealthService::afterMiss(
+                max(0, min(100, (int) $request->header('X-Preview-Health', 100))),
+                $evaluation['diagnostics'] ?? null,
+                $misses,
+                (int) $puzzle->max_attempts,
+                $misses
+            );
+        }
+
+        return response()->json(array_merge($health, [
             'status'           => $evaluation['is_correct'] ? 'completed' : 'failed',
             'is_correct'       => $evaluation['is_correct'],
             'score'            => $evaluation['score'],
@@ -413,7 +427,7 @@ class MissionController extends Controller
             'max_attempts'     => (int) $puzzle->max_attempts,
             'stars'            => $evaluation['is_correct'] ? 3 : 0,
             'clearance_status' => 'Lecturer Sandbox Preview (Zero Attempts / Zero XP)',
-        ]);
+        ]));
     }
 
     /**

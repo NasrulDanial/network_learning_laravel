@@ -4,9 +4,10 @@
  * the hint and a short event log. It only REACTS to what the server says (submit response,
  * hint response); it never decides correctness or XP.
  *
- * Health: with an attempt limit the bar is attempts left; with unlimited retries it follows the
- * star potential (100 / 67 / 34) so a wrong answer still visibly costs something.
- * Stars (per try): 3 = first try without a hint, 2 = second try or a hint, 1 = later.
+ * Health (numbers come from the server, see LinkHealthService): a wrong answer does damage scaled
+ * by how wrong it was, escalating with repeat misses; unlimited tasks bottom out in "safe mode";
+ * tasks with an attempt limit show attempts left. A solve refills it.
+ * Stars (per try, separate from health): 3 = first try without a hint, 2 = second try or a hint, 1 = later.
  * Hint: costs XP the moment it is revealed (unless free) and the cost is shown on the spot,
  * both here and, inside a Mission Run, on the run HUD (puzzle:hint message).
  */
@@ -22,6 +23,7 @@ window.MissionConsole = (function () {
         points: 100, penalty: 10, penaltyPaid: false, solved: false, freeAfter: 2,
         hp: 100, xp: 0, ready: false, preview: false,
     };
+    const SAFE_FLOOR = 10;
 
     // ── Rules mirrored from the server (display only) ───────────────────
     function starPotential() {
@@ -29,10 +31,7 @@ window.MissionConsole = (function () {
         return st.tryWrong === 1 ? 2 : 1;
     }
 
-    function computeHp() {
-        if (st.max > 0) return Math.max(0, Math.round(100 * (st.max - st.used) / st.max));
-        return [100, 67, 34][Math.min(st.tryWrong, 2)];
-    }
+    const inSafeMode = () => st.max === 0 && st.hp <= SAFE_FLOOR;
 
     function stake() {
         return st.solved ? 0 : Math.max(0, st.points - (st.penaltyPaid ? st.penalty : 0));
@@ -87,9 +86,10 @@ window.MissionConsole = (function () {
                 ? 'LINK DOWN: no attempts left on this task.'
                 : `${left} of ${st.max} attempts left. Each wrong answer costs ${Math.round(100 / st.max)} health.`;
         }
+        if (inSafeMode()) return 'Safe mode: health is at its floor. Retries stay unlimited.';
         return st.hp >= 100
-            ? 'Unlimited retries. Wrong answers lower your star rating.'
-            : 'Unlimited retries, but the rating keeps dropping with each miss.';
+            ? 'Full health. A near miss costs less than a total miss.'
+            : 'Repair on solve. Repeat misses hit harder.';
     }
 
     function setHp(next, { animate = false, damage = 0 } = {}) {
@@ -116,9 +116,17 @@ window.MissionConsole = (function () {
         if (animate && window.NetFX) NetFX.countUp(num, prev, next, 600);
         else num.textContent = next;
 
+        const heavy = (damage || prev - next) >= 30;
+        card.classList.toggle('is-safe', inSafeMode());
+        const badge = $('mc-safe');
+        if (badge) badge.hidden = !inSafeMode();
+
         if (animate && next < prev) {
-            pulse(card, 'is-hit');
+            pulse(card, heavy ? 'is-hit-heavy' : 'is-hit');
             floatText(card, `−${damage || prev - next}`, 'mc-float--red');
+        } else if (animate && next > prev) {
+            pulse(card, 'is-heal');
+            floatText(card, `+${next - prev}`, 'mc-float--green');
         }
         $('mc-health-sub').textContent = healthSub();
     }
@@ -189,7 +197,9 @@ window.MissionConsole = (function () {
                 pulse(xpCard, 'is-gain');
             }
             $('mc-health')?.classList.add('is-clear');
+            if (st.hp < 100) setHp(100, { animate: true });
             log(st.preview ? '> Preview: correct answer.' : `> Link up. ${data.earned_xp || 0} XP earned.`, 'ok');
+            if (st.hp === 100) log('> Link repaired to full health.', 'ok');
             return;
         }
 
@@ -204,10 +214,23 @@ window.MissionConsole = (function () {
         }
         if (typeof data.max_attempts === 'number') st.max = data.max_attempts;
 
-        const next = computeHp();
-        setHp(next, { animate: true, damage: before - next });
+        // The server did the maths (severity, repeat-miss escalation, safe-mode floor)
+        const next = typeof data.link_health === 'number' ? data.link_health : Math.max(SAFE_FLOOR, before - 24);
+        const dealt = typeof data.damage === 'number' ? data.damage : before - next;
+        const wasSafe = inSafeMode();
+        setHp(next, { animate: true, damage: dealt });
         setStars(starPotential(), { animate: true });
-        log(next === 0 ? '> LINK DOWN: out of attempts.' : `> Wrong answer: link health −${before - next}.`, 'bad');
+
+        const diag = data.diagnostics;
+        const how = diag && diag.total > 1 ? ` (${diag.correct_count}/${diag.total} correct)` : '';
+        const repeat = data.damage_multiplier > 1 ? `, repeat miss x${data.damage_multiplier}` : '';
+        if (next === 0) log('> LINK DOWN: out of attempts.', 'bad');
+        else if (dealt === 0) log(`> Wrong answer${how}: already in safe mode, no further damage.`, 'bad');
+        else log(`> Wrong answer${how}: link health −${dealt}${repeat}.`, 'bad');
+        if (inSafeMode() && !wasSafe) {
+            log('> Safe mode: retries stay unlimited.', 'bad');
+            if (window.NetFX) NetFX.flash('rgba(239,68,68,.18)', 500);
+        }
         if (data.hint_free) unlockFreeHint();
     }
 
@@ -303,7 +326,8 @@ window.MissionConsole = (function () {
         st.xp = stake();
 
         renderNotches();
-        setHp(computeHp());
+        st.hp = Number.isFinite(Number(d.health)) ? Number(d.health) : 100;
+        setHp(st.hp);
         $('mc-bar-ghost').style.width = st.hp + '%';
         setStars(starPotential());
         renderXp(false);
@@ -320,5 +344,10 @@ window.MissionConsole = (function () {
 
     document.addEventListener('DOMContentLoaded', init);
 
-    return { init, onResult, hideConfirm, state: st };
+    // A preview stores nothing, so the page sends its own health and miss count with each answer
+    function previewHeaders() {
+        return { 'X-Preview-Health': String(st.hp), 'X-Preview-Misses': String(st.tryWrong + 1) };
+    }
+
+    return { init, onResult, hideConfirm, previewHeaders, state: st };
 })();

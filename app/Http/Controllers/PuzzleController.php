@@ -76,6 +76,7 @@ class PuzzleController extends Controller
             'tryHint' => (bool) ($progress->try_hint_used ?? false),
             'penaltyPaid' => (int) ($progress->hints_used ?? 0) > 0,
             'solved' => (bool) ($progress->is_completed ?? false),
+            'linkHealth' => (int) ($progress->link_health ?? 100),
             // Shown up front only while it still matters for this try (a solved puzzle starts clean)
             'hintRevealed' => (bool) ($progress->try_hint_used ?? false)
                 || ((int) ($progress->hints_used ?? 0) > 0 && ! ($progress->is_completed ?? false)),

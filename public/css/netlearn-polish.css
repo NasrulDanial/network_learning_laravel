@@ -1572,3 +1572,16 @@ a.topo-node:hover .topo-device, a.topo-node:focus-visible .topo-device { transfo
     .mc-health.is-hit, .mc-xp.is-loss, .mc-stars i.is-cracked, .mc-stars i.is-pop, .mc-bar.is-crit .mc-bar-fill, .lab-status-dot, .mc-float, .mc-log-line { animation: none !important; }
     .mc-bar-fill, .mc-bar-ghost { transition: none; }
 }
+
+/* Link health: heavy hits, repair, safe mode, rules */
+.mc-safe { margin-left: 6px; padding: 1px 7px; border-radius: 99px; font: 800 .6rem ui-monospace, monospace; letter-spacing: .08em; color: #fecaca; background: rgba(239, 68, 68, .22); border: 1px solid rgba(239, 68, 68, .5); animation: mc-heartbeat 1s ease-in-out infinite; }
+.mc-safe[hidden] { display: none; }
+.mc-health.is-safe { border-color: rgba(239, 68, 68, .55); }
+.mc-health.is-hit-heavy { animation: mc-shake-heavy .6s ease; }
+.mc-health.is-hit-heavy::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle, rgba(239, 68, 68, .6), transparent 70%); animation: mc-flash .8s ease-out forwards; pointer-events: none; }
+@keyframes mc-shake-heavy { 15%, 45%, 75% { transform: translateX(-9px) rotate(-.6deg); } 30%, 60%, 90% { transform: translateX(9px) rotate(.6deg); } }
+.mc-health.is-heal { animation: mc-glow 1s ease; }
+.mc-rules { margin-top: 8px; font-size: .74rem; color: var(--nl-text-secondary); }
+.mc-rules summary { cursor: pointer; font-weight: 700; color: var(--nl-cyan, #22d3ee); }
+.mc-rules ul { margin: 6px 0 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 4px; line-height: 1.4; }
+@media (prefers-reduced-motion: reduce) { .mc-health.is-hit-heavy, .mc-health.is-hit-heavy::after, .mc-safe { animation: none !important; } }

@@ -155,6 +155,7 @@
            data-penalty="{{ (int) $hintPenalty }}"
            data-penalty-paid="{{ $penaltyPaid ? 1 : 0 }}"
            data-solved="{{ $solved ? 1 : 0 }}"
+           data-health="{{ (int) ($linkHealth ?? 100) }}"
            data-free-after="{{ $freeAfter }}">
         <header class="mc-head">
             <span class="mc-head-title"><i class="mc-dot" aria-hidden="true"></i> Operator status</span>
@@ -163,8 +164,8 @@
 
         <section class="mc-card mc-health" id="mc-health" aria-labelledby="mc-health-label">
             <div class="mc-card-top">
-                <span class="mc-label" id="mc-health-label"><i class="fa-solid fa-heart-pulse" aria-hidden="true"></i> Link health</span>
-                <span class="mc-hp"><b id="mc-hp-num">100</b><small>/100</small></span>
+                <span class="mc-label" id="mc-health-label"><i class="fa-solid fa-heart-pulse" aria-hidden="true"></i> Link health <span class="mc-safe" id="mc-safe" hidden>Safe mode</span></span>
+                <span class="mc-hp"><b id="mc-hp-num">{{ (int) ($linkHealth ?? 100) }}</b><small>/100</small></span>
             </div>
             <div class="mc-bar" id="mc-bar" role="progressbar" aria-labelledby="mc-health-label" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
                 <div class="mc-bar-ghost" id="mc-bar-ghost"></div>
@@ -172,6 +173,19 @@
                 <div class="mc-bar-notches" id="mc-bar-notches" aria-hidden="true"></div>
             </div>
             <p class="mc-sub" id="mc-health-sub">Wrong answers cost link health.</p>
+            <details class="mc-rules">
+                <summary>How health works</summary>
+                <ul>
+                    <li>Damage depends on how wrong the answer is: a near miss costs about a third of a total miss.</li>
+                    <li>Repeat misses in one try hit harder (×1.15, ×1.3, up to ×1.45).</li>
+                    @if ((int) $puzzle->max_attempts > 0)
+                        <li>This task allows {{ (int) $puzzle->max_attempts }} attempts: health shows how many are left.</li>
+                    @else
+                        <li>This task has unlimited retries, so health stops at a safe-mode floor and never locks you out.</li>
+                    @endif
+                    <li>Solving it repairs the link to full. Health never changes your XP; stars are scored separately.</li>
+                </ul>
+            </details>
         </section>
 
         <section class="mc-card mc-stars-card" aria-labelledby="mc-stars-label">

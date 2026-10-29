@@ -31,6 +31,7 @@ window.PuzzleUtils = {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': csrf,
                 'Accept': 'application/json',
+                ...(window.isPreview === true && window.MissionConsole ? MissionConsole.previewHeaders() : {}),
             },
             body: JSON.stringify(payload),
         })
