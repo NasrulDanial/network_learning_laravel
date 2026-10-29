@@ -223,11 +223,20 @@ button[disabled] {
     margin-bottom: 1rem;
 }
 
-.quiz-lib-toolbar input[type="search"] {
-    flex: 1 1 280px;
-    max-width: 420px;
-    margin: 0;
+.nl-filter-panel {
+    background: var(--nl-glass-card);
+    border: 1px solid var(--nl-glass-border);
+    border-radius: var(--nl-radius-card);
+    padding: 16px 20px;
 }
+.search-field { position: relative; flex: 1 1 280px; max-width: 420px; }
+.search-field > i {
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    color: var(--nl-text-tertiary, #94a3b8); font-size: 0.85rem; pointer-events: none;
+}
+.search-field input[type="search"] { margin: 0; padding-left: 40px; -webkit-appearance: none; appearance: none; }
+input[type="search"]::-webkit-search-cancel-button { filter: invert(1) opacity(.6); cursor: pointer; }
+[data-theme="light"] input[type="search"]::-webkit-search-cancel-button { filter: opacity(.6); }
 
 .quiz-lib-count,
 .quiz-lib-muted {
@@ -1374,3 +1383,42 @@ a.topo-node:hover .topo-device, a.topo-node:focus-visible .topo-device { transfo
     .topic-banner { padding: 18px; }
     .topic-banner-title { font-size: 1.3rem; }
 }
+
+/* ── Lecturer preview: centred dialog (phones keep the bottom sheet) ─── */
+.sheet-frame { display: block; }
+.sheet-modal--center {
+    top: 50%; bottom: auto; left: 50%;
+    transform: translate(-50%, -46%) scale(.97); opacity: 0;
+    width: min(1100px, calc(100vw - 48px));
+    height: min(92vh, 900px);
+    border-radius: var(--nl-radius-panel, 22px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+    transition: transform .35s var(--nl-spring, ease), opacity .25s ease;
+}
+.sheet-backdrop.active .sheet-modal--center { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+.sheet-modal--center .sheet-body { padding: 0; overflow: hidden; }
+.sheet-modal--center .sheet-frame { border-radius: 0 0 var(--nl-radius-panel, 22px) var(--nl-radius-panel, 22px); }
+.sheet-modal--center .sheet-drag-handle { display: none; }
+.sheet-modal--center .sheet-header { padding: 14px 20px; }
+.sheet-modal--center #sheetTitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70vw; }
+@media (max-width: 768px) {
+    .sheet-modal--center {
+        top: auto; bottom: 0; opacity: 1;
+        transform: translateX(-50%) translateY(100%);
+        width: 100vw; height: 92vh;
+        border-radius: var(--nl-radius-panel, 22px) var(--nl-radius-panel, 22px) 0 0;
+    }
+    .sheet-backdrop.active .sheet-modal--center { transform: translateX(-50%) translateY(0); }
+    .sheet-modal--center .sheet-drag-handle { display: block; }
+}
+@media (prefers-reduced-motion: reduce) { .sheet-modal--center { transition: opacity .15s ease; } }
+
+/* ── Puzzle page inside a frame: compact, canvas first ───────────────── */
+.preview-notice-short, .embedded-instruction { display: none; }
+.is-embedded .puzzle-page { padding: 12px !important; }
+.is-embedded .puzzle-telemetry-header { display: none !important; }
+.is-embedded .preview-notice { padding: 6px 12px !important; margin-bottom: 8px !important; font-size: 0.8rem !important; }
+.is-embedded .preview-notice-long, .is-embedded .preview-notice-exit { display: none; }
+.is-embedded .preview-notice-short { display: inline; }
+.is-embedded .embedded-instruction { display: block; margin: 0 0 10px; font-size: 0.88rem; color: var(--nl-text-secondary); }

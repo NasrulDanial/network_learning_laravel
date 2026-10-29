@@ -173,7 +173,10 @@
                             type="button"
                             class="button secondary"
                             style="padding: 8px 14px; font-size: 0.82rem; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;"
-                            onclick="openSheetModal('Preview: {{ addslashes($puzzle->question_text) }}', 'LECTURER SANDBOX // DOES NOT COUNT', '{{ route('lecturer.missions.puzzles.preview', $puzzle->puzzle_id) }}', true)"
+                            data-sheet-url="{{ route('lecturer.missions.puzzles.preview', $puzzle->puzzle_id) }}"
+                            data-sheet-title="Preview: {{ $puzzle->question_text }}"
+                            data-sheet-badge="LECTURER SANDBOX // DOES NOT COUNT"
+                            data-sheet-center="true"
                             title="Open inline sandbox preview (Zero XP, Zero attempts logged)"
                         >
                             <i class="fa-solid fa-eye" style="color: var(--nl-cyan, #22d3ee);"></i>

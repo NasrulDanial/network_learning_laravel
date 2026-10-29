@@ -202,7 +202,9 @@
     }
 
     // ── 3. Bottom Slide-up Sheet Modal for Tasks / Puzzles ──
-    window.openSheetModal = function (title, badge, url, isIframe = true) {
+    // options.center opens it as a centred dialog on desktop (phones keep the bottom sheet).
+    let sheetReturnFocus = null;
+    window.openSheetModal = function (title, badge, url, isIframe = true, options = {}) {
         let backdrop = document.getElementById('sheetModalBackdrop');
         if (!backdrop) {
             backdrop = document.createElement('div');
@@ -230,9 +232,13 @@
                 if (e.target === backdrop) closeSheetModal();
             });
             document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') closeSheetModal();
+                if (e.key === 'Escape' && backdrop.classList.contains('active')) closeSheetModal();
             });
         }
+
+        backdrop.querySelector('.sheet-modal').classList.toggle('sheet-modal--center', !!options.center);
+        sheetReturnFocus = document.activeElement;
+        document.body.style.overflow = 'hidden';
 
         document.getElementById('sheetTitle').textContent = title;
         document.getElementById('sheetBadge').textContent = badge || 'SIMULATION';
@@ -263,6 +269,7 @@
 
         requestAnimationFrame(() => {
             backdrop.classList.add('active');
+            document.getElementById('sheetCloseBtn')?.focus({ preventScroll: true });
         });
     };
 
@@ -270,6 +277,9 @@
         const backdrop = document.getElementById('sheetModalBackdrop');
         if (backdrop) {
             backdrop.classList.remove('active');
+            document.body.style.overflow = '';
+            if (sheetReturnFocus && document.contains(sheetReturnFocus)) sheetReturnFocus.focus();
+            sheetReturnFocus = null;
             setTimeout(() => {
                 const body = document.getElementById('sheetBody');
                 if (body) body.innerHTML = '';
@@ -291,7 +301,7 @@
         const title = this.getAttribute('data-sheet-title') || 'Interactive Mission';
         const badge = this.getAttribute('data-sheet-badge') || 'SIMULATION';
         const isIframe = this.getAttribute('data-sheet-iframe') !== 'false';
-        window.openSheetModal(title, badge, url, isIframe);
+        window.openSheetModal(title, badge, url, isIframe, { center: this.getAttribute('data-sheet-center') === 'true' });
     }
 
     // ── 4. Gamified Quiz Stepper ──

@@ -34,7 +34,7 @@
 @endsection
 
 @section('content')
-<div style="max-width: 960px; margin: 0 auto; padding: 12px 0;">
+<div class="puzzle-page" style="max-width: 960px; margin: 0 auto; padding: 12px 0;">
 
     @php
         $inRun = $inRun ?? false;
@@ -51,15 +51,20 @@
             <span>{{ $puzzle->instruction }}</span>
         </div>
     @elseif (!empty($isPreview))
-        <div style="background: rgba(234, 179, 8, 0.15); border: 1px solid rgba(234, 179, 8, 0.4); color: #facc15; border-radius: 12px; padding: 12px 18px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 0.88rem;">
+        <div class="preview-notice" style="background: rgba(234, 179, 8, 0.15); border: 1px solid rgba(234, 179, 8, 0.4); color: #facc15; border-radius: 12px; padding: 12px 18px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 0.88rem;">
             <div style="display: flex; align-items: center; gap: 8px;">
-                <i class="fa-solid fa-flask-vial"></i>
-                <span><strong>LECTURER TEST PREVIEW:</strong> Experiencing puzzle gameplay exactly as students will. Testing mode active — Zero XP credited, Zero attempts recorded.</span>
+                <i class="fa-solid fa-flask-vial" aria-hidden="true"></i>
+                <span class="preview-notice-long"><strong>LECTURER TEST PREVIEW:</strong> Experiencing puzzle gameplay exactly as students will. Testing mode active — Zero XP credited, Zero attempts recorded.</span>
+                <span class="preview-notice-short"><strong>Preview:</strong> no XP or attempts recorded.</span>
             </div>
             @if ($puzzle->mission_id)
-                <a href="{{ route('lecturer.missions.show', $puzzle->mission_id) }}" style="color: #facc15; font-weight: 700; text-decoration: underline; white-space: nowrap;">Exit Preview</a>
+                <a class="preview-notice-exit" href="{{ route('lecturer.missions.show', $puzzle->mission_id) }}" style="color: #facc15; font-weight: 700; text-decoration: underline; white-space: nowrap;">Exit Preview</a>
             @endif
         </div>
+        {{-- Inside the centred preview dialog the title is in the dialog header: keep just the instruction --}}
+        @if ($puzzle->instruction)
+            <p class="embedded-instruction">{{ $puzzle->instruction }}</p>
+        @endif
     @else
         <div style="margin-bottom: 12px;">
             <a href="{{ route('student.topic', $puzzle->topic_id) }}" style="font-size: 0.85rem; color: var(--nl-cyan, #22d3ee); text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
@@ -70,7 +75,7 @@
 
     @unless ($inRun)
     <!-- Telemetry Header Card -->
-    <div style="background: var(--nl-glass-card); backdrop-filter: var(--nl-glass-blur); border: 1px solid var(--nl-glass-border); border-radius: var(--nl-radius-panel); padding: 24px; margin-bottom: 20px; box-shadow: 0 16px 36px rgba(0,0,0,0.4);">
+    <div class="puzzle-telemetry-header" style="background: var(--nl-glass-card); backdrop-filter: var(--nl-glass-blur); border: 1px solid var(--nl-glass-border); border-radius: var(--nl-radius-panel); padding: 24px; margin-bottom: 20px; box-shadow: 0 16px 36px rgba(0,0,0,0.4);">
         <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;">
             <div style="flex: 1; min-width: 260px;">
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">

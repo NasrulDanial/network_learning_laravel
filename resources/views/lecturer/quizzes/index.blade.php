@@ -36,14 +36,18 @@
     @endif
 
     @if ($quizzes->count() > 0)
-        <div class="quiz-lib-toolbar">
-            <label class="visually-hidden" for="quizSearch">Search quizzes</label>
-            <input
-                id="quizSearch"
-                type="search"
-                placeholder="Search by quiz or topic title"
-                autocomplete="off"
-            >
+        <div class="quiz-lib-toolbar nl-filter-panel">
+            <div class="search-field">
+                <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                <label class="visually-hidden" for="quizSearch">Search quizzes</label>
+                <input
+                    id="quizSearch"
+                    type="search"
+                    class="finder-input"
+                    placeholder="Search by quiz or topic title"
+                    autocomplete="off"
+                >
+            </div>
             <span class="quiz-lib-count" id="quizResultCount" aria-live="polite">
                 {{ $quizzes->count() }} {{ Str::plural('quiz', $quizzes->count()) }}
             </span>
