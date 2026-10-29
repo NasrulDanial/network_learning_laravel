@@ -111,15 +111,7 @@
                 <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border);">
                     <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 6px;">
                         <span style="color: var(--text-secondary);">
-                            @if($ach['requirement_type'] === 'xp_earned')
-                                XP Target
-                            @elseif($ach['requirement_type'] === 'topics_completed')
-                                Stages Completed
-                            @elseif($ach['requirement_type'] === 'missions_completed')
-                                Missions Cleared
-                            @else
-                                Requirement
-                            @endif
+                            {{ $ach['requirement_label'] }}
                         </span>
                         <strong style="color: {{ $ach['is_earned'] ? '#fbbf24' : 'var(--text-main)' }};">
                             {{ number_format($ach['current_value']) }} / {{ number_format($ach['requirement_value']) }}

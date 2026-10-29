@@ -14,8 +14,8 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             DemoUserSeeder::class,     // local/testing only
-            CurriculumSeeder::class,   // 5 topics, 15 missions, 45 puzzles, 50 quiz questions
-            AchievementSeeder::class,  // badge definitions with exact criteria
+            CurriculumSeeder::class,   // 10 stages, 30 missions, 90 puzzles, 150 quiz questions
+            AchievementSeeder::class,  // 20 badges with exact criteria
         ]);
     }
 }

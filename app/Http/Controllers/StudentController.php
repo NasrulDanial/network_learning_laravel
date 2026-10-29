@@ -944,34 +944,18 @@ public function result(Result $result)
     {
         $userId = auth()->user()->user_id;
 
-        $quizPoints = (int) Result::where('user_id', $userId)->sum('points_earned');
-        $pblPoints = (int) Progress::where('user_id', $userId)->sum('total_xp');
-        $totalXp = XpService::total($userId);
-
-        $completedTopics = Progress::where('user_id', $userId)
-            ->where('learning_status', 'Completed')
-            ->count();
-
-        $completedMissions = UserMissionProgress::where('user_id', $userId)
-            ->where('is_completed', true)
-            ->count();
+        $metrics = \App\Services\AchievementService::metrics($userId);
+        $totalXp = $metrics['xp_earned'];
 
         $userAchievements = UserAchievement::where('user_id', $userId)
             ->pluck('date_earned', 'achievement_id')
             ->toArray();
 
-        $allAchievements = Achievement::all()->map(function ($ach) use ($userAchievements, $totalXp, $completedTopics, $completedMissions) {
+        $allAchievements = Achievement::all()->map(function ($ach) use ($userAchievements, $metrics) {
             $isEarned = isset($userAchievements[$ach->achievement_id]);
             $dateEarned = $isEarned ? $userAchievements[$ach->achievement_id] : null;
 
-            $currentVal = 0;
-            if ($ach->requirement_type === 'xp_earned') {
-                $currentVal = $totalXp;
-            } elseif ($ach->requirement_type === 'topics_completed') {
-                $currentVal = $completedTopics;
-            } elseif ($ach->requirement_type === 'missions_completed') {
-                $currentVal = $completedMissions;
-            }
+            $currentVal = (int) ($metrics[$ach->requirement_type] ?? 0);
 
             $reqVal = (int) $ach->requirement_value;
             $progressPct = $reqVal > 0 ? min(100, (int) round(($currentVal / $reqVal) * 100)) : 100;
@@ -984,6 +968,7 @@ public function result(Result $result)
                 'description' => $ach->description,
                 'badge_icon' => $ach->badge_icon ?? 'fa-award',
                 'requirement_type' => $ach->requirement_type,
+                'requirement_label' => \App\Services\AchievementService::REQUIREMENT_LABELS[$ach->requirement_type] ?? 'Requirement',
                 'requirement_value' => $reqVal,
                 'current_value' => $currentVal,
                 'progress_pct' => $progressPct,

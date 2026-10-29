@@ -10,17 +10,20 @@ use App\Models\Topic;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Database\Seeders\Support\CurriculumData;
 use InvalidArgumentException;
 
 /**
- * Seeds the introductory networking curriculum from database/seeders/data/netlearn_curriculum.php:
- * 5 topics, each with a 10-question quiz and 3 missions of 3 puzzle activities.
+ * Seeds the networking curriculum assembled by Support\CurriculumData (data/netlearn_*.php):
+ * 10 stages, each with a 15-question quiz and 3 missions of 3 puzzle activities.
  *
  * Safe on a database that already has content:
  *  - Records are matched by a stable identity (topic title, quiz in topic, question text,
  *    mission title in topic, puzzle title in mission) and only created when missing.
  *  - Existing records are never overwritten, so lecturer edits and student history survive.
  *  - Empty text fields on an existing topic (description/objectives/content) are filled in.
+ *  - A quiz is topped up to its target (15) with questions it does not already have, never beyond it.
+ *  - Stages flagged append_notes keep their existing notes and gain the new sections after them.
  *  - Orders are kept unique: a wanted position that is taken goes to the end instead.
  */
 class CurriculumSeeder extends Seeder
@@ -31,7 +34,7 @@ class CurriculumSeeder extends Seeder
 
     public function run(): void
     {
-        $curriculum = require __DIR__ . '/data/netlearn_curriculum.php';
+        $curriculum = CurriculumData::all();
         $authorId = User::where('role', 'lecturer')->orderBy('user_id')->value('user_id');
 
         DB::transaction(function () use ($curriculum, $authorId) {
@@ -71,6 +74,14 @@ class CurriculumSeeder extends Seeder
                     $fill[$field] = $value;
                 }
             }
+            // Add the new note sections after notes that already exist (only for flagged stages)
+            $firstLine = trim((string) strtok($spec['content'], "
+"));
+            if (! empty($spec['append_notes']) && filled($topic->content) && $firstLine !== '' && ! str_contains($topic->content, $firstLine)) {
+                $fill['content'] = rtrim($topic->content) . "
+
+" . $spec['content'];
+            }
             if ($fill) {
                 $topic->update($fill);
             }
@@ -107,19 +118,28 @@ class CurriculumSeeder extends Seeder
             $this->created['quizzes']++;
         }
 
+        $target = (int) ($spec['target'] ?? 0);
+        $count = Question::where('quiz_id', $quiz->quiz_id)->count();
+
         foreach ($spec['questions'] as $q) {
             [$text, $a, $b, $c, $d, $correct] = $q;
             if (! in_array($correct, self::ANSWER_KEYS, true)) {
                 throw new InvalidArgumentException("Quiz question \"{$text}\" has invalid answer key \"{$correct}\".");
             }
 
-            $question = Question::firstOrCreate(
-                ['quiz_id' => $quiz->quiz_id, 'question_text' => $text],
-                ['option_a' => $a, 'option_b' => $b, 'option_c' => $c, 'option_d' => $d, 'correct_answer' => $correct]
-            );
-            if ($question->wasRecentlyCreated) {
-                $this->created['questions']++;
+            if (Question::where('quiz_id', $quiz->quiz_id)->where('question_text', $text)->exists()) {
+                continue;
             }
+            if ($target > 0 && $count >= $target) {
+                continue; // a quiz is topped up to its target, never past it
+            }
+
+            Question::create([
+                'quiz_id' => $quiz->quiz_id, 'question_text' => $text,
+                'option_a' => $a, 'option_b' => $b, 'option_c' => $c, 'option_d' => $d, 'correct_answer' => $correct,
+            ]);
+            $count++;
+            $this->created['questions']++;
         }
     }
 

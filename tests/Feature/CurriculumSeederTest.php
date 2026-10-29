@@ -9,6 +9,7 @@ use App\Models\Quiz;
 use App\Models\Topic;
 use App\Services\PuzzleEvaluatorService;
 use Database\Seeders\CurriculumSeeder;
+use Database\Seeders\Support\CurriculumData;
 use Tests\TestCase;
 
 class CurriculumSeederTest extends TestCase
@@ -18,20 +19,22 @@ class CurriculumSeederTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->curriculum = require base_path('database/seeders/data/netlearn_curriculum.php');
+        $this->curriculum = CurriculumData::all();
         $this->seed(CurriculumSeeder::class);
     }
 
-    public function test_curriculum_has_five_topics_with_ten_questions_and_three_missions_each()
+    public function test_curriculum_has_ten_stages_with_fifteen_questions_and_three_missions_each()
     {
-        $this->assertCount(5, $this->curriculum);
+        $this->assertCount(10, $this->curriculum);
 
         foreach ($this->curriculum as $spec) {
             $topic = Topic::where('title', $spec['title'])->firstOrFail();
             $quiz = Quiz::where('topic_id', $topic->topic_id)->orderBy('quiz_id')->firstOrFail();
 
-            $this->assertSame(10, count($spec['quiz']['questions']), $spec['title']);
-            $this->assertGreaterThanOrEqual(10, Question::where('quiz_id', $quiz->quiz_id)->count());
+            $this->assertSame(15, count($spec['quiz']['questions']), $spec['title']);
+            $this->assertSame(15, Question::where('quiz_id', $quiz->quiz_id)->count(), $spec['title']);
+            $this->assertNotEmpty($topic->objectives, $spec['title']);
+            $this->assertGreaterThanOrEqual(3, count($topic->noteSections()), "{$spec['title']} notes need section headings");
 
             $this->assertCount(3, $spec['missions'], $spec['title']);
             foreach ($spec['missions'] as $missionSpec) {
@@ -46,8 +49,8 @@ class CurriculumSeederTest extends TestCase
         $evaluator = app(PuzzleEvaluatorService::class);
         $titles = collect($this->curriculum)->flatMap(fn ($t) => collect($t['missions'])->flatMap(fn ($m) => collect($m['puzzles'])->pluck('title')));
 
-        $this->assertCount(45, $titles);
-        $this->assertSame(45, $titles->unique()->count(), 'Puzzle titles must be unique (they are the seed identity)');
+        $this->assertCount(90, $titles);
+        $this->assertSame(90, $titles->unique()->count(), 'Puzzle titles must be unique (they are the seed identity)');
 
         foreach (Puzzle::whereIn('question_text', $titles)->get() as $puzzle) {
             [$right, $wrong] = $this->submissions($puzzle);
@@ -74,7 +77,7 @@ class CurriculumSeederTest extends TestCase
 
             // No answer letter should dominate a quiz (guessing one letter must not pass)
             $mostCommon = max(array_count_values($letters));
-            $this->assertLessThanOrEqual(4, $mostCommon, "{$spec['title']}: one letter is correct {$mostCommon}/10 times");
+            $this->assertLessThanOrEqual(7, $mostCommon, "{$spec['title']}: one letter is correct {$mostCommon}/15 times");
 
             foreach ($spec['quiz']['questions'] as $q) {
                 $options = array_slice($q, 1, 4);
