@@ -11,9 +11,7 @@ class AchievementService
     public static function checkAndAward($userId)
     {
         // Unified authoritative calculations across both PBL missions and conventional quizzes
-        $pblXp = (int) Progress::where('user_id', $userId)->sum('total_xp');
-        $quizXp = (int) \App\Models\Result::where('user_id', $userId)->sum('points_earned');
-        $totalXp = $pblXp + $quizXp;
+        $totalXp = XpService::total($userId);
 
         $completedTopics = Progress::where('user_id', $userId)
             ->where('learning_status', 'Completed')

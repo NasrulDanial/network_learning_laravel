@@ -79,7 +79,8 @@ class MissionController extends Controller
             'difficulty'    => 'required|in:beginner,intermediate,advanced',
             'mission_order' => ['required', 'integer', 'min:1',
                 Rule::unique('missions', 'mission_order')->where('topic_id', $request->input('topic_id'))],
-            'pass_mark'     => 'required|integer|min:0|max:100',
+            // Missions are cleared by solving every activity; pass_mark is kept only for old data
+            'pass_mark'     => 'nullable|integer|min:0|max:100',
             'xp_reward'     => 'required|integer|min:25|max:1000',
             'status'        => 'required|in:draft,published',
             'ticket_code'   => 'nullable|string|max:20',
@@ -88,6 +89,7 @@ class MissionController extends Controller
             'narrator'      => 'nullable|string|max:60',
         ], self::ORDER_MESSAGES);
 
+        $validated['pass_mark'] = $validated['pass_mark'] ?? 70;
         $mission = Mission::create($validated);
 
         return redirect()
@@ -140,7 +142,8 @@ class MissionController extends Controller
                 Rule::unique('missions', 'mission_order')
                     ->where('topic_id', $request->input('topic_id'))
                     ->ignore($mission->mission_id, 'mission_id')],
-            'pass_mark'     => 'required|integer|min:0|max:100',
+            // Missions are cleared by solving every activity; pass_mark is kept only for old data
+            'pass_mark'     => 'nullable|integer|min:0|max:100',
             'xp_reward'     => 'required|integer|min:25|max:1000',
             'status'        => 'required|in:draft,published',
             'ticket_code'   => 'nullable|string|max:20',
@@ -163,6 +166,7 @@ class MissionController extends Controller
             }
         }
 
+        unset($validated['pass_mark']); // not on the form any more: keep the stored value
         $mission->update($validated);
 
         // Keep child puzzles synchronized with mission topic

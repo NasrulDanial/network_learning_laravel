@@ -22,9 +22,7 @@ class ProfileController extends Controller
 
         if ($user->role === 'student') {
             // Aggregate telemetry for student profile
-            $pblXp = (int) Progress::where('user_id', $user->user_id)->sum('total_xp');
-            $quizXp = (int) Result::where('user_id', $user->user_id)->sum('points_earned');
-            $totalXp = $pblXp + $quizXp;
+            $totalXp = \App\Services\XpService::total($user->user_id);
 
             $rankInfo = RankProgressionService::getRankTelemetry($totalXp);
 

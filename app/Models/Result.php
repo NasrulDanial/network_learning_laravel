@@ -15,8 +15,13 @@ class Result extends Model
         'total_questions',
         'percentage',
         'status',
+        'ended_reason',
         'date_taken',
         'points_earned',
+    ];
+
+    protected $casts = [
+        'date_taken' => 'datetime',
     ];
 
     public function user()

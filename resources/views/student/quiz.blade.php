@@ -13,7 +13,8 @@
 
         <div style="display: flex; align-items: center; gap: 12px;">
             <span class="sheet-badge" style="background: rgba(139, 92, 246, 0.15); color: #c084fc; border-color: rgba(139, 92, 246, 0.35);">
-                <i class="fa-solid fa-bolt" style="color: #fbbf24; margin-right: 4px;"></i> +100 Network XP
+                <i class="fa-solid fa-bolt" style="color: #fbbf24; margin-right: 4px;"></i>
+                {{ $claimableXp > 0 ? '+' . $claimableXp . ' Network XP' : 'XP already claimed' }}
             </span>
             <span class="sheet-badge">
                 PASSING: {{ (int) $quiz->passing_mark }}%

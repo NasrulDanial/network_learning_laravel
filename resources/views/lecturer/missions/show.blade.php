@@ -38,7 +38,7 @@
             <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 0.82rem;">
                 <span style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 8px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.8);">
                     <i class="fa-solid fa-bullseye" style="color: var(--nl-cyan, #22d3ee);"></i>
-                    Pass Mark: <strong>{{ $mission->pass_mark }}%</strong>
+                    Cleared when every activity is solved
                 </span>
 
                 <span style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 8px; background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.3); color: #c084fc; font-weight: 700;">

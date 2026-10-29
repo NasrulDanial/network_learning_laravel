@@ -71,7 +71,9 @@ class PuzzleController extends Controller
             'puzzle' => $puzzle,
             'inRun' => request()->boolean('run') && config('netlearn.run_mode'),
             'attemptsUsed' => $attemptsUsed,
-            'hintRevealed' => (int) ($progress->hints_used ?? 0) > 0,
+            // Shown up front only while it still matters for this try (a solved puzzle starts clean)
+            'hintRevealed' => (bool) ($progress->try_hint_used ?? false)
+                || ((int) ($progress->hints_used ?? 0) > 0 && ! ($progress->is_completed ?? false)),
             'hintFree' => $attemptsUsed >= (int) config('netlearn.free_hint_after') || ($progress->is_completed ?? false),
             'hintPenalty' => (int) config('netlearn.hint_xp_penalty'),
         ]);
@@ -103,9 +105,12 @@ class PuzzleController extends Controller
         $free = (int) $progress->attempts_count >= (int) config('netlearn.free_hint_after') || $progress->is_completed;
         $charged = false;
         if (! $free && (int) $progress->hints_used === 0) {
-            $progress->increment('hints_used');
+            $progress->hints_used = 1; // permanent: lowers the XP this activity is worth
             $charged = true;
         }
+        // Any hint seen during this try rules out 3 stars for it
+        $progress->try_hint_used = true;
+        $progress->save();
 
         return response()->json([
             'hint' => $puzzle->hint,

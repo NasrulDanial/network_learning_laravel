@@ -292,16 +292,12 @@
             p.attemptsUsed = msg.attemptsCount || p.attemptsUsed + 1;
 
             if (!msg.correct) {
-                // A wrong answer can still raise the personal best (partial credit): count that XP too
-                if (msg.earnedXp) {
-                    this.xp += msg.earnedXp;
-                    hud.xp(this.xp);
-                }
+                // XP is only earned by solving, so a wrong answer never adds any
                 this.streak = 0;
                 hud.streak(0);
                 hud.health(p.maxAttempts, p.attemptsUsed, true);
                 fx.flash('rgba(239,68,68,.18)');
-                announce(msg.earnedXp ? `Not quite, but a new best: ${msg.earnedXp} XP. Check the feedback and try again.` : 'Not quite. Check the feedback and try again.');
+                announce('Not quite. Check the feedback and try again.');
                 return;
             }
 

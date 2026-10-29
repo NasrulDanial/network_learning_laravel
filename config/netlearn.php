@@ -12,6 +12,9 @@
 | ttl_seconds        Per-puzzle TTL shown in the run HUD (0 = off). Never fails a puzzle.
 | diagnostics_level  'first_error' lets animations stop where an answer first fails
 |                    (never reveals the correct answer); 'none' disables it.
+| quiz_pass_xp       XP a quiz is worth in total (capped per quiz across attempts).
+| quiz_first_attempt_xp  Consolation XP for a failed first attempt (counts toward the cap).
+| quiz_lives         Wrong answers allowed per quiz attempt; the last one ends it (LINK DOWN).
 */
 
 return [
@@ -21,4 +24,7 @@ return [
     'free_hint_after' => (int) env('NETLEARN_FREE_HINT_AFTER', 2),
     'ttl_seconds' => (int) env('NETLEARN_TTL', 0),
     'diagnostics_level' => env('NETLEARN_DIAGNOSTICS', 'first_error'),
+    'quiz_pass_xp' => (int) env('NETLEARN_QUIZ_PASS_XP', 100),
+    'quiz_first_attempt_xp' => (int) env('NETLEARN_QUIZ_FIRST_XP', 20),
+    'quiz_lives' => (int) env('NETLEARN_QUIZ_LIVES', 3),
 ];

@@ -14,6 +14,8 @@ use App\Models\UserPuzzleProgress;
 use App\Models\Achievement;
 use App\Models\UserAchievement;
 use App\Services\RankProgressionService;
+use App\Services\TopicProgressService;
+use App\Services\XpService;
 use Illuminate\Http\Request;
 
 class StudentController extends Controller
@@ -24,7 +26,7 @@ class StudentController extends Controller
 
         $quizPoints = (int) Result::where('user_id', $userId)->sum('points_earned');
         $pblPoints = (int) Progress::where('user_id', $userId)->sum('total_xp');
-        $totalPoints = $quizPoints + $pblPoints;
+        $totalPoints = XpService::total($userId);
 
         $rankInfo = RankProgressionService::getRankTelemetry($totalPoints);
 
@@ -165,33 +167,8 @@ class StudentController extends Controller
         return redirect()->route('student.learning');
     }
 
-    /*
-     * Record that the student has opened the topic.
-     * Do not reduce progress if the topic is already completed.
-     */
-    $existingProgress = Progress::where('user_id', $userId)
-        ->where('topic_id', $topic->topic_id)
-        ->first();
-
-    if ($existingProgress) {
-        if ($existingProgress->learning_status !== 'Completed') {
-            $existingProgress->learning_status = 'In Progress';
-
-            if ((int) $existingProgress->progress_percentage < 25) {
-                $existingProgress->progress_percentage = 25;
-            }
-
-            $existingProgress->save();
-        }
-    } else {
-        Progress::create([
-            'user_id' => $userId,
-            'topic_id' => $topic->topic_id,
-            'learning_status' => 'In Progress',
-            'quiz_status' => 'Not Attempted',
-            'progress_percentage' => 25,
-        ]);
-    }
+    // Opening a topic records it as started; the percentage always comes from the facts
+    app(TopicProgressService::class)->recalculate($userId, $topic);
 
     $quiz = Quiz::where('topic_id', $topic->topic_id)
         ->orderBy('quiz_id', 'asc')
@@ -348,7 +325,39 @@ public function quiz(Quiz $quiz)
         'topic' => $quiz->topic,
         'questions' => $quiz->questions,
         'checked' => $checked,
+        'claimableXp' => self::claimableQuizXp($userId, $quiz),
     ]);
+}
+
+/**
+ * Quiz XP is capped per quiz: a failed first attempt earns the consolation XP, a pass earns
+ * whatever is left of the cap, so fail-then-pass totals the same as passing first.
+ */
+public static function quizPoints(int $userId, Quiz $quiz, string $status, bool $ended = false): int
+{
+    if ($ended) {
+        return 0; // abandoned or out of lives
+    }
+    $previous = Result::where('user_id', $userId)->where('quiz_id', $quiz->quiz_id);
+    $alreadyEarned = (int) (clone $previous)->sum('points_earned');
+    $cap = (int) config('netlearn.quiz_pass_xp');
+
+    if ($status === 'Pass') {
+        return max(0, $cap - $alreadyEarned);
+    }
+
+    return (clone $previous)->exists() ? 0 : min($cap, (int) config('netlearn.quiz_first_attempt_xp'));
+}
+
+/** XP still available from this quiz for the header badge. */
+public static function claimableQuizXp(int $userId, Quiz $quiz): int
+{
+    $previous = Result::where('user_id', $userId)->where('quiz_id', $quiz->quiz_id);
+    if ((clone $previous)->where('status', 'Pass')->exists()) {
+        return 0;
+    }
+
+    return max(0, (int) config('netlearn.quiz_pass_xp') - (int) $previous->sum('points_earned'));
 }
 
 private static function quizRunKey(Quiz $quiz): string
@@ -472,21 +481,7 @@ public function submitQuiz(Request $request)
         ? 'Pass'
         : 'Fail';
 
-    // Idempotent XP reward policy to prevent repeat farming
-    $hasPassedBefore = Result::where('user_id', $userId)
-        ->where('quiz_id', $quiz->quiz_id)
-        ->where('status', 'Pass')
-        ->exists();
-
-    $hasAttemptedBefore = Result::where('user_id', $userId)
-        ->where('quiz_id', $quiz->quiz_id)
-        ->exists();
-
-    if ($status === 'Pass') {
-        $pointsEarned = $hasPassedBefore ? 0 : 100;
-    } else {
-        $pointsEarned = $hasAttemptedBefore ? 0 : 20;
-    }
+    $pointsEarned = self::quizPoints($userId, $quiz, $status);
 
     session()->forget($runKey);
 
@@ -501,32 +496,7 @@ public function submitQuiz(Request $request)
         'date_taken' => now(),
     ]);
 
-    /*
-     * Update progress.
-     * Passing completes the topic.
-     * Failing gives partial progress only if not already completed.
-     */
-    $progress = Progress::firstOrNew([
-        'user_id' => $userId,
-        'topic_id' => $quiz->topic_id,
-    ]);
-
-    if ($status === 'Pass') {
-        $progress->learning_status = 'Completed';
-        $progress->quiz_status = 'Passed';
-        $progress->progress_percentage = 100;
-    } else {
-        if ($progress->learning_status !== 'Completed') {
-            $progress->learning_status = 'In Progress';
-            $progress->quiz_status = 'Failed';
-
-            if ((int) $progress->progress_percentage < 50) {
-                $progress->progress_percentage = 50;
-            }
-        }
-    }
-
-    $progress->save();
+    app(TopicProgressService::class)->recalculate($userId, $quiz->topic);
 
     // Trigger honors evaluation
     \App\Services\AchievementService::checkAndAward($userId);
@@ -568,7 +538,7 @@ public function result(Result $result)
 
         $quizPoints     = (int) ($resultStats->total_points    ?? 0);
         $pblPoints      = (int) Progress::where('user_id', $userId)->sum('total_xp');
-        $totalPoints    = $quizPoints + $pblPoints;
+        $totalPoints    = XpService::total($userId);
         $totalAttempts  = (int) ($resultStats->total_attempts  ?? 0);
         $passedAttempts = (int) ($resultStats->passed_attempts ?? 0);
         $averageScore   = (float) ($resultStats->avg_score     ?? 0);
@@ -726,6 +696,13 @@ public function result(Result $result)
             ->get()
             ->keyBy('puzzle_id');
 
+        // A replay starts a clean try for every activity, so stars can improve
+        if ($request->boolean('restart')) {
+            UserPuzzleProgress::where('user_id', $userId)
+                ->whereIn('puzzle_id', $puzzles->pluck('puzzle_id'))
+                ->update(['try_attempts' => 0, 'try_hint_used' => false]);
+        }
+
         // Resume at the first unfinished activity; a fully finished mission replays from the start
         $startIndex = $request->boolean('restart') ? 0 : max(0, (int) $puzzles->search(fn ($p) => ! optional($progress->get($p->puzzle_id))->is_completed));
         if ($puzzles->every(fn ($p) => optional($progress->get($p->puzzle_id))->is_completed)) {
@@ -749,8 +726,7 @@ public function result(Result $result)
             ];
         });
 
-        $totalXp = (int) Result::where('user_id', $userId)->sum('points_earned')
-            + (int) Progress::where('user_id', $userId)->sum('total_xp');
+        $totalXp = XpService::total($userId);
 
         $config = [
             'missionId' => $mission->mission_id,
@@ -797,8 +773,7 @@ public function result(Result $result)
         $puzzleXp = (int) $progress->sum('xp_awarded');
         $missionXp = $missionProgress && $missionProgress->xp_reward_granted ? (int) $mission->xp_reward : 0;
 
-        $totalXp = (int) Result::where('user_id', $userId)->sum('points_earned')
-            + (int) Progress::where('user_id', $userId)->sum('total_xp');
+        $totalXp = XpService::total($userId);
         $rank = RankProgressionService::getRankTelemetry($totalXp);
 
         $nextMission = Mission::playable()
@@ -838,7 +813,7 @@ public function result(Result $result)
 
         $quizPoints = (int) Result::where('user_id', $userId)->sum('points_earned');
         $pblPoints = (int) Progress::where('user_id', $userId)->sum('total_xp');
-        $totalXp = $quizPoints + $pblPoints;
+        $totalXp = XpService::total($userId);
 
         $completedTopics = Progress::where('user_id', $userId)
             ->where('learning_status', 'Completed')

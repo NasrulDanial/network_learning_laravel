@@ -282,7 +282,8 @@ class ProgressionIntegrityTest extends TestCase
 
         $progress = Progress::where('user_id', $this->student->user_id)->where('topic_id', $topic->topic_id)->first();
         $this->assertSame('In Progress', $progress->learning_status);
-        $this->assertSame(75, (int) $progress->progress_percentage);
+        $this->assertSame(80, // 10% opened + 70% for all missions; the quiz is the last 20%
+            (int) $progress->progress_percentage);
     }
 
     // ── XP and rank consistency ──────────────────────────────────────────

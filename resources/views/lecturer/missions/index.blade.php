@@ -85,7 +85,6 @@
                         <th style="padding: 12px 16px; text-align: left;">Order</th>
                         <th style="padding: 12px 16px; text-align: left;">Mission Details</th>
                         <th style="padding: 12px 16px; text-align: center;">Difficulty</th>
-                        <th style="padding: 12px 16px; text-align: center;">Pass Mark</th>
                         <th style="padding: 12px 16px; text-align: center;">XP Reward</th>
                         <th style="padding: 12px 16px; text-align: center;">Activities</th>
                         <th style="padding: 12px 16px; text-align: center;">Status</th>
@@ -118,11 +117,6 @@
                                 @endphp
                                 <span style="display: inline-block; padding: 4px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; background: {{ $diffColors[$m->difficulty] ?? 'rgba(255,255,255,0.1); color: #fff;' }}">
                                     {{ $m->difficulty }}
-                                </span>
-                            </td>
-                            <td style="padding: 16px; text-align: center;">
-                                <span style="font-weight: 700; color: #FFFFFF; font-size: 0.9rem;">
-                                    {{ $m->pass_mark }}%
                                 </span>
                             </td>
                             <td style="padding: 16px; text-align: center;">

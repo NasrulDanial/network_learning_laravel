@@ -92,7 +92,7 @@ class StudentPerformanceController extends Controller
 
         $quizPoints = (int) Result::where('user_id', $userId)->sum('points_earned');
         $pblPoints = (int) Progress::where('user_id', $userId)->sum('total_xp');
-        $totalXp = $quizPoints + $pblPoints;
+        $totalXp = \App\Services\XpService::total($userId);
 
         $rankInfo = RankProgressionService::getRankTelemetry($totalXp);
 

@@ -115,22 +115,6 @@
                 </div>
 
                 <div>
-                    <label for="pass_mark" style="display: block; font-size: 0.85rem; font-weight: 600; color: rgba(255, 255, 255, 0.8); margin-bottom: 8px;">
-                        Pass Mark (%) <span style="color: #f87171;">*</span>
-                    </label>
-                    <input
-                        type="number"
-                        id="pass_mark"
-                        name="pass_mark"
-                        min="50"
-                        max="100"
-                        value="{{ old('pass_mark', $mission->pass_mark) }}"
-                        required
-                        style="width: 100%; padding: 12px 16px; border-radius: 12px; background: rgba(7, 20, 38, 0.8); border: 1px solid rgba(255, 255, 255, 0.15); color: #FFFFFF; font-size: 0.92rem;"
-                    />
-                </div>
-
-                <div>
                     <label for="xp_reward" style="display: block; font-size: 0.85rem; font-weight: 600; color: rgba(255, 255, 255, 0.8); margin-bottom: 8px;">
                         Network XP Reward <span style="color: #f87171;">*</span>
                     </label>
