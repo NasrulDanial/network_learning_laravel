@@ -168,9 +168,12 @@ class StudentController extends Controller
     }
 
     // Opening a topic records it as started; the percentage always comes from the facts
-    app(TopicProgressService::class)->recalculate($userId, $topic);
+    $topicProgress = app(TopicProgressService::class)->recalculate($userId, $topic);
 
+    // The topic's assessment is its first quiz that has questions (same rule as progress)
     $quiz = Quiz::where('topic_id', $topic->topic_id)
+        ->whereHas('questions')
+        ->withCount('questions')
         ->orderBy('quiz_id', 'asc')
         ->first();
 
@@ -221,12 +224,20 @@ class StudentController extends Controller
         $m->student_done_count = $puzzles->where('student_is_completed', true)->count();
     }
 
+    $quizResults = $quiz ? Result::where('user_id', $userId)->where('quiz_id', $quiz->quiz_id) : null;
+
     return view('student.topic', [
         'pageTitle' => 'Learning Topic',
         'activePage' => 'learning',
         'topic'     => $topic,
         'quiz'      => $quiz,
         'missions'  => $missions,
+        'missionsCleared' => $topic->missionsClearedBy($userId),
+        'assessmentOpen' => $topic->assessmentUnlockedFor($userId),
+        'quizPassed' => $topicProgress->quiz_status === 'Passed',
+        'bestResult' => $quizResults ? (clone $quizResults)->orderByDesc('percentage')->first() : null,
+        'claimableXp' => $quiz ? self::claimableQuizXp($userId, $quiz) : 0,
+        'noteSections' => $topic->noteSections(),
     ]);
 }
 

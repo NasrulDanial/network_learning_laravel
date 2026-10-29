@@ -1,7 +1,16 @@
 @extends('layouts.app')
 
 @section('content')
-    @php $runMode = (bool) config('netlearn.run_mode'); @endphp
+    @php
+        $runMode = (bool) config('netlearn.run_mode');
+        $missionsDone = $missionsCleared['done'] === $missionsCleared['total'];
+        $assessmentLocked = $quiz && ! $assessmentOpen;
+        $objectives = collect(preg_split('/\r\n|\r|\n/', (string) $topic->objectives))
+            ->map(fn ($line) => trim(ltrim(trim($line), "-•* ")))
+            ->filter();
+        $nextMission = $missions->first(fn ($m) => $m->student_is_unlocked && ! $m->student_is_completed && $m->puzzles->count() > 0);
+    @endphp
+
     @if (session('error'))
         <div class="message error" role="alert"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> {{ session('error') }}</div>
     @endif
@@ -11,54 +20,150 @@
     </a>
 
     <!-- Topic Header Banner -->
-    <div style="background: linear-gradient(135deg, rgba(13, 33, 56, 0.75) 0%, rgba(7, 20, 38, 0.95) 100%); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(34, 211, 238, 0.2); border-radius: 24px; padding: 28px; margin-bottom: 28px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4), 0 0 30px rgba(34, 211, 238, 0.05);">
+    <div class="topic-banner">
         <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;">
-            <div style="flex: 1; min-width: 260px;">
-                <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--nl-cyan, #22d3ee); display: inline-block; margin-bottom: 8px;">
-                    Stage {{ $topic->topic_order }}  &bull;  Curriculum Zone
-                </span>
-                <h1 style="font-size: 1.75rem; font-weight: 800; color: #FFFFFF; margin: 0 0 8px 0; letter-spacing: -0.02em;">{{ $topic->title }}</h1>
-                <p style="font-size: 0.9rem; color: rgba(255, 255, 255, 0.7); margin: 0; line-height: 1.5;">{{ $topic->description }}</p>
+            <div style="flex: 1; min-width: 240px;">
+                <span class="topic-banner-eyebrow">Stage {{ $topic->topic_order }}  &bull;  Curriculum Zone</span>
+                <h1 class="topic-banner-title">{{ $topic->title }}</h1>
+                @if ($topic->description)
+                    <p class="topic-banner-text">{{ $topic->description }}</p>
+                @endif
             </div>
 
             <!-- Mission Count Badge -->
-            <div style="text-align: center; background: rgba(34, 211, 238, 0.08); border: 1px solid rgba(34, 211, 238, 0.25); border-radius: 16px; padding: 16px 24px;">
-                <div style="font-size: 2rem; font-weight: 800; color: var(--nl-cyan, #22d3ee); line-height: 1;">{{ $missions->count() }}</div>
-                <div style="font-size: 0.75rem; color: rgba(255, 255, 255, 0.6); margin-top: 4px; font-weight: 600;">{{ Str::plural('Mission', $missions->count()) }}</div>
+            <div class="topic-banner-count">
+                <div class="topic-banner-count-num">{{ $missionsCleared['done'] }}/{{ $missions->count() }}</div>
+                <div class="topic-banner-count-label">{{ Str::plural('Mission', $missions->count()) }} cleared</div>
             </div>
         </div>
-
-        @php
-            $objectives = collect(preg_split('/\r\n|\r|\n/', (string) $topic->objectives))
-                ->map(fn ($line) => trim(ltrim(trim($line), "-•* ")))
-                ->filter();
-        @endphp
-        @if ($objectives->isNotEmpty())
-            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.08);">
-                <h2 style="font-size: 0.95rem; font-weight: 700; color: #FFFFFF; margin: 0 0 10px; display: flex; align-items: center; gap: 8px;">
-                    <i class="fa-solid fa-bullseye" style="color: var(--nl-cyan, #22d3ee);" aria-hidden="true"></i>
-                    What you will learn
-                </h2>
-                <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.9rem; color: rgba(255, 255, 255, 0.8); line-height: 1.7;">
-                    @foreach ($objectives as $objective)
-                        <li>{{ $objective }}</li>
-                    @endforeach
-                </ul>
-            </div>
-        @endif
-
-        @if ($topic->content)
-            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.08); font-size: 0.9rem; color: rgba(255, 255, 255, 0.75); line-height: 1.6;">
-                {!! nl2br(e($topic->content)) !!}
-            </div>
-        @endif
     </div>
 
-    <!-- ──────────────── PBL Missions & Puzzle Activities ──────────────── -->
-    <h2 style="font-size: 1.2rem; font-weight: 700; color: #FFFFFF; margin-bottom: 16px; display: flex; align-items: center; gap: 10px;">
-        <i class="fa-solid fa-puzzle-piece" style="color: var(--nl-cyan, #22d3ee);"></i>
-        Learning Missions & Puzzle Challenges
-    </h2>
+    <div class="topic-tabs" data-topic-tabs data-topic-id="{{ $topic->topic_id }}">
+        {{-- The tab bar appears only with JavaScript; without it every panel is shown in order --}}
+        <div class="topic-tablist" role="tablist" aria-label="Topic sections" hidden>
+            <button type="button" role="tab" id="tab-btn-overview" aria-controls="tab-overview" aria-selected="true" data-tab="overview">
+                <i class="fa-solid fa-compass" aria-hidden="true"></i> Overview
+            </button>
+            <button type="button" role="tab" id="tab-btn-notes" aria-controls="tab-notes" aria-selected="false" tabindex="-1" data-tab="notes">
+                <i class="fa-solid fa-book-open" aria-hidden="true"></i> Study Notes
+            </button>
+            <button type="button" role="tab" id="tab-btn-missions" aria-controls="tab-missions" aria-selected="false" tabindex="-1" data-tab="missions">
+                <i class="fa-solid fa-puzzle-piece" aria-hidden="true"></i> Missions
+            </button>
+            @if ($quiz)
+                <button type="button" role="tab" id="tab-btn-assessment" aria-controls="tab-assessment" aria-selected="false" tabindex="-1" data-tab="assessment">
+                    <i class="fa-solid {{ $assessmentLocked ? 'fa-lock' : 'fa-shield-halved' }}" aria-hidden="true"></i> Assessment
+                    @if ($assessmentLocked)<span class="visually-hidden">(locked)</span>@endif
+                </button>
+            @endif
+        </div>
+
+        <!-- ──────────────── Overview ──────────────── -->
+        <section class="topic-panel" role="tabpanel" id="tab-overview" aria-labelledby="tab-btn-overview" tabindex="0">
+            <h2 class="topic-panel-title"><i class="fa-solid fa-compass" aria-hidden="true"></i> Overview</h2>
+
+            <div class="overview-grid">
+                <div class="overview-card">
+                    <h3><i class="fa-solid fa-bullseye" aria-hidden="true"></i> What you will learn</h3>
+                    @if ($objectives->isNotEmpty())
+                        <ul class="overview-objectives">
+                            @foreach ($objectives as $objective)
+                                <li>{{ $objective }}</li>
+                            @endforeach
+                        </ul>
+                    @else
+                        <p class="overview-muted">Read the study notes, clear the missions, then take the assessment.</p>
+                    @endif
+                </div>
+
+                <div class="overview-card">
+                    <h3><i class="fa-solid fa-list-check" aria-hidden="true"></i> Milestones</h3>
+                    <ul class="milestones">
+                        <li class="milestone" data-notes-milestone>
+                            <i class="fa-regular fa-circle" aria-hidden="true"></i>
+                            <span>Study the notes <small data-notes-progress></small></span>
+                        </li>
+                        <li class="milestone {{ $missionsDone ? 'is-done' : '' }}">
+                            <i class="{{ $missionsDone ? 'fa-solid fa-circle-check' : 'fa-regular fa-circle' }}" aria-hidden="true"></i>
+                            <span>Clear all missions <small>({{ $missionsCleared['done'] }}/{{ $missionsCleared['total'] }})</small></span>
+                            <span class="visually-hidden">{{ $missionsDone ? 'done' : 'not done' }}</span>
+                        </li>
+                        @if ($quiz)
+                            <li class="milestone {{ $quizPassed ? 'is-done' : '' }}">
+                                <i class="{{ $quizPassed ? 'fa-solid fa-circle-check' : 'fa-regular fa-circle' }}" aria-hidden="true"></i>
+                                <span>Pass the assessment</span>
+                                <span class="visually-hidden">{{ $quizPassed ? 'done' : 'not done' }}</span>
+                            </li>
+                        @endif
+                    </ul>
+
+                    <div class="overview-next">
+                        @if (! $missionsDone && $nextMission)
+                            <a class="button" href="{{ $runMode ? route('student.mission.run', $nextMission->mission_id) : '#mission-' . $nextMission->mission_id }}" data-tab-link="{{ $runMode ? '' : 'missions' }}">
+                                <i class="fa-solid fa-play" aria-hidden="true"></i>
+                                {{ ! $runMode ? 'Open mission' : ($nextMission->student_done_count > 0 ? 'Continue mission' : 'Start mission') }}: {{ $nextMission->title }}
+                            </a>
+                            <a class="button secondary" href="#tab-notes" data-tab-link="notes" data-notes-cta>
+                                <i class="fa-solid fa-book-open" aria-hidden="true"></i> Read notes
+                            </a>
+                        @elseif ($quiz && ! $quizPassed)
+                            <a class="button" href="{{ route('student.quiz.take', $quiz->quiz_id) }}">
+                                <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i> Take the assessment
+                            </a>
+                        @else
+                            <a class="button secondary" href="{{ route('student.learning') }}">
+                                <i class="fa-solid fa-route" aria-hidden="true"></i> Back to Learning Journey
+                            </a>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ──────────────── Study Notes ──────────────── -->
+        <section class="topic-panel" role="tabpanel" id="tab-notes" aria-labelledby="tab-btn-notes" tabindex="0">
+            <h2 class="topic-panel-title"><i class="fa-solid fa-book-open" aria-hidden="true"></i> Study Notes</h2>
+
+            @if (count($noteSections))
+                <div class="notes-layout">
+                    <nav class="notes-toc" aria-label="Notes contents">
+                        <p class="notes-toc-title">Contents</p>
+                        <ol>
+                            @foreach ($noteSections as $section)
+                                <li><a href="#{{ $section['id'] }}" data-note-link="{{ $section['id'] }}">{{ $section['title'] }}</a></li>
+                            @endforeach
+                        </ol>
+                    </nav>
+
+                    <div class="notes-body">
+                        <div class="notes-toolbar">
+                            <label class="visually-hidden" for="notesJump">Jump to section</label>
+                            <select id="notesJump" class="notes-jump">
+                                @foreach ($noteSections as $section)
+                                    <option value="{{ $section['id'] }}">{{ $section['title'] }}</option>
+                                @endforeach
+                            </select>
+                            <button type="button" class="button secondary notes-toggle-all" data-notes-toggle aria-pressed="false">
+                                <i class="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true"></i> <span>Expand all</span>
+                            </button>
+                        </div>
+
+                        @foreach ($noteSections as $section)
+                            <details class="note-section" id="{{ $section['id'] }}" {{ $loop->first ? 'open' : '' }}>
+                                <summary>{{ $section['title'] }}</summary>
+                                <div class="note-section-body">{!! nl2br(e($section['body'])) !!}</div>
+                            </details>
+                        @endforeach
+                    </div>
+                </div>
+            @else
+                <p class="overview-muted">Your lecturer has not added study notes for this topic yet.</p>
+            @endif
+        </section>
+
+        <!-- ──────────────── Missions ──────────────── -->
+        <section class="topic-panel" role="tabpanel" id="tab-missions" aria-labelledby="tab-btn-missions" tabindex="0">
+            <h2 class="topic-panel-title"><i class="fa-solid fa-puzzle-piece" aria-hidden="true"></i> Learning Missions & Puzzle Challenges</h2>
 
     @if ($missions->count() > 0)
         @include('student.partials.topology_board')
@@ -79,7 +184,6 @@
                 @php
                     $isUnlocked = $mission->student_is_unlocked;
                     $isCompleted = $mission->student_is_completed;
-                    $scorePct = $mission->student_score_pct ?? 0;
                 @endphp
 
                 <div id="mission-{{ $mission->mission_id }}" class="mission-card" style="background: rgba(13, 33, 56, 0.65); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid {{ $isCompleted ? 'rgba(34, 197, 94, 0.35)' : ($isUnlocked ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.06)') }}; border-radius: 20px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.3); opacity: {{ $isUnlocked ? '1' : '0.6' }};">
@@ -132,17 +236,9 @@
                                 +{{ $mission->xp_reward }} XP
                             </div>
 
-                            <div style="font-size: 0.8rem; color: rgba(255, 255, 255, 0.6);">
-                                Pass: <strong style="color: #FFFFFF;">{{ $mission->pass_mark }}%</strong>
-                                &bull;
-                                {{ $mission->puzzles_count }} {{ Str::plural('puzzle', $mission->puzzles_count) }}
+                            <div class="mission-solved-count">
+                                {{ $mission->student_done_count }} of {{ $mission->puzzles->count() }} {{ Str::plural('task', $mission->puzzles->count()) }} solved
                             </div>
-
-                            @if ($scorePct > 0)
-                                <div style="font-size: 0.78rem; color: {{ $isCompleted ? '#4ade80' : '#facc15' }}; font-weight: 700;">
-                                    Best: {{ $scorePct }}%
-                                </div>
-                            @endif
 
                             @if ($isCompleted)
                                 <div class="mission-stars" aria-label="{{ $mission->student_stars }} of 3 stars">
@@ -251,35 +347,67 @@
             <p style="font-size: 0.85rem;">Your lecturer is preparing gamified challenges for this curriculum stage.</p>
         </div>
     @endif
+        </section>
 
-    <!-- ──────────────── Conventional Quiz Section ──────────────── -->
-    @if ($quiz)
-        <div style="background: rgba(13, 33, 56, 0.5); backdrop-filter: blur(20px); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 20px; padding: 22px 24px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
-            <div style="flex: 1; min-width: 200px;">
-                <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #a855f7; margin-bottom: 6px;">
-                    <i class="fa-solid fa-shield-halved"></i> Assessment Quiz
+        <!-- ──────────────── Assessment ──────────────── -->
+        @if ($quiz)
+            <section class="topic-panel" role="tabpanel" id="tab-assessment" aria-labelledby="tab-btn-assessment" tabindex="0">
+                <h2 class="topic-panel-title"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Assessment</h2>
+
+                <div class="assessment-card {{ $assessmentLocked ? 'is-locked' : '' }}">
+                    <div class="assessment-head">
+                        <div>
+                            <h3>{{ $quiz->title }}</h3>
+                            <p class="overview-muted">
+                                {{ $quiz->questions_count }} {{ Str::plural('question', $quiz->questions_count) }}
+                                &bull; Pass mark {{ (int) $quiz->passing_mark }}%
+                                &bull; {{ $claimableXp > 0 ? '+' . $claimableXp . ' XP available' : 'XP already claimed' }}
+                            </p>
+                        </div>
+                        @if ($assessmentLocked)
+                            <span class="assessment-lock"><i class="fa-solid fa-lock" aria-hidden="true"></i> Locked</span>
+                        @endif
+                    </div>
+
+                    @if ($assessmentLocked)
+                        <p>Clear all missions to unlock ({{ $missionsCleared['done'] }}/{{ $missionsCleared['total'] }}).</p>
+                        <div class="hub-mission-bar" role="progressbar" aria-label="Missions cleared"
+                             aria-valuemin="0" aria-valuemax="{{ $missionsCleared['total'] }}" aria-valuenow="{{ $missionsCleared['done'] }}">
+                            <span style="width: {{ $missionsCleared['total'] ? round($missionsCleared['done'] / $missionsCleared['total'] * 100) : 0 }}%"></span>
+                        </div>
+                        <a class="button secondary" href="#tab-missions" data-tab-link="missions" style="margin-top: 14px;">
+                            <i class="fa-solid fa-route" aria-hidden="true"></i> Go to missions
+                        </a>
+                    @else
+                        <ul class="assessment-rules">
+                            <li><i class="fa-solid fa-heart" aria-hidden="true"></i> {{ \App\Models\Quiz::lives() }} lives: the {{ \App\Models\Quiz::lives() === 3 ? '3rd' : 'last' }} wrong answer ends the attempt.</li>
+                            <li><i class="fa-solid fa-forward" aria-hidden="true"></i> Answers are checked as you go and cannot be changed.</li>
+                            <li><i class="fa-solid fa-door-open" aria-hidden="true"></i> Leaving part-way counts as a failed attempt.</li>
+                        </ul>
+                        @if ($bestResult)
+                            <p class="overview-muted">
+                                Best result so far: <strong>{{ (int) round($bestResult->percentage) }}%</strong>
+                                ({{ $bestResult->status === 'Pass' ? 'passed' : 'not passed' }})
+                            </p>
+                        @endif
+                        <a class="button" href="{{ route('student.quiz.take', $quiz->quiz_id) }}">
+                            <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
+                            {{ $bestResult ? 'Retake assessment' : 'Start assessment' }}
+                        </a>
+                    @endif
                 </div>
-                <h3 style="font-size: 1rem; font-weight: 700; color: #FFFFFF; margin: 0 0 4px 0;">{{ $quiz->title }}</h3>
-                <p style="font-size: 0.82rem; color: rgba(255, 255, 255, 0.6); margin: 0;">
-                    Conventional assessment &bull; Pass mark: {{ (int) $quiz->passing_mark }}%
-                </p>
-            </div>
+            </section>
+        @endif
+    </div>
 
-            <a
-                class="button"
-                href="{{ route('student.quiz.take', $quiz->quiz_id) }}"
-                style="padding: 10px 20px; font-size: 0.88rem; border-radius: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, rgba(168, 85, 247, 0.3), rgba(139, 92, 246, 0.3)); border: 1px solid rgba(168, 85, 247, 0.5); color: #FFFFFF;"
-            >
-                <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
-                Take Assessment Quiz
-            </a>
-        </div>
-    @endif
-
-    <section class="actions" style="display: flex; gap: 12px; flex-wrap: wrap;">
+    <section class="actions" style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px;">
         <a class="button secondary" href="{{ route('student.learning') }}">
             <i class="fa-solid fa-route" aria-hidden="true"></i>
             Return to Learning Journey
         </a>
     </section>
+@endsection
+
+@section('scripts')
+    <script src="{{ asset('js/topic-tabs.js') }}"></script>
 @endsection
