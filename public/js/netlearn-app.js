@@ -237,7 +237,7 @@
         }
 
         backdrop.querySelector('.sheet-modal').classList.toggle('sheet-modal--center', !!options.center);
-        sheetReturnFocus = document.activeElement;
+        sheetReturnFocus = options.returnFocus || document.activeElement;
         document.body.style.overflow = 'hidden';
 
         document.getElementById('sheetTitle').textContent = title;
@@ -301,7 +301,7 @@
         const title = this.getAttribute('data-sheet-title') || 'Interactive Mission';
         const badge = this.getAttribute('data-sheet-badge') || 'SIMULATION';
         const isIframe = this.getAttribute('data-sheet-iframe') !== 'false';
-        window.openSheetModal(title, badge, url, isIframe, { center: this.getAttribute('data-sheet-center') === 'true' });
+        window.openSheetModal(title, badge, url, isIframe, { center: this.getAttribute('data-sheet-center') === 'true', returnFocus: this });
     }
 
     // ── 4. Gamified Quiz Stepper ──
@@ -369,7 +369,7 @@
             }
 
             // With checking, Finish lives in the last question's explanation box
-            if (submitBtn) submitBtn.style.display = !checkMode && currentIdx === total - 1 ? 'inline-flex' : 'none';
+            if (submitBtn) submitBtn.hidden = checkMode || currentIdx !== total - 1;
             renderSummary();
         }
 

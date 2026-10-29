@@ -1270,6 +1270,8 @@ a.topo-node:hover .topo-device, a.topo-node:focus-visible .topo-device { transfo
 .stepper-node-dot { cursor: default !important; }
 
 .quiz-dialog {
+    /* the global reset removes the UA auto margin that centres a modal dialog */
+    position: fixed; inset: 0; margin: auto; height: fit-content; max-height: calc(100vh - 32px);
     width: min(440px, calc(100vw - 32px)); padding: 24px; border-radius: 18px;
     background: var(--nl-glass-card, #0d2138); color: var(--nl-text-primary, #fff);
     border: 1px solid rgba(255, 255, 255, 0.14); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
@@ -1422,6 +1424,9 @@ a.topo-node:hover .topo-device, a.topo-node:focus-visible .topo-device { transfo
 .is-embedded .preview-notice-long, .is-embedded .preview-notice-exit { display: none; }
 .is-embedded .preview-notice-short { display: inline; }
 .is-embedded .embedded-instruction { display: block; margin: 0 0 10px; font-size: 0.88rem; color: var(--nl-text-secondary); }
+/* Size the 800x500 canvas by the frame height so all of it is visible without scrolling */
+.is-embedded .lab-terminal { max-width: calc((100vh - 170px) * 1.6 + 12px); margin-inline: auto; margin-bottom: 12px !important; }
+.is-embedded #phaser-game { min-height: 0 !important; }
 
 /* ── Lecturer dossier: paginated, grouped log panels ─────────────────── */
 .log-panel { background: var(--nl-glass-card); backdrop-filter: var(--nl-glass-blur); border: 1px solid var(--nl-glass-border); border-radius: var(--nl-radius-panel); padding: 22px; min-width: 0; }
@@ -1458,3 +1463,6 @@ a.topo-node:hover .topo-device, a.topo-node:focus-visible .topo-device { transfo
 [data-theme="light"] .log-attempts td { background: #f8fafc; }
 [data-theme="light"] .log-pill--abandoned { color: #475569; }
 [data-theme="light"] .log-stars i.is-lit { color: #b45309; }
+
+/* The global .button rule forces display with !important; the hidden attribute must still win */
+.button[hidden], button[hidden], a.button[hidden] { display: none !important; }

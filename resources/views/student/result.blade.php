@@ -28,9 +28,14 @@
 
         <p style="margin-bottom: 2rem;">
             @if ($isPass)
-                You passed the challenge, earned XP, and unlocked the next networking stage.
+                {{ (int) $result->points_earned > 0 ? 'You passed the challenge and earned XP.' : 'You passed the challenge again. XP for this quiz was already claimed.' }}
+            @elseif ($result->ended_reason === 'link_down')
+                Link down: the attempt ended after too many wrong answers. Review the learning material before trying again.
+            @elseif ($result->ended_reason === 'abandoned')
+                This attempt was left before the end, so it counts as not passed.
             @else
-                You earned participation XP. Review the learning material before attempting the challenge again.
+                {{ (int) $result->points_earned > 0 ? 'You earned participation XP for your first attempt.' : 'No XP this time.' }}
+                Review the learning material before attempting the challenge again.
             @endif
         </p>
 

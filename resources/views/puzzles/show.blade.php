@@ -103,7 +103,7 @@
     @endunless
 
     <!-- Network Lab Terminal Wrapper -->
-    <div style="position: relative; border-radius: var(--nl-radius-panel); padding: 6px; background: linear-gradient(180deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.95) 100%); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.1); margin-bottom: 20px;">
+    <div class="lab-terminal" style="position: relative; border-radius: var(--nl-radius-panel); padding: 6px; background: linear-gradient(180deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.95) 100%); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.1); margin-bottom: 20px;">
         <!-- Terminal Header Bar -->
         <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: rgba(7, 12, 22, 0.85); border-radius: 18px 18px 0 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06); font-size: 0.75rem; color: var(--nl-text-tertiary);">
             <div style="display: flex; align-items: center; gap: 10px;">
