@@ -56,7 +56,41 @@ class CurriculumTopUpTest extends TestCase
         // Existing notes stay first, the new sections follow and split into headings
         $this->assertStringStartsWith('DNS stands for Domain Name System.', $existing->content);
         $titles = array_column($existing->noteSections(), 'title');
-        $this->assertContains('HOW A DNS LOOKUP WORKS', $titles);
-        $this->assertSame(1, substr_count($existing->content, 'HOW A DNS LOOKUP WORKS'));
+        $this->assertContains('HOW A LOOKUP WORKS', $titles);
+        $this->assertSame(1, substr_count($existing->content, 'HOW A LOOKUP WORKS'));
+    }
+
+    public function test_untouched_first_draft_notes_are_upgraded_but_edited_notes_are_kept()
+    {
+        $this->seed(CurriculumSeeder::class);
+
+        $spec = collect(\Database\Seeders\Support\CurriculumData::all())->keyBy('title');
+        $draft = Topic::where('title', 'Network Devices')->firstOrFail();
+        $edited = Topic::where('title', 'IP Addressing')->firstOrFail();
+        $deep = $draft->content;
+
+        // Put the first-draft text back on one stage and a lecturer's own text on another
+        $draft->update(['content' => $spec['Network Devices']['previous_content']]);
+        $edited->update(['content' => "A lecturer rewrote these notes.\n\nSUBNET CHEAT SHEET\nMine."]);
+
+        $this->seed(CurriculumSeeder::class);
+
+        $this->assertSame($deep, $draft->fresh()->content);
+        $this->assertStringStartsWith('A lecturer rewrote', $edited->fresh()->content);
+        $this->assertStringNotContainsString('WHAT AN IP ADDRESS IS', $edited->fresh()->content);
+    }
+
+    public function test_a_stage_whose_notes_were_extended_by_the_first_seed_is_upgraded()
+    {
+        $this->seed(CurriculumSeeder::class);
+        $spec = collect(\Database\Seeders\Support\CurriculumData::all())->keyBy('title');
+        $dns = Topic::where('title', 'DNS and Web Communication')->firstOrFail();
+        $deep = $dns->content;
+
+        // What the earlier seed left behind: the original text followed by the first-draft sections
+        $dns->update(['content' => "DNS stands for Domain Name System.\n\n" . $spec['DNS and Web Communication']['previous_content']]);
+        $this->seed(CurriculumSeeder::class);
+
+        $this->assertSame($deep, $dns->fresh()->content);
     }
 }

@@ -34,7 +34,8 @@ class CurriculumSeederTest extends TestCase
             $this->assertSame(15, count($spec['quiz']['questions']), $spec['title']);
             $this->assertSame(15, Question::where('quiz_id', $quiz->quiz_id)->count(), $spec['title']);
             $this->assertNotEmpty($topic->objectives, $spec['title']);
-            $this->assertGreaterThanOrEqual(3, count($topic->noteSections()), "{$spec['title']} notes need section headings");
+            $this->assertGreaterThanOrEqual(6, count($topic->noteSections()), "{$spec['title']} notes need section headings");
+            $this->assertGreaterThanOrEqual(600, str_word_count($topic->content), "{$spec['title']} notes should be in depth");
 
             $this->assertCount(3, $spec['missions'], $spec['title']);
             foreach ($spec['missions'] as $missionSpec) {

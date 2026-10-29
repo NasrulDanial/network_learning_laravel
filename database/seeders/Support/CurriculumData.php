@@ -19,6 +19,10 @@ class CurriculumData
         $extraQuestions = require $dir . 'netlearn_expansion_extra_questions.php';
         $stagesA = require $dir . 'netlearn_expansion_stages_a.php';
         $stagesB = require $dir . 'netlearn_expansion_stages_b.php';
+        $deepNotes = array_merge(
+            require $dir . 'netlearn_deep_notes_a.php',
+            require $dir . 'netlearn_deep_notes_b.php'
+        );
 
         foreach ($base as &$topic) {
             $topic['quiz']['questions'] = array_merge(
@@ -37,6 +41,13 @@ class CurriculumData
         $all = array_merge($base, $stagesA, $stagesB);
         foreach ($all as &$topic) {
             $topic['quiz']['target'] = self::QUESTIONS_PER_QUIZ;
+
+            // In-depth notes replace the first-draft notes. The first draft is remembered so the
+            // seeder can upgrade notes nobody has edited and leave edited ones alone.
+            if (isset($deepNotes[$topic['title']])) {
+                $topic['previous_content'] = $topic['content'];
+                $topic['content'] = $deepNotes[$topic['title']];
+            }
         }
         unset($topic);
 

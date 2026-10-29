@@ -24,6 +24,8 @@ use InvalidArgumentException;
  *  - Empty text fields on an existing topic (description/objectives/content) are filled in.
  *  - A quiz is topped up to its target (15) with questions it does not already have, never beyond it.
  *  - Stages flagged append_notes keep their existing notes and gain the new sections after them.
+ *  - Notes that still equal the first-draft seeded text (previous_content) are upgraded to the in-depth
+ *    notes; notes a lecturer has edited are never touched.
  *  - Orders are kept unique: a wanted position that is taken goes to the end instead.
  */
 class CurriculumSeeder extends Seeder
@@ -74,11 +76,18 @@ class CurriculumSeeder extends Seeder
                     $fill[$field] = $value;
                 }
             }
-            // Add the new note sections after notes that already exist (only for flagged stages)
+            $current = rtrim((string) $topic->content);
+            $previous = rtrim((string) ($spec['previous_content'] ?? ''));
+            $untouchedDraft = $previous !== '' && $current !== '' && ($current === $previous || str_ends_with($current, $previous));
             $firstLine = trim((string) strtok($spec['content'], "
 "));
-            if (! empty($spec['append_notes']) && filled($topic->content) && $firstLine !== '' && ! str_contains($topic->content, $firstLine)) {
-                $fill['content'] = rtrim($topic->content) . "
+
+            if ($untouchedDraft && $current !== rtrim($spec['content'])) {
+                // Still the seeded first draft (possibly after the original text of a flagged stage)
+                $fill['content'] = $spec['content'];
+            } elseif (! empty($spec['append_notes']) && $current !== '' && $firstLine !== '' && ! str_contains($current, $firstLine)) {
+                // Add the new note sections after notes that already exist (only for flagged stages)
+                $fill['content'] = $current . "
 
 " . $spec['content'];
             }
