@@ -23,9 +23,9 @@ use InvalidArgumentException;
  *  - Existing records are never overwritten, so lecturer edits and student history survive.
  *  - Empty text fields on an existing topic (description/objectives/content) are filled in.
  *  - A quiz is topped up to its target (15) with questions it does not already have, never beyond it.
- *  - Stages flagged append_notes keep their existing notes and gain the new sections after them.
- *  - Notes that still equal the first-draft seeded text (previous_content) are upgraded to the in-depth
- *    notes; notes a lecturer has edited are never touched.
+ *  - Existing notes are never replaced by hand-written text: if they still equal the first-draft seeded
+ *    text (previous_content) they are upgraded to the in-depth notes; otherwise they are kept as the
+ *    Introduction and the in-depth sections are added after them, once.
  *  - Orders are kept unique: a wanted position that is taken goes to the end instead.
  */
 class CurriculumSeeder extends Seeder

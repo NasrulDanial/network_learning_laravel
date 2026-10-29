@@ -32,15 +32,13 @@ class CurriculumData
         }
         unset($topic);
 
-        // Stages that may already exist (titles match) keep their own notes and gain the new sections
-        foreach ($stagesA as &$topic) {
-            $topic['append_notes'] = true;
-        }
-        unset($topic);
-
         $all = array_merge($base, $stagesA, $stagesB);
         foreach ($all as &$topic) {
             $topic['quiz']['target'] = self::QUESTIONS_PER_QUIZ;
+
+            // A stage that already exists keeps its own notes (they become the Introduction) and
+            // gains the in-depth sections after them, once.
+            $topic['append_notes'] = true;
 
             // In-depth notes replace the first-draft notes. The first draft is remembered so the
             // seeder can upgrade notes nobody has edited and leave edited ones alone.

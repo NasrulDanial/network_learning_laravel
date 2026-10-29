@@ -60,7 +60,7 @@ class CurriculumTopUpTest extends TestCase
         $this->assertSame(1, substr_count($existing->content, 'HOW A LOOKUP WORKS'));
     }
 
-    public function test_untouched_first_draft_notes_are_upgraded_but_edited_notes_are_kept()
+    public function test_untouched_first_draft_notes_are_upgraded_and_other_notes_are_kept_as_the_introduction()
     {
         $this->seed(CurriculumSeeder::class);
 
@@ -76,8 +76,10 @@ class CurriculumTopUpTest extends TestCase
         $this->seed(CurriculumSeeder::class);
 
         $this->assertSame($deep, $draft->fresh()->content);
+        // The lecturer's text stays first; the in-depth sections follow it exactly once
         $this->assertStringStartsWith('A lecturer rewrote', $edited->fresh()->content);
-        $this->assertStringNotContainsString('WHAT AN IP ADDRESS IS', $edited->fresh()->content);
+        $this->assertStringContainsString('SUBNET CHEAT SHEET', $edited->fresh()->content);
+        $this->assertSame(1, substr_count($edited->fresh()->content, 'WHAT AN IP ADDRESS IS'));
     }
 
     public function test_a_stage_whose_notes_were_extended_by_the_first_seed_is_upgraded()
