@@ -53,8 +53,8 @@ Both have been run on the dev database (see the note below) and the test databas
 ## Notes and open items
 
 - **Dev database.** On 29 Oct the two migrations above were run on the dev database by mistake (`php artisan migrate --env=testing` falls back to `.env` because there is no `.env.testing`). They only add columns with defaults, and no rows were changed. A backup taken right after is in `storage/app/backups/network_learning_laravel_20261029_155203_after_try_columns.sql`.
-- **`netlearn:recalculate` has not been run for real on the dev database.** A dry run shows:
-  - student1: 3990 → 300 XP. Topic 2 holds 3200 XP with no solved puzzles or cleared missions behind it, and the quiz XP of 240 would be capped at 100.
+- **`netlearn:recalculate` was run on the dev database on 29 Oct** after a backup (`storage/app/backups/network_learning_laravel_20261029_162208_pre_recalculate.sql`):
+  - student1: 3990 → 300 XP. Topic 2 held 3200 XP with no solved puzzles or cleared missions behind it, and quiz XP of 240 was capped at 100.
   - tester1: 1420 → 1380 XP (quiz cap).
-  - Review this before running it.
+  - Topics already completed stayed completed. A second dry run reports no further changes. To undo, restore that backup.
 - The plan's `post-testing-fixes` git tag has not been created.
